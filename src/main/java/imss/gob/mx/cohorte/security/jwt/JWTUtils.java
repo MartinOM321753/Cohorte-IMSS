@@ -1,6 +1,6 @@
 package imss.gob.mx.cohorte.security.jwt;
 
-import imss.gob.mx.cohorte.models.user.User;
+import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,11 +47,13 @@ public class JWTUtils {
                 .compact();
     }
 
-    public String generateToken(User user){
+    public String generateToken(BeanUser beanUser){
         Map<String , Object > claims = new HashMap<>();
-        claims.put("uuid",user.getUUID());
-        claims.put("username",user.getId());
-        return createToken(claims,user.getUsername());
+        claims.put("uuid", beanUser.getUUID());
+        claims.put("username", beanUser.getId());
+        claims.put("activo", beanUser.getActivo());
+
+        return createToken(claims, beanUser.getUsername());
 
 
     }

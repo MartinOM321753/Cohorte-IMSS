@@ -1,7 +1,8 @@
 package imss.gob.mx.cohorte.security.jwt;
 
-import imss.gob.mx.cohorte.models.user.User;
-import imss.gob.mx.cohorte.models.user.UserRepository;
+import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -13,18 +14,19 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 
 @Service
+@AllArgsConstructor
 public class UDService  implements UserDetailsService {
-    @Autowired
-    private UserRepository userRepository;
+
+    private final UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User found =userRepository.findByUsername(username).orElse(null);
+        BeanUser found =userRepository.findByUsername(username).orElse(null);
         if (found == null) {
             throw new UsernameNotFoundException("No se encontro ese usuarios con el nombre : " + username);
         }
 
-        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + found.getRole().getName());
+        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + found.getRol().getRole());
 
             return new org.springframework.security.core.userdetails.User(
                     found.getUsername(),
