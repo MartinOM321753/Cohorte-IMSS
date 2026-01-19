@@ -8,8 +8,10 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import javax.sql.DataSource;
 
 @Configuration
-public class DBConnector {
 
+
+public class DBConnector {
+/*
     @Value("${db.url}")
     private String DB_URL;
 
@@ -38,5 +40,5 @@ public class DBConnector {
 
         }
 
-    }
+    }*/
 }

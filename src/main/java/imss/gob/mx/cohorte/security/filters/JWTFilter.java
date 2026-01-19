@@ -6,7 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,12 +16,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 @Component
+@AllArgsConstructor
 public class JWTFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private UDService udService; // Sirve para validar el token
-    @Autowired
-    private JWTUtils jwtUtils; // Sirve para manipular el token
+    private final UDService udService; // Sirve para validar el token
+    private final JWTUtils jwtUtils; // Sirve para manipular el token
 
 
     protected  void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
