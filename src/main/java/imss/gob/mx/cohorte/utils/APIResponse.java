@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
+
 @NoArgsConstructor
 @Getter
 @Setter
@@ -31,5 +33,26 @@ public class APIResponse {
         this.message = message;
         this.status = status;
         this.error = error;
+    }
+
+    public APIResponse(String message, Object data, boolean error, HttpStatus status) {
+        this.message = message;
+        this.data = data;
+        this.error = error;
+        this.status = status;
+    }
+
+
+    public APIResponse(List<Object> data, String message, boolean error, HttpStatus status) {
+        this.message = message;
+        this.data = data;
+        this.error = error;
+        this.status = status;
+    }
+    public APIResponse( String message, boolean error, HttpStatus status) {
+        this.message = message;
+        this.data = data;
+        this.error = error;
+        this.status = status;
     }
 }

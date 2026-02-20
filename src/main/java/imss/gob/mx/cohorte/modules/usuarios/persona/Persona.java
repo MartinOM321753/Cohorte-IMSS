@@ -3,14 +3,16 @@ package imss.gob.mx.cohorte.modules.usuarios.persona;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "persona")
 @Getter @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class Persona {
+
+
 
     public enum Sexo { M, F }
 
@@ -45,4 +47,16 @@ public class Persona {
 
     @Column(name = "fecha_actualizacion")
     private LocalDateTime fechaActualizacion;
+
+    public Persona(String nombre, String apellidoPaterno, String apellidoMaterno, LocalDate fechaNacimiento, Sexo sexo, String telefono, String email, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion) {
+        this.nombre = nombre;
+        this.apellidoPaterno = apellidoPaterno;
+        this.apellidoMaterno = apellidoMaterno;
+        this.fechaNacimiento = fechaNacimiento;
+        this.sexo = sexo;
+        this.telefono = telefono;
+        this.email = email;
+        this.fechaRegistro = fechaRegistro;
+        this.fechaActualizacion = fechaActualizacion;
+    }
 }
