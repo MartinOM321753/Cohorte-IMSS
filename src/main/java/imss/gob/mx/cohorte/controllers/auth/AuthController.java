@@ -1,7 +1,7 @@
 package imss.gob.mx.cohorte.controllers.auth;
 
 
-import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
+import imss.gob.mx.cohorte.modules.auth.LoginRequestDTO;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,7 +23,7 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("")
+    @PostMapping("/login")
     @Operation(summary = "Iniciar sesión", description = "Permite a un usuario iniciar sesión en el sistema")
     @ApiResponses(value = {
             @ApiResponse(

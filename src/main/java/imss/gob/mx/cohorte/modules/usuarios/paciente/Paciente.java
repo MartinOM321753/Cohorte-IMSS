@@ -34,4 +34,12 @@ public class Paciente {
     @JoinColumn(name = "id_persona", nullable = false, unique = true)
     private Persona persona;
 
+    public Paciente(Long id, String UUID, String folio, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion, Persona persona) {
+        Id = id;
+        this.UUID = UUID;
+        this.folio = folio;
+        this.fechaRegistro = fechaRegistro;
+        this.fechaActualizacion = fechaActualizacion;
+        this.persona = persona;
+    }
 }

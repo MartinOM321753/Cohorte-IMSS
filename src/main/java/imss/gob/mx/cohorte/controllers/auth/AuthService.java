@@ -1,7 +1,7 @@
 package imss.gob.mx.cohorte.controllers.auth;
 
 
-import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
+import imss.gob.mx.cohorte.modules.auth.LoginRequestDTO;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.security.jwt.JWTUtils;
@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
-import java.util.Optional;
 
 @Service
 public class AuthService {

@@ -1,4 +1,4 @@
-package imss.gob.mx.cohorte.controllers.auth.dto;
+package imss.gob.mx.cohorte.modules.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
