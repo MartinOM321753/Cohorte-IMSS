@@ -5,8 +5,8 @@ import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
-import imss.gob.mx.cohorte.services.usuarios.PersonaService;
 
+import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import lombok.AllArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
@@ -32,28 +32,28 @@ public class InitialConfig implements CommandLineRunner {
 
         try {
 
-            Role rolAdmin = roleRepository.findByRole("ADMIN");
-            if (rolAdmin == null) {
-                rolAdmin = new Role();
-                rolAdmin.setRole("ADMIN");
-                roleRepository.saveAndFlush(rolAdmin);
+            Optional<Role> rolAdmin = roleRepository.findByRole("ADMIN");
+            if (rolAdmin.isEmpty()) {
+                rolAdmin = Optional.of(new Role());
+                rolAdmin.get().setRole("ADMIN");
+                roleRepository.saveAndFlush(rolAdmin.get());
             }
 
-            Role rolUser = roleRepository.findByRole("USER");
-            if (rolUser == null) {
-                rolUser = new Role();
-                rolUser.setRole("USER");
-                roleRepository.saveAndFlush(rolUser);
+            Optional<Role> rolUser = roleRepository.findByRole("USER");
+            if (rolUser.isEmpty()) {
+                rolUser = Optional.of(new Role());
+                rolUser.get().setRole("USER");
+                roleRepository.saveAndFlush(rolUser.get());
             }
             LocalDate newDate = LocalDate.now();
             LocalDateTime newDateTime = LocalDateTime.now();
 
-            Role adminrol = roleRepository.findByRole("ADMIN");
+            Optional<Role> adminrol = roleRepository.findByRole("ADMIN");
 
             Persona persona = new Persona( "Admin", "Admin", "Admin", newDate, Persona.Sexo.M, "7772589476", "adlajsdajl@gmail.com", newDateTime, newDateTime);
             Persona newPerson = personaService.createPerson(persona);
 
-            if (newPerson != null && adminrol != null) {
+            if (newPerson != null && adminrol.isPresent()) {
 
                 BeanUser admin = new BeanUser();
                 Optional<BeanUser> userAdmin = userRepository.findByUsername("admin");
@@ -62,7 +62,7 @@ public class InitialConfig implements CommandLineRunner {
                 admin.setUUID(UUID.randomUUID().toString());
                 admin.setPassword(passwordEncoder.encode("password123"));
                 admin.setActivo(true);
-                admin.setRol(adminrol);
+                admin.setRol(adminrol.get());
                 admin.setPersona(persona);
                 admin.setFechaCreacion(LocalDateTime.now());
 
