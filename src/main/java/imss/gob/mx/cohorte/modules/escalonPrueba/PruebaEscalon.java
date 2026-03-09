@@ -2,7 +2,7 @@ package imss.gob.mx.cohorte.modules.escalonPrueba;
 
 
 import imss.gob.mx.cohorte.modules.escalonPrueba.etapa.PruebaEscalonEtapa;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;

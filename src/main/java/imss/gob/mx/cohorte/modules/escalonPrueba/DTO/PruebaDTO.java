@@ -1,6 +1,6 @@
 package imss.gob.mx.cohorte.modules.escalonPrueba.DTO;
 import imss.gob.mx.cohorte.modules.escalonPrueba.PruebaEscalon;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import lombok.Data;
 import lombok.Getter;

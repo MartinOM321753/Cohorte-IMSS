@@ -3,8 +3,9 @@ package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
+
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository;

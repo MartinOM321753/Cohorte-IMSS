@@ -6,7 +6,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "Posicion_Piso",
-        uniqueConstraints = @UniqueConstraint(name = "uk_piso_coordenadas", columnNames = {"id_piso", "fila", "columna", "profundidad"})
+        uniqueConstraints = @UniqueConstraint(name = "uk_piso_coordenadas", columnNames = {"id_piso", "fila", "columna", "altura"})
 )
 @Getter @Setter
 @NoArgsConstructor
@@ -26,8 +26,8 @@ public class PosicionPiso {
     @Column(name = "columna", nullable = false)
     private Integer columna;
 
-    @Column(name = "profundidad", nullable = false)
-    private Integer profundidad;
+    @Column(name = "altura", nullable = false)
+    private Integer altura;
 
     @Column(name = "ocupada", nullable = false)
     private Boolean ocupada = false;

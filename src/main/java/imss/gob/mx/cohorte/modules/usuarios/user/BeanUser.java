@@ -1,6 +1,6 @@
 package imss.gob.mx.cohorte.modules.usuarios.user;
 
-import imss.gob.mx.cohorte.modules.usuarios.persona.Persona;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -34,7 +34,7 @@ public class BeanUser {
     @Column(name = "activo")
     private Boolean activo = true;
 
-   // @Column(name = "ultimo_acceso")
+    // @Column(name = "ultimo_acceso")
     //private Timestamp ultimoAcceso;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)

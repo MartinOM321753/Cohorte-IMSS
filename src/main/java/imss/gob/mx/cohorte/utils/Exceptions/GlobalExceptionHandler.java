@@ -5,6 +5,7 @@ import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException
 import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -35,5 +36,21 @@ public class GlobalExceptionHandler {
                         true
                 ));
     }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<APIResponse> handleBadCredentials(BadCredentialsException ex){
+
+        APIResponse response = new APIResponse(
+                ex.getMessage(),
+                true,
+                HttpStatus.UNAUTHORIZED
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
+
+
+
+
 }
 

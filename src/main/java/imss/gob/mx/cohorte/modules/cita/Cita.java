@@ -1,6 +1,6 @@
-package imss.gob.mx.cohorte.modules.usuarios.cita;
+package imss.gob.mx.cohorte.modules.cita;
 
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;

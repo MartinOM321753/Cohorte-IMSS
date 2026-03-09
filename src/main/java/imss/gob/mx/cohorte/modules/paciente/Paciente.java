@@ -1,9 +1,8 @@
-package imss.gob.mx.cohorte.modules.usuarios.paciente;
+package imss.gob.mx.cohorte.modules.paciente;
 
-import imss.gob.mx.cohorte.modules.usuarios.persona.Persona;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import jakarta.persistence.*;
 import lombok.*;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 @Entity

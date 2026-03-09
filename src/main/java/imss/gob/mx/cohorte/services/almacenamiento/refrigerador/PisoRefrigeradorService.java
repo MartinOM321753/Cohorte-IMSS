@@ -59,7 +59,7 @@ public class PisoRefrigeradorService {
         pisoBD.setNumeroPiso(piso.getNumeroPiso());
         pisoBD.setFilas(piso.getFilas());
         pisoBD.setColumnas(piso.getColumnas());
-        pisoBD.setProfundidad(piso.getProfundidad());
+        pisoBD.setAltura(piso.getAltura());
         pisoBD.setActivo(piso.getActivo());
         // fechaRegistro no se actualiza
 

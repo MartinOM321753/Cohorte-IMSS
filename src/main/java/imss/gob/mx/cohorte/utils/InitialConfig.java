@@ -1,6 +1,6 @@
 package imss.gob.mx.cohorte.utils;
 
-import imss.gob.mx.cohorte.modules.usuarios.persona.Persona;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;

@@ -1,4 +1,4 @@
-package imss.gob.mx.cohorte.modules.usuarios.cita;
+package imss.gob.mx.cohorte.modules.cita;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

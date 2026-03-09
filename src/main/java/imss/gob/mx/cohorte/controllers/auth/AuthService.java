@@ -10,6 +10,7 @@ import imss.gob.mx.cohorte.utils.PasswordEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,56 +22,68 @@ public class AuthService {
 
     private final JWTUtils jwtUtils;
 
-   // private final EmailService emailService;
+    // private final EmailService emailService;
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    public AuthService(UserRepository userRepository,  JWTUtils jwtUtils /* ,EmailService emailService*/) {
+    public AuthService(UserRepository userRepository, JWTUtils jwtUtils /* ,EmailService emailService*/) {
         this.userRepository = userRepository;
 
         this.jwtUtils = jwtUtils;
-       // this.emailService = emailService;
+        // this.emailService = emailService;
     }
 
+    //    @Transactional(readOnly = true)
+//    public APIResponse doLogin(LoginRequestDTO payload){
+//        try {
+//            BeanUser found = userRepository.findByUsername(payload.getUsername())
+//                    .orElse(null);
+//
+//            if (found == null){
+//                return new APIResponse(
+//                        "Usuario o contraseña incorrectos",
+//                        true,
+//                        HttpStatus.NOT_FOUND
+//                );
+//            }
+//
+//            if (!PasswordEncoder.verifyPassword(payload.getPassword(), found.getPassword())){
+//                return new APIResponse(
+//                        "Usuario o contraseña incorrectos",
+//                        true,
+//                        HttpStatus.NOT_FOUND
+//                );
+//            }
+//
+//            String token = jwtUtils.generateToken(found);
+//
+//            return new APIResponse(
+//                    "Inicio de sesión exitoso",
+//                    token,
+//                    false,
+//                    HttpStatus.OK
+//            );
+//
+//        } catch (Exception ex){
+//            log.error("Error al iniciar sesion", ex);
+//            return new APIResponse(
+//                    "Error al iniciar sesion",
+//                    true,
+//                    HttpStatus.INTERNAL_SERVER_ERROR
+//            );
+//        }
+//    }
     @Transactional(readOnly = true)
-    public APIResponse doLogin(LoginRequestDTO payload){
-        try {
-            BeanUser found = userRepository.findByUsername(payload.getUsername())
-                    .orElse(null);
+    public String doLogin(LoginRequestDTO payload) {
 
-            if (found == null){
-                return new APIResponse(
-                        "Usuario o contraseña incorrectos",
-                        true,
-                        HttpStatus.NOT_FOUND
-                );
-            }
+        BeanUser found = userRepository.findByUsername(payload.getUsername())
+                .orElseThrow(() -> new BadCredentialsException("Usuario o contraseña incorrectos"));
 
-            if (!PasswordEncoder.verifyPassword(payload.getPassword(), found.getPassword())){
-                return new APIResponse(
-                        "Usuario o contraseña incorrectos",
-                        true,
-                        HttpStatus.NOT_FOUND
-                );
-            }
-
-            String token = jwtUtils.generateToken(found);
-
-            return new APIResponse(
-                    "Inicio de sesión exitoso",
-                    token,
-                    false,
-                    HttpStatus.OK
-            );
-
-        } catch (Exception ex){
-            log.error("Error al iniciar sesion", ex);
-            return new APIResponse(
-                    "Error al iniciar sesion",
-                    true,
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
+        if (!PasswordEncoder.verifyPassword(payload.getPassword(), found.getPassword())) {
+            throw new BadCredentialsException("Usuario o contraseña incorrectos");
         }
+
+        return jwtUtils.generateToken(found);
     }
 
     @Transactional(rollbackFor = {SQLException.class, Exception.class, Exception.class})

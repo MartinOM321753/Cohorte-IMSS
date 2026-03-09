@@ -9,5 +9,6 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
 
     Optional <BeanUser> findByUsername(String username);
     Optional <BeanUser> findByUUID(String username);
+    boolean existsByUUID(String uuid);
 
 }

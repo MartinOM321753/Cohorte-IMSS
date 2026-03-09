@@ -2,7 +2,7 @@ package imss.gob.mx.cohorte.modules.estudios;
 
 
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;

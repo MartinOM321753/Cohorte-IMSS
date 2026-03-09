@@ -1,4 +1,4 @@
-package imss.gob.mx.cohorte.modules.usuarios.persona;
+package imss.gob.mx.cohorte.modules.persona;
 
 import jakarta.persistence.*;
 import lombok.*;

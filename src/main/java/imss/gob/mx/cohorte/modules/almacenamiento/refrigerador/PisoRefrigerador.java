@@ -30,8 +30,8 @@ public class PisoRefrigerador {
     @Column(name = "columnas", nullable = false)
     private Integer columnas;
 
-    @Column(name = "profundidad", nullable = false)
-    private Integer profundidad;
+    @Column(name = "altura", nullable = false)
+    private Integer altura;
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;

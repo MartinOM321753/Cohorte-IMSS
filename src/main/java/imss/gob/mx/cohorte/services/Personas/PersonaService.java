@@ -1,14 +1,14 @@
-package imss.gob.mx.cohorte.services.usuarios;
+package imss.gob.mx.cohorte.services.Personas;
 
-import imss.gob.mx.cohorte.modules.usuarios.persona.Persona;
-import imss.gob.mx.cohorte.modules.usuarios.persona.PersonaRepository;
+import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,20 +21,16 @@ public class PersonaService {
     private static final Logger log = LoggerFactory.getLogger(PersonaService.class);
 
 
-    @Transactional(readOnly = true)
     public List<Persona> getAllPerson() {
-
-            return personaRepository.findAll();
-
+        return personaRepository.findAll();
     }
 
-    @Transactional(readOnly = true)
-    public Persona getPerson(Long idPersona) {
+    public Persona findPerson(Long idPersona) {
         return personaRepository.findById(idPersona)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontraron las personas"));
     }
 
-    @Transactional
+
     public Persona createPerson(Persona persona) {
 
         if (personaRepository.findByEmail(persona.getEmail()).isPresent()) {
@@ -52,7 +48,6 @@ public class PersonaService {
     }
 
 
-    @Transactional
     public Persona update(Persona persona) {
 
         Persona personaBD = personaRepository.findById(persona.getId())

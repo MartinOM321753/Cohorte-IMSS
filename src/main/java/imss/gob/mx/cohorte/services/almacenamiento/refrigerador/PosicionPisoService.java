@@ -55,7 +55,7 @@ public class PosicionPisoService {
         // Asumiendo estos atributos comunes
         posBD.setFila(posicion.getFila());
         posBD.setColumna(posicion.getColumna());
-        posBD.setProfundidad(posicion.getProfundidad());
+        posBD.setAltura(posicion.getAltura());
         posBD.setOcupada(posicion.getOcupada());
         return posicionPisoRepository.save(posBD);
     }

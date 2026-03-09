@@ -2,8 +2,8 @@ package imss.gob.mx.cohorte.services.Escalonpruebas;
 
 import imss.gob.mx.cohorte.modules.escalonPrueba.PruebaEscalon;
 import imss.gob.mx.cohorte.modules.escalonPrueba.PruebaEscalonRepository;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.Paciente;
-import imss.gob.mx.cohorte.modules.usuarios.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.modules.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
