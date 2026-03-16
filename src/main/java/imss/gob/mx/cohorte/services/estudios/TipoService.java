@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,13 +19,13 @@ public class TipoService {
 
     private final TipoEstudioRepository tipoEstudioRepository;
 
-    @Transactional(readOnly = true)
+    public List<TipoEstudio> getAllByStatus(Boolean status){return tipoEstudioRepository.findAllByActivo(status);}
+
+    public TipoEstudio getByName(String nombre){return tipoEstudioRepository.findByNombre(nombre).orElseThrow(()-> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));}
+
     public TipoEstudio getOne(Long id){return tipoEstudioRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el valor solicitado"));}
 
-    @Transactional(readOnly = true)
-    public Iterable<TipoEstudio> getAll(){return tipoEstudioRepository.findAll();}
 
-    @Transactional(rollbackFor = Exception.class)
     public TipoEstudio create(TipoEstudio tipoEstudio){
 
         Optional<TipoEstudio> tipo =tipoEstudioRepository.findByNombre(tipoEstudio.getNombre());
@@ -32,7 +33,6 @@ public class TipoService {
         tipoEstudio.setFechaCreacion(LocalDateTime.now());
         return tipoEstudioRepository.save(tipoEstudio);}
 
-    @Transactional(rollbackFor = Exception.class)
     public TipoEstudio update(TipoEstudio tipoEstudio) {
 
         TipoEstudio tipoBD = tipoEstudioRepository.findById(tipoEstudio.getId()).orElseThrow(()-> new ObjConflictException("No se encontró el tipo de estudio  " ));
@@ -44,12 +44,11 @@ public class TipoService {
             tipoEstudio.setNombre(tipoEstudio.getNombre());
         }
 
+        tipoBD.setParametros(tipoEstudio.getParametros());
         tipoBD.setDescripcion(tipoEstudio.getDescripcion());
         tipoBD.setActivo(tipoEstudio.getActivo());
 
         return tipoEstudioRepository.save(tipoBD);}
-
-    @Transactional(rollbackFor = Exception.class)
 
     public Boolean Active(Long id){
         TipoEstudio tipoEstudio = tipoEstudioRepository.findById(id).orElseThrow(()-> new ObjNotFoundException("No se encontró el tipo de estudio "));

@@ -25,6 +25,9 @@ public class UserService {
     public BeanUser getUser(Long idUser){
         return userRepository.findById(idUser).orElseThrow(()-> new ObjNotFoundException("No se encontro el usuario"));
     }
+    public List<BeanUser> getAllUserByStatus(Boolean status){
+        return userRepository.findAllByActivo(status);
+    }
 
     public BeanUser getByUUID(String idUser){
         return userRepository.findByUUID(idUser).orElseThrow(()-> new ObjNotFoundException("No se encontro el usuario"));

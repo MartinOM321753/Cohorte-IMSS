@@ -22,6 +22,9 @@ public class PacienteService {
         return pacienteRepository.findAll();
     }
 
+    public List<Paciente> findAllStatus(Boolean activo){
+        return pacienteRepository.findAllByActivo(activo);
+    }
     public Paciente getPatient(Long idPaciente){
         return pacienteRepository.findById(idPaciente)
                 .orElseThrow(()-> new ObjNotFoundException("No se encontró el paciente"));
@@ -29,10 +32,6 @@ public class PacienteService {
     public Paciente getByUUID(String uuid){
         return pacienteRepository.findByUUID(uuid)
                 .orElseThrow(()-> new ObjNotFoundException("No se encontró el paciente"));
-    }
-
-    public boolean existsByUUID(String uuid){
-        return pacienteRepository.existsByUUID(uuid);
     }
 
     public Paciente getByFolio(String folio){
@@ -61,6 +60,7 @@ public class PacienteService {
             }
             pacienteBD.setFolio(paciente.getFolio());
         }
+        paciente.setActivo(pacienteBD.getActivo());
         pacienteBD.setFechaActualizacion(LocalDateTime.now());
         return pacienteRepository.save(pacienteBD);
     }

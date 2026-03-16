@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.estudios.parametros;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import jakarta.persistence.*;
 import lombok.*;
@@ -17,10 +18,11 @@ public class ParametroEstudio {
     private Long Id;
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "id_tipo_estudio", nullable = false)
     private TipoEstudio tipoEstudio;
 
-    @Column(name = "nombre", nullable = false, length = 100)
+    @Column(name = "nombre", nullable = false, length = 100,unique = true)
     private String nombre;
 
     @Column(name = "unidad", length = 20)

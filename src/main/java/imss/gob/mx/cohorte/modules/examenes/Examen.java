@@ -16,7 +16,7 @@ public class Examen {
     private Long Id;
 
     @Column(name = "nombre_examen", nullable = false, length = 100)
-    private String nombreExamen;
+    private String parametro;
 
     @Column(name = "descripcion", length = 500)
     private String descripcion;

@@ -21,6 +21,14 @@ public class PacienteApplicationService {
     public List<Paciente> findAll(Paciente paciente) {
         return pacienteService.findAll();
     }
+    @Transactional
+    public List<Paciente> findAllActive(Paciente paciente) {
+        return pacienteService.findAllStatus(true);
+    }
+
+    public List<Paciente> findAllInactive(Paciente paciente) {
+        return pacienteService.findAllStatus(false);
+    }
 
     @Transactional
     public Paciente findUser(Long id) {

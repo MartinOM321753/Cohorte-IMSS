@@ -23,6 +23,9 @@ public class Paciente {
     @Column(name = "folio", nullable = false, unique = true, length = 50)
     private String folio;
 
+    @Column(name = "activo")
+    private Boolean activo = true;
+
     @Column(name = "fecha_registro", nullable = false)
     private LocalDateTime fechaRegistro;
 
@@ -33,12 +36,5 @@ public class Paciente {
     @JoinColumn(name = "id_persona", nullable = false, unique = true)
     private Persona persona;
 
-    public Paciente(Long id, String UUID, String folio, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion, Persona persona) {
-        Id = id;
-        this.UUID = UUID;
-        this.folio = folio;
-        this.fechaRegistro = fechaRegistro;
-        this.fechaActualizacion = fechaActualizacion;
-        this.persona = persona;
-    }
+
 }

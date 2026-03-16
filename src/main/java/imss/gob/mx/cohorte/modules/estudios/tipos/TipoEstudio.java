@@ -1,10 +1,12 @@
 package imss.gob.mx.cohorte.modules.estudios.tipos;
 
 
+import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "Tipo_Estudio")
@@ -27,4 +29,7 @@ public class TipoEstudio {
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
+
+    @OneToMany(mappedBy = "tipoEstudio")
+    private List<ParametroEstudio> parametros;
 }

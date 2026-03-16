@@ -1,7 +1,9 @@
 package imss.gob.mx.cohorte.modules.estudios;
 
 
+import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
+import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
@@ -9,6 +11,7 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "Estudio_Medico")
@@ -36,6 +39,9 @@ public class EstudioMedico {
     @ManyToOne
     @JoinColumn(name = "id_tipo_estudio", nullable = false)
     private TipoEstudio tipoEstudio;
+
+    @OneToMany(mappedBy = "estudio")
+    private List<ResultadoEstudio> resultadoEstudio;
 
     @ManyToOne
     @JoinColumn(name = "id_usuario_realiza", nullable = false)

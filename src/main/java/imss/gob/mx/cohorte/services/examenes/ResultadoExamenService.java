@@ -20,33 +20,19 @@ import java.util.List;
 public class ResultadoExamenService {
 
     private final ResultadoExamenRepository resultadoExamenRepository;
-    private final ExamenRepository examenRepository;
-    private final PacienteRepository pacienteRepository;
 
-    @Transactional(readOnly = true)
-    public List<ResultadoExamen> getAllResultados() {
-        return resultadoExamenRepository.findAll();
+    public List<ResultadoExamen> findAllByFolio(String folioPaciente) {
+        return resultadoExamenRepository.findByPaciente_Folio(folioPaciente);
     }
-
-    @Transactional(readOnly = true)
+    public List<ResultadoExamen> findAllByUUID(String uuidPaciente) {
+        return resultadoExamenRepository.findByPaciente_UUID(uuidPaciente);
+    }
     public ResultadoExamen getResultado(Long id) {
         return resultadoExamenRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + id));
     }
 
-    @Transactional
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
-        // Validaciones de existencia
-        Long idExamen = resultadoExamen.getExamen().getId();
-        Examen examen = examenRepository.findById(idExamen)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + idExamen));
-
-        Long idPaciente = resultadoExamen.getPaciente().getId();
-        Paciente paciente = pacienteRepository.findById(idPaciente)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró paciente con id: " + idPaciente));
-
-        resultadoExamen.setExamen(examen);
-        resultadoExamen.setPaciente(paciente);
         resultadoExamen.setFechaRegistro(new Timestamp(System.currentTimeMillis()));
         if (resultadoExamen.getFechaResultado() == null) {
             resultadoExamen.setFechaResultado(LocalDateTime.now());
@@ -55,7 +41,6 @@ public class ResultadoExamenService {
         return resultadoExamenRepository.save(resultadoExamen);
     }
 
-    @Transactional
     public ResultadoExamen updateResultado(ResultadoExamen resultadoExamen) {
         ResultadoExamen resultadoBD = resultadoExamenRepository.findById(resultadoExamen.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + resultadoExamen.getId()));
@@ -64,20 +49,6 @@ public class ResultadoExamenService {
         resultadoBD.setObservaciones(resultadoExamen.getObservaciones());
         resultadoBD.setFechaResultado(resultadoExamen.getFechaResultado());
 
-        // Si se quiere actualizar el examen asociado, validar existencia
-        if (resultadoExamen.getExamen() != null) {
-            Long idExamen = resultadoExamen.getExamen().getId();
-            Examen examen = examenRepository.findById(idExamen)
-                    .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + idExamen));
-            resultadoBD.setExamen(examen);
-        }
-        // Si se quiere actualizar el paciente asociado, validar existencia
-        if (resultadoExamen.getPaciente() != null) {
-            Long idPaciente = resultadoExamen.getPaciente().getId();
-            Paciente paciente = pacienteRepository.findById(idPaciente)
-                    .orElseThrow(() -> new ObjNotFoundException("No se encontró paciente con id: " + idPaciente));
-            resultadoBD.setPaciente(paciente);
-        }
 
         return resultadoExamenRepository.save(resultadoBD);
     }

@@ -8,4 +8,6 @@ import java.util.Optional;
 @Repository
 public interface ParametroEstudioRepository extends JpaRepository<ParametroEstudio, Long> {
     Optional<ParametroEstudio> findByNombre(String nombre);
+
+    List<ParametroEstudio> findAllByTipoEstudio_Nombre(String tipoEstudioNombre);
 }

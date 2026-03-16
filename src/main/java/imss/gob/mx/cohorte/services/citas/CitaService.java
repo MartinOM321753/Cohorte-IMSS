@@ -34,6 +34,20 @@ public class CitaService {
                 .orElseThrow(() -> new ObjNotFoundException("La cita no existe"));
     }
 
+    public Cita findPatientFolio(String folio){
+        return citaRepository.findByPaciente_Folio(folio)
+        .orElseThrow(() -> new ObjNotFoundException("El folio no cuenta con una cita asignada"));
+    }
+
+    public Cita findPatientUuid(String uuid){
+        return citaRepository.findByPaciente_UUID(uuid)
+                .orElseThrow(() -> new ObjNotFoundException("El pacinete no cuenta con una cita asignada"));
+    }
+
+    public Cita findCitaFecha(LocalDateTime fecha){
+        return citaRepository.findByFechaCita(fecha)
+                .orElseThrow(() -> new ObjNotFoundException("No existe alguna cita en la fecha ingresada"));
+    }
 
     public Cita create( Cita cita) {
 

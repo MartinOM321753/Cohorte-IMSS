@@ -19,8 +19,9 @@ public class ExamenService {
 
     @Transactional(readOnly = true)
     public List<Examen> getAllExamenes() {
-        return examenRepository.findAll();
+        return examenRepository.findAllByActivo(true);
     }
+
 
     @Transactional(readOnly = true)
     public Examen getExamen(Long id) {
@@ -39,7 +40,7 @@ public class ExamenService {
         Examen examenBD = examenRepository.findById(examen.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + examen.getId()));
 
-        examenBD.setNombreExamen(examen.getNombreExamen());
+        examenBD.setParametro(examen.getParametro());
         examenBD.setDescripcion(examen.getDescripcion());
         examenBD.setUnidad(examen.getUnidad());
         examenBD.setValorMinMujeres(examen.getValorMinMujeres());

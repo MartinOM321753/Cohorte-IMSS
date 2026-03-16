@@ -17,8 +17,16 @@ public class UserApplicationService {
     private final PersonaService personaService;
 
     @Transactional
-    public List<BeanUser> findAllUser(BeanUser beanUser) {
+    public List<BeanUser> findAllUser() {
         return userService.getAllUser();
+    }
+    @Transactional
+    public List<BeanUser> findAllByActive() {
+        return userService.getAllUserByStatus(true);
+    }
+    @Transactional
+    public List<BeanUser> findAllByInActive() {
+        return userService.getAllUserByStatus(false);
     }
     @Transactional
     public BeanUser findUser(Long id) {

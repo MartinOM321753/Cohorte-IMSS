@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.estudios.resultados;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import jakarta.persistence.*;
@@ -25,10 +26,12 @@ public class ResultadoEstudio {
     private String valorTexto;
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "id_estudio", nullable = false)
     private EstudioMedico estudio;
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "id_parametro", nullable = false)
     private ParametroEstudio parametro;
 }

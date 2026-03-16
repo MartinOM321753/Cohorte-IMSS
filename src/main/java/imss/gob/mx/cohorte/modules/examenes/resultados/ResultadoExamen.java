@@ -34,7 +34,6 @@ public class ResultadoExamen {
     @Column(name = "fecha_registro", nullable = false)
     private Timestamp fechaRegistro;
 
-
     @ManyToOne
     @JoinColumn(name = "id_paciente", nullable = false)
     private Paciente paciente;
