@@ -51,7 +51,7 @@ public class ExamenApplicationService {
     @Transactional
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
 
-       Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUUID());
+       Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUuid());
        Examen findExamen =  examenService.getExamen(resultadoExamen.getExamen().getId());
        BeanUser usuarioRegistro = userService.getByUUID(resultadoExamen.getUsuarioRegistro().getUUID());
 
@@ -64,7 +64,7 @@ public class ExamenApplicationService {
     @Transactional
     public ResultadoExamen updateResultado(ResultadoExamen resultadoExamen) {
 
-        Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUUID());
+        Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUuid());
         Examen findExamen =  examenService.getExamen(resultadoExamen.getExamen().getId());
         BeanUser usuarioRegistro = userService.getByUUID(resultadoExamen.getUsuarioRegistro().getUUID());
 

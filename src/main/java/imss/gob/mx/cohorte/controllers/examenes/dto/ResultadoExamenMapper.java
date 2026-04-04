@@ -17,7 +17,7 @@ public class ResultadoExamenMapper {
         ResultadoExamen resultado = new ResultadoExamen();
 
         Paciente paciente = new Paciente();
-        paciente.setUUID(dto.getPacienteUUID());
+        paciente.setUuid(dto.getPacienteUUID());
         resultado.setPaciente(paciente);
 
         BeanUser usuario = new BeanUser();

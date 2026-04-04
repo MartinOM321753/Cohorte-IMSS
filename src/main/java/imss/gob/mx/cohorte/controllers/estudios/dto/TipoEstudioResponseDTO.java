@@ -1,14 +1,13 @@
 package imss.gob.mx.cohorte.controllers.estudios.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class TipoEstudioResponseDTO {
 
     private Long id;

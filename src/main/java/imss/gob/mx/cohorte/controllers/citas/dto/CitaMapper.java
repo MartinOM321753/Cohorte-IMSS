@@ -1,7 +1,5 @@
 package imss.gob.mx.cohorte.controllers.citas.dto;
 
-import imss.gob.mx.cohorte.controllers.DTO.PacienteResumenDTO;
-import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.modules.cita.Cita;
@@ -15,7 +13,7 @@ public class CitaMapper {
     public static Cita toEntity(CitaRequestDTO dto) {
         Cita cita = new Cita();
         Paciente paciente = new Paciente();
-        paciente.setUUID(dto.getPacienteUUID());
+        paciente.setUuid(dto.getPacienteUUID());
         cita.setPaciente(paciente);
 
         BeanUser usuario = new BeanUser();

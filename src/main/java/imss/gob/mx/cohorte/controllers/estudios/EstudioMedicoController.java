@@ -8,6 +8,11 @@ import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,7 +30,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/estudios")
 @AllArgsConstructor
 @Validated
-@Tag(name = "Estudios Médicos")
+@Tag(name = "Estudios Médicos", description = "Gestión de estudios médicos y catálogos")
 @SecurityRequirement(name = "bearerAuth")
 public class EstudioMedicoController {
 
@@ -33,7 +38,18 @@ public class EstudioMedicoController {
     private final GestionEstudiosApplicationService gestionEstudiosApplicationService;
 
     @GetMapping
-    @Operation(summary = "Listar todos los estudios médicos")
+    @Operation(summary = "Listar todos los estudios médicos", description = "Obtiene una lista completa de todos los estudios médicos registrados en el sistema")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
         List<EstudioMedicoResponseDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
@@ -41,15 +57,42 @@ public class EstudioMedicoController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener estudio médico por ID")
-    public ResponseEntity<APIResponse> getById(@PathVariable Long id) {
+    @Operation(summary = "Obtener estudio médico por ID", description = "Obtiene los detalles de un estudio médico específico utilizando su identificador único")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getById(
+        @Parameter(description = "Identificador único del estudio médico", required = true)
+        @PathVariable Long id) {
         EstudioMedico estudio = estudiosApplicationService.getEstudio(id);
         EstudioMedicoResponseDTO dto = EstudioMapper.toResponseDTO(estudio);
         return ResponseEntity.ok(new APIResponse(dto, "Estudio obtenido correctamente", HttpStatus.OK, false));
     }
 
     @PostMapping
-    @Operation(summary = "Crear estudio médico con resultados")
+    @Operation(summary = "Crear estudio médico con resultados", description = "Registra un nuevo estudio médico incluyendo sus resultados asociados")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Estudio creado exitosamente",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> create(@Valid @RequestBody EstudioMedicoRequestDTO dto) {
         EstudioMedico entity = EstudioMapper.toEntity(dto);
         entity.setFechaRegistro(LocalDateTime.now());
@@ -60,8 +103,25 @@ public class EstudioMedicoController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Actualizar estudio médico")
-    public ResponseEntity<APIResponse> update(@PathVariable Long id, @Valid @RequestBody EstudioMedicoRequestDTO dto) {
+    @Operation(summary = "Actualizar estudio médico", description = "Actualiza la información de un estudio médico existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> update(
+        @Parameter(description = "Identificador único del estudio médico a actualizar", required = true)
+        @PathVariable Long id,
+        @Valid @RequestBody EstudioMedicoRequestDTO dto) {
         EstudioMedico entity = EstudioMapper.toEntity(dto);
         EstudioMedico actualizado = estudiosApplicationService.updateEstudio(id, entity);
         EstudioMedicoResponseDTO responseDTO = EstudioMapper.toResponseDTO(actualizado);
@@ -69,7 +129,18 @@ public class EstudioMedicoController {
     }
 
     @GetMapping("/tipos")
-    @Operation(summary = "Listar tipos de estudio activos")
+    @Operation(summary = "Listar tipos de estudio activos", description = "Obtiene una lista de todos los tipos de estudio que se encuentran activos")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> getTiposActivos() {
         List<TipoEstudio> tipos = gestionEstudiosApplicationService.getAllByEstatus();
         List<TipoEstudioResponseDTO> dtos = tipos.stream()
@@ -84,7 +155,18 @@ public class EstudioMedicoController {
     }
 
     @PostMapping("/tipos")
-    @Operation(summary = "Crear tipo de estudio")
+    @Operation(summary = "Crear tipo de estudio", description = "Registra un nuevo tipo de estudio en el catálogo del sistema")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Tipo de estudio creado exitosamente",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> createTipo(@Valid @RequestBody TipoEstudioRequestDTO dto) {
         TipoEstudio tipo = new TipoEstudio();
         tipo.setNombre(dto.getNombre());
@@ -103,8 +185,25 @@ public class EstudioMedicoController {
     }
 
     @PutMapping("/tipos/{id}")
-    @Operation(summary = "Actualizar tipo de estudio")
-    public ResponseEntity<APIResponse> updateTipo(@PathVariable Long id, @Valid @RequestBody TipoEstudioRequestDTO dto) {
+    @Operation(summary = "Actualizar tipo de estudio", description = "Actualiza la información de un tipo de estudio existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> updateTipo(
+        @Parameter(description = "Identificador único del tipo de estudio a actualizar", required = true)
+        @PathVariable Long id,
+        @Valid @RequestBody TipoEstudioRequestDTO dto) {
         TipoEstudio existente = gestionEstudiosApplicationService.getOne(id);
         existente.setNombre(dto.getNombre());
         existente.setDescripcion(dto.getDescripcion());
@@ -119,14 +218,41 @@ public class EstudioMedicoController {
     }
 
     @PutMapping("/tipos/{id}/toggle")
-    @Operation(summary = "Activar o desactivar tipo de estudio")
-    public ResponseEntity<APIResponse> toggleTipo(@PathVariable Long id) {
+    @Operation(summary = "Activar o desactivar tipo de estudio", description = "Cambia el estado activo/inactivo de un tipo de estudio identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> toggleTipo(
+        @Parameter(description = "Identificador único del tipo de estudio", required = true)
+        @PathVariable Long id) {
         Boolean activo = gestionEstudiosApplicationService.Active(id);
         return ResponseEntity.ok(new APIResponse(activo, "Estado del tipo de estudio actualizado correctamente", HttpStatus.OK, false));
     }
 
     @PostMapping("/parametros")
-    @Operation(summary = "Crear parámetro de estudio")
+    @Operation(summary = "Crear parámetro de estudio", description = "Registra un nuevo parámetro asociado a un tipo de estudio específico")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Parámetro creado exitosamente",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> createParametro(@Valid @RequestBody ParametroEstudioRequestDTO dto) {
         ParametroEstudio parametro = new ParametroEstudio();
         TipoEstudio tipoEstudio = new TipoEstudio();
@@ -146,8 +272,25 @@ public class EstudioMedicoController {
     }
 
     @PutMapping("/parametros/{id}")
-    @Operation(summary = "Actualizar parámetro de estudio")
-    public ResponseEntity<APIResponse> updateParametro(@PathVariable Long id, @Valid @RequestBody ParametroEstudioRequestDTO dto) {
+    @Operation(summary = "Actualizar parámetro de estudio", description = "Actualiza la información de un parámetro de estudio existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> updateParametro(
+        @Parameter(description = "Identificador único del parámetro de estudio a actualizar", required = true)
+        @PathVariable Long id,
+        @Valid @RequestBody ParametroEstudioRequestDTO dto) {
         ParametroEstudio parametro = new ParametroEstudio();
         parametro.setId(id);
         TipoEstudio tipoEstudio = new TipoEstudio();
@@ -166,8 +309,24 @@ public class EstudioMedicoController {
     }
 
     @DeleteMapping("/parametros/{id}")
-    @Operation(summary = "Eliminar parámetro de estudio")
-    public ResponseEntity<APIResponse> deleteParametro(@PathVariable Long id) {
+    @Operation(summary = "Eliminar parámetro de estudio", description = "Elimina un parámetro de estudio existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> deleteParametro(
+        @Parameter(description = "Identificador único del parámetro de estudio a eliminar", required = true)
+        @PathVariable Long id) {
         gestionEstudiosApplicationService.deleteParametro(id);
         return ResponseEntity.ok(new APIResponse("Parámetro eliminado correctamente", HttpStatus.OK, false));
     }

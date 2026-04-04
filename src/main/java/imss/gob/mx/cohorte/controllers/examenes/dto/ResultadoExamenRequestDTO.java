@@ -2,15 +2,15 @@ package imss.gob.mx.cohorte.controllers.examenes.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class ResultadoExamenRequestDTO {
 
     @NotBlank(message = "El UUID del paciente es obligatorio")

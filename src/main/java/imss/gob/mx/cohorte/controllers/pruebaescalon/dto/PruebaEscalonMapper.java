@@ -1,7 +1,5 @@
 package imss.gob.mx.cohorte.controllers.pruebaescalon.dto;
 
-import imss.gob.mx.cohorte.controllers.DTO.PacienteResumenDTO;
-import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.modules.escalonPrueba.PruebaEscalon;
@@ -10,7 +8,6 @@ import imss.gob.mx.cohorte.modules.escalonPrueba.medicion.PruebaEscalonMedicion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public class PruebaEscalonMapper {
@@ -19,7 +16,7 @@ public class PruebaEscalonMapper {
         PruebaEscalon prueba = new PruebaEscalon();
         
         Paciente paciente = new Paciente();
-        paciente.setUUID(dto.getPacienteUUID());
+        paciente.setUuid(dto.getPacienteUUID());
         prueba.setPaciente(paciente);
         
         BeanUser usuario = new BeanUser();
@@ -52,7 +49,7 @@ public class PruebaEscalonMapper {
         return list.stream().map(PruebaEscalonMapper::toResponseDTO).toList();
     }
 
-    private static EtapaResponseDTO toEtapaResponseDTO(PruebaEscalonEtapa etapa) {
+    public static EtapaResponseDTO toEtapaResponseDTO(PruebaEscalonEtapa etapa) {
         MedicionResponseDTO medicionDTO = null;
         if (etapa.getMedicion() != null) {
             medicionDTO = toMedicionResponseDTO(etapa.getMedicion());
@@ -68,7 +65,7 @@ public class PruebaEscalonMapper {
             .build();
     }
 
-    private static MedicionResponseDTO toMedicionResponseDTO(PruebaEscalonMedicion medicion) {
+    public static MedicionResponseDTO toMedicionResponseDTO(PruebaEscalonMedicion medicion) {
         return MedicionResponseDTO.builder()
             .id(medicion.getId())
             .parametro(medicion.getParametro() != null ? medicion.getParametro().name() : null)

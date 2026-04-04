@@ -21,7 +21,7 @@ public class EstudioMapper {
         EstudioMedico estudio = new EstudioMedico();
 
         Paciente paciente = new Paciente();
-        paciente.setUUID(dto.getPacienteUUID());
+        paciente.setUuid(dto.getPacienteUUID());
         estudio.setPaciente(paciente);
 
         BeanUser usuario = new BeanUser();

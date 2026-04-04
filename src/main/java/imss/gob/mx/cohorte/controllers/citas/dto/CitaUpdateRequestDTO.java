@@ -1,15 +1,15 @@
 package imss.gob.mx.cohorte.controllers.citas.dto;
 
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class CitaUpdateRequestDTO {
 
     @NotNull(message = "La fecha de cita es obligatoria")

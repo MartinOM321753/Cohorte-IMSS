@@ -11,6 +11,11 @@ import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -31,21 +36,59 @@ public class ExamenController {
     private final ExamenApplicationService examenApplicationService;
 
     @GetMapping
-    @Operation(summary = "Listar todos los exámenes activos")
+    @Operation(summary = "Listar todos los exámenes activos", description = "Obtiene una lista completa de todos los exámenes activos registrados en el sistema")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> getAll() {
         List<Examen> examenes = examenApplicationService.findAll();
         return ResponseEntity.ok(new APIResponse("Exámenes encontrados", ExamenMapper.toResponseDTOList(examenes), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener examen por ID")
-    public ResponseEntity<APIResponse> getById(@PathVariable Long id) {
+    @Operation(summary = "Obtener examen por ID", description = "Obtiene los detalles de un examen específico utilizando su identificador único")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getById(
+        @Parameter(description = "Identificador único del examen", required = true)
+        @PathVariable Long id) {
         Examen examen = examenApplicationService.findOne(id);
         return ResponseEntity.ok(new APIResponse("Examen encontrado", ExamenMapper.toResponseDTO(examen), false, HttpStatus.OK));
     }
 
     @PostMapping
-    @Operation(summary = "Crear nuevo examen")
+    @Operation(summary = "Crear nuevo examen", description = "Registra un nuevo examen en el sistema con sus parámetros y rangos de referencia")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Examen creado exitosamente",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> create(@Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
         Examen saved = examenApplicationService.create(examen);
@@ -54,8 +97,25 @@ public class ExamenController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Actualizar examen")
-    public ResponseEntity<APIResponse> update(@PathVariable Long id, @Validated @RequestBody ExamenRequestDTO dto) {
+    @Operation(summary = "Actualizar examen", description = "Actualiza la información de un examen existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> update(
+        @Parameter(description = "Identificador único del examen a actualizar", required = true)
+        @PathVariable Long id,
+        @Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
         examen.setId(id);
         Examen updated = examenApplicationService.update(examen);
@@ -63,21 +123,64 @@ public class ExamenController {
     }
 
     @GetMapping("/resultados/paciente/uuid/{uuid}")
-    @Operation(summary = "Obtener resultados de examen por UUID del paciente")
-    public ResponseEntity<APIResponse> getResultadosByPacienteUUID(@PathVariable String uuid) {
+    @Operation(summary = "Obtener resultados de examen por UUID del paciente", description = "Obtiene todos los resultados de exámenes asociados a un paciente mediante su UUID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getResultadosByPacienteUUID(
+        @Parameter(description = "UUID único del paciente", required = true)
+        @PathVariable String uuid) {
         List<ResultadoExamen> resultados = examenApplicationService.findAllResultadoByUUID(uuid);
         return ResponseEntity.ok(new APIResponse("Resultados encontrados", ResultadoExamenMapper.toResponseDTOList(resultados), false, HttpStatus.OK));
     }
 
     @GetMapping("/resultados/paciente/folio/{folio}")
-    @Operation(summary = "Obtener resultados de examen por folio del paciente")
-    public ResponseEntity<APIResponse> getResultadosByPacienteFolio(@PathVariable String folio) {
+    @Operation(summary = "Obtener resultados de examen por folio del paciente", description = "Obtiene todos los resultados de exámenes asociados a un paciente mediante su folio")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getResultadosByPacienteFolio(
+        @Parameter(description = "Folio del paciente", required = true)
+        @PathVariable String folio) {
         List<ResultadoExamen> resultados = examenApplicationService.findAllResultadoByFolio(folio);
         return ResponseEntity.ok(new APIResponse("Resultados encontrados", ResultadoExamenMapper.toResponseDTOList(resultados), false, HttpStatus.OK));
     }
 
     @PostMapping("/resultados")
-    @Operation(summary = "Registrar resultado de examen")
+    @Operation(summary = "Registrar resultado de examen", description = "Registra un nuevo resultado de examen con el valor obtenido y su relación con el examen correspondiente")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Resultado registrado exitosamente",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
     public ResponseEntity<APIResponse> saveResultado(@Validated @RequestBody ResultadoExamenRequestDTO dto) {
         ResultadoExamen resultado = ResultadoExamenMapper.toEntity(dto);
         ResultadoExamen saved = examenApplicationService.createResultado(resultado);
@@ -89,8 +192,25 @@ public class ExamenController {
     }
 
     @PutMapping("/resultados/{id}")
-    @Operation(summary = "Actualizar resultado de examen")
-    public ResponseEntity<APIResponse> updateResultado(@PathVariable Long id, @Validated @RequestBody ResultadoExamenRequestDTO dto) {
+    @Operation(summary = "Actualizar resultado de examen", description = "Actualiza la información de un resultado de examen existente identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> updateResultado(
+        @Parameter(description = "Identificador único del resultado de examen a actualizar", required = true)
+        @PathVariable Long id,
+        @Validated @RequestBody ResultadoExamenRequestDTO dto) {
         ResultadoExamen resultado = ResultadoExamenMapper.toEntity(dto);
         resultado.setId(id);
         ResultadoExamen updated = examenApplicationService.updateResultado(resultado);
