@@ -4,6 +4,7 @@ package imss.gob.mx.cohorte.modules.almacenamiento.refrigerador;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
+import java.util.List;
 
 @Entity
 @Table(name = "Refrigerador")
@@ -29,6 +30,9 @@ public class Refrigerador {
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
+
+    @OneToMany(mappedBy = "refrigerador")
+    private List<PisoRefrigerador> pisos;
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;

@@ -8,7 +8,8 @@ import lombok.*;
 @Table(name = "Posicion_Caja",
         uniqueConstraints = @UniqueConstraint(name = "uk_caja_coordenadas", columnNames = {"id_caja", "fila", "columna"})
 )
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class PosicionCaja {
     @Id
@@ -28,4 +29,6 @@ public class PosicionCaja {
 
     @Column(name = "ocupada", nullable = false)
     private Boolean ocupada = false;
+
+
 }

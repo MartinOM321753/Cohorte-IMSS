@@ -21,13 +21,13 @@ public class PosicionPiso {
     private PisoRefrigerador piso;
 
     @Column(name = "fila", nullable = false)
-    private Integer fila;
+    private String fila;
 
     @Column(name = "columna", nullable = false)
-    private Integer columna;
+    private String columna;
 
     @Column(name = "altura", nullable = false)
-    private Integer altura;
+    private String altura;
 
     @Column(name = "ocupada", nullable = false)
     private Boolean ocupada = false;

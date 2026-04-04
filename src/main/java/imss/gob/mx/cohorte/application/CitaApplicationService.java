@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -19,6 +20,10 @@ public class CitaApplicationService {
     private final PacienteService pacienteService;
     private final UserService userService;
 
+    @Transactional(readOnly = true)
+    public List<Cita> getAll(){
+        return citaService.getAll();
+    }
     @Transactional(readOnly = true)
     public Cita findById(Long id){
         return citaService.getById(id);
@@ -39,7 +44,7 @@ public class CitaApplicationService {
     @Transactional
     public Cita save(Cita cita){
 
-        Paciente paciente = pacienteService.getByUUID(cita.getPaciente().getUUID());
+        Paciente paciente = pacienteService.getByUUID(cita.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(cita.getUsuarioAgenda().getUUID());
         cita.setPaciente(paciente);
         cita.setUsuarioAgenda(usuario);

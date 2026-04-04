@@ -12,7 +12,7 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     Optional<Cita> findByPaciente_Folio(String pacienteFolio);
 
-    Optional<Cita> findByPaciente_UUID(String pacienteUUID);
+    Optional<Cita> findByPaciente_Uuid(String pacienteUUID);
 
     Optional<Cita> findByFechaCita(LocalDateTime fechaCita);
 

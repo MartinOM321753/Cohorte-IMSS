@@ -12,9 +12,9 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     List<Paciente> findAllByActivo(Boolean activo);
 
-    Optional<Paciente> findByUUID(String uuid);
+    Optional<Paciente> findByUuid(String uuid);
 
-    boolean existsByUUID(String uuid);
+    boolean existsByUuid(String uuid);
 
 
 }

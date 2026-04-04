@@ -25,10 +25,6 @@ public class CajaCriogenica {
     @Column(name = "columnas", nullable = false)
     private Integer columnas;
 
-    @OneToOne
-    @JoinColumn(name = "id_posicion_piso", unique = true)
-    private PosicionPiso posicionPiso;
-
     @Column(name = "tipo_caja", length = 50)
     private String tipoCaja;
 
@@ -43,4 +39,8 @@ public class CajaCriogenica {
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;
+
+    @OneToOne
+    @JoinColumn(name = "id_posicion_piso", unique = true)
+    private PosicionPiso posicionPiso;
 }

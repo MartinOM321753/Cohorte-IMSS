@@ -17,6 +17,14 @@ public class PacienteApplicationService {
     private final PacienteService pacienteService;
     private final PersonaService personaService;
 
+    @Transactional(readOnly = true)
+    public List<Paciente> getAll() {
+        return pacienteService.findAll();
+    }
+    @Transactional(readOnly = true)
+    public List<Paciente> getActivos() {
+        return pacienteService.findAllStatus(true);
+    }
     @Transactional
     public List<Paciente> findAll(Paciente paciente) {
         return pacienteService.findAll();
