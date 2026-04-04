@@ -4,7 +4,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPisoRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigeradorRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,16 +28,7 @@ public class PosicionPisoService {
         return posicionPisoRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la posición en piso con id: " + id));
     }
-
-    @Transactional
-    public PosicionPiso createPosicion(PosicionPiso posicion) {
-        // Validar existencia del PisoRefrigerador
-        Long idPiso = posicion.getPiso().getId();
-        PisoRefrigerador piso = pisoRefrigeradorRepository.findById(idPiso)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con id: " + idPiso));
-        posicion.setPiso(piso);
-        return posicionPisoRepository.save(posicion);
-    }
+    
 
     @Transactional
     public PosicionPiso updatePosicion(PosicionPiso posicion) {
@@ -58,5 +49,54 @@ public class PosicionPisoService {
         posBD.setAltura(posicion.getAltura());
         posBD.setOcupada(posicion.getOcupada());
         return posicionPisoRepository.save(posBD);
+    }
+
+    /**
+     * Genera automáticamente todas las posiciones de un piso una vez creado, 
+     * según los parámetros dados (filas, columnas, alturas).
+     * 
+     * @param idPiso   ID del PisoRefrigerador al que se le generarán posiciones.
+     * @param filas    Número de filas.
+     * @param columnas Número de columnas.
+     * @param alturas  Número de alturas.
+     */
+    @Transactional
+    public void generarPosicionesParaPiso(Long idPiso, Integer filas, Integer columnas, Integer alturas) {
+        PisoRefrigerador piso = pisoRefrigeradorRepository.findById(idPiso)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con id: " + idPiso));
+        if (filas == null || filas < 1 || columnas == null || columnas < 1 || alturas == null || alturas < 1) {
+            throw new IllegalArgumentException("Parámetros de filas, columnas y alturas deben ser >= 1");
+        }
+
+
+        for (int f = 1; f <= filas; f++) {
+            String strFila = toAlphabetLabel(f);
+            for (int c = 1; c <= columnas; c++) {
+                String strColumna = toAlphabetLabel(c);
+                for (int a = 1; a <= alturas; a++) {
+                    String strAltura = String.valueOf(a); // Altura como número en string
+                    PosicionPiso nueva = new PosicionPiso();
+                    nueva.setPiso(piso);
+                    nueva.setFila(strFila);
+                    nueva.setColumna(strColumna);
+                    nueva.setAltura(strAltura);
+                    nueva.setOcupada(false);
+                    posicionPisoRepository.save(nueva);
+                }
+            }
+        }
+    }
+
+
+    private String toAlphabetLabel(int num) {
+        StringBuilder sb = new StringBuilder();
+        int n = num;
+        while (n > 0) {
+            n--; // Ajuste para 1-based index
+            char ch = (char) ('A' + (n % 26));
+            sb.insert(0, ch);
+            n /= 26;
+        }
+        return sb.toString();
     }
 }

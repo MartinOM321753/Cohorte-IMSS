@@ -10,7 +10,8 @@ import lombok.*;
 @Table(name = "Prueba_Escalon_Medicion",
         uniqueConstraints = @UniqueConstraint(name = "uk_etapa_parametro", columnNames = {"id_etapa", "parametro"})
 )
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class PruebaEscalonMedicion {
     public enum Parametro { PULSO, TA_SISTOLICA, TA_DIASTOLICA, FCM }
@@ -34,4 +35,6 @@ public class PruebaEscalonMedicion {
 
     @Column(name = "unidad", length = 20)
     private String unidad;
+
+
 }

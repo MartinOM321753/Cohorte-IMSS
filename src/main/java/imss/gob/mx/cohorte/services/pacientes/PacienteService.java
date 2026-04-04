@@ -2,11 +2,10 @@ package imss.gob.mx.cohorte.services.pacientes;
 
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,17 +25,29 @@ public class PacienteService {
         return pacienteRepository.findAllByActivo(activo);
     }
     public Paciente getPatient(Long idPaciente){
-        return pacienteRepository.findById(idPaciente)
+        Paciente findPatient = pacienteRepository.findById(idPaciente)
                 .orElseThrow(()-> new ObjNotFoundException("No se encontró el paciente"));
+        if (!findPatient.getActivo()){
+            throw new ObjNotFoundException("El paciente no se encuentra activo");
+        }
+        return findPatient;
     }
     public Paciente getByUUID(String uuid){
-        return pacienteRepository.findByUUID(uuid)
+        Paciente findPatient =  pacienteRepository.findByUuid(uuid)
                 .orElseThrow(()-> new ObjNotFoundException("No se encontró el paciente"));
+        if (!findPatient.getActivo()){
+            throw new ObjNotFoundException("El paciente no se encuentra activo");
+        }
+        return findPatient;
     }
 
     public Paciente getByFolio(String folio){
-        return pacienteRepository.findByFolio(folio)
+        Paciente findPatient = pacienteRepository.findByFolio(folio)
                 .orElseThrow(()-> new ObjNotFoundException("No se encontró el paciente"));
+        if (!findPatient.getActivo()){
+            throw new ObjNotFoundException("El paciente no se encuentra activo");
+        }
+        return findPatient;
     }
 
     public Paciente cretePatient(Paciente paciente){
@@ -46,6 +57,7 @@ public class PacienteService {
 
       paciente.setFechaRegistro(LocalDateTime.now());
       paciente.setFechaActualizacion(LocalDateTime.now());
+      paciente.setUuid(java.util.UUID.randomUUID().toString());
 
       return pacienteRepository.save(paciente);
     }

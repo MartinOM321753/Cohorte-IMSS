@@ -4,7 +4,7 @@ import imss.gob.mx.cohorte.modules.escalonPrueba.etapa.PruebaEscalonEtapa;
 import imss.gob.mx.cohorte.modules.escalonPrueba.etapa.PruebaEscalonEtapaRepository;
 import imss.gob.mx.cohorte.modules.escalonPrueba.medicion.PruebaEscalonMedicion;
 import imss.gob.mx.cohorte.modules.escalonPrueba.medicion.PruebaEscalonMedicionRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

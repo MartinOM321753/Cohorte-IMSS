@@ -14,7 +14,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "Prueba_Escalon")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class PruebaEscalon {
     @Id

@@ -8,7 +8,7 @@ import java.util.List;
 @Repository
 public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen, Long> {
 
-    List<ResultadoExamen> findByPaciente_UUID(String uuid);
+    List<ResultadoExamen> findByPaciente_Uuid(String uuid);
     List<ResultadoExamen> findByPaciente_Folio(String uuid);
 
 }

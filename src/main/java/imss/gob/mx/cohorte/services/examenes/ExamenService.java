@@ -2,7 +2,7 @@ package imss.gob.mx.cohorte.services.examenes;
 
 import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.modules.examenes.ExamenRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

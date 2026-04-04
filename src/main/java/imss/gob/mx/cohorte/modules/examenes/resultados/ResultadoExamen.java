@@ -11,7 +11,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "Resultado_Examen")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class ResultadoExamen {
     @Id
@@ -41,5 +42,8 @@ public class ResultadoExamen {
     @ManyToOne
     @JoinColumn(name = "id_examen", nullable = false)
     private Examen examen;
+
+
+
 
 }

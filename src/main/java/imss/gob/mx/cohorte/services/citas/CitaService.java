@@ -7,7 +7,7 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ public class CitaService {
     }
 
     public Cita findPatientUuid(String uuid){
-        return citaRepository.findByPaciente_UUID(uuid)
+        return citaRepository.findByPaciente_Uuid(uuid)
                 .orElseThrow(() -> new ObjNotFoundException("El pacinete no cuenta con una cita asignada"));
     }
 

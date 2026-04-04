@@ -2,8 +2,8 @@ package imss.gob.mx.cohorte.services.estudios;
 
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudioRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,11 @@ public class TipoService {
 
     public TipoEstudio getByName(String nombre){return tipoEstudioRepository.findByNombre(nombre).orElseThrow(()-> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));}
 
-    public TipoEstudio getOne(Long id){return tipoEstudioRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el valor solicitado"));}
+    public TipoEstudio getOne(Long id){TipoEstudio findTipoEstudio = tipoEstudioRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el valor solicitado"));
+
+        if (!findTipoEstudio.getActivo()) throw new ObjNotFoundException("El tipo de estudio no se encuentra activo");
+        return findTipoEstudio;
+    }
 
 
     public TipoEstudio create(TipoEstudio tipoEstudio){

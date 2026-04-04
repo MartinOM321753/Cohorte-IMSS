@@ -7,4 +7,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ResultadoEstudioRepository extends JpaRepository<ResultadoEstudio, Long> {
 
+    ResultadoEstudio findByParametro_Id(Long parametroId);
+
 }

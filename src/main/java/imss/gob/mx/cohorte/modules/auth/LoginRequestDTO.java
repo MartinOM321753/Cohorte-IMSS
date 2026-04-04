@@ -1,16 +1,8 @@
 package imss.gob.mx.cohorte.modules.auth;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+/**
+ * @deprecated Movido a {@link imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO}
+ */
+@Deprecated
 public class LoginRequestDTO {
-    private String username, password;
-
-
 }

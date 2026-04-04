@@ -2,8 +2,8 @@ package imss.gob.mx.cohorte.services.Personas;
 
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

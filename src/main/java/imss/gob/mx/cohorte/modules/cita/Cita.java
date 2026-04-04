@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "Cita")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class Cita {
     public enum EstadoCita { Programada, Confirmada, Realizada, Cancelada, No_asistió }

@@ -7,7 +7,8 @@ import java.sql.Timestamp;
 
 @Entity
 @Table(name = "Examen")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class Examen {
     @Id
@@ -41,4 +42,6 @@ public class Examen {
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Timestamp fechaCreacion;
+
+
 }

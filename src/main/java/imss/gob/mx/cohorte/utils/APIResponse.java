@@ -49,9 +49,8 @@ public class APIResponse {
         this.error = error;
         this.status = status;
     }
-    public APIResponse( String message, boolean error, HttpStatus status) {
+    public APIResponse(String message, boolean error, HttpStatus status) {
         this.message = message;
-        this.data = data;
         this.error = error;
         this.status = status;
     }

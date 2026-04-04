@@ -10,7 +10,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "Tipo_Estudio")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class TipoEstudio {
     @Id
@@ -32,4 +33,5 @@ public class TipoEstudio {
 
     @OneToMany(mappedBy = "tipoEstudio")
     private List<ParametroEstudio> parametros;
+
 }

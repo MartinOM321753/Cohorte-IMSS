@@ -4,7 +4,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenicaRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPisoRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

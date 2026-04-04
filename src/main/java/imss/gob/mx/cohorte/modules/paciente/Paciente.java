@@ -4,10 +4,12 @@ import imss.gob.mx.cohorte.modules.persona.Persona;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "paciente")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 
 public class Paciente {
@@ -17,8 +19,8 @@ public class Paciente {
     @Column(name = "id_paciente")
     private Long Id;
 
-    @Column(name = "uuid", nullable = false, unique = true)
-    private String UUID;
+    @Column(name = "uuid", nullable = false, unique = true )
+    private String uuid;
 
     @Column(name = "folio", nullable = false, unique = true, length = 50)
     private String folio;
@@ -37,4 +39,10 @@ public class Paciente {
     private Persona persona;
 
 
+    @PrePersist
+    public void prePersist() {
+        this.uuid = UUID.randomUUID().toString();
+        this.fechaRegistro = LocalDateTime.now();
+        this.fechaActualizacion = LocalDateTime.now();
+    }
 }

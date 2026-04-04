@@ -2,7 +2,7 @@ package imss.gob.mx.cohorte.services.usuarios;
 
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 

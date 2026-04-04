@@ -2,8 +2,7 @@ package imss.gob.mx.cohorte.controllers.auth;
 
 
 import imss.gob.mx.cohorte.application.AuthApplicationService;
-import imss.gob.mx.cohorte.modules.auth.LoginRequestDTO;
-import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -44,7 +43,7 @@ public class AuthController {
             )
     })
 
-    public ResponseEntity<APIResponse> login(@RequestBody LoginRequestDTO payload) {
+    public ResponseEntity<APIResponse> login(@jakarta.validation.Valid @RequestBody LoginRequestDTO payload) {
 
         String token = authService.login(payload);
 

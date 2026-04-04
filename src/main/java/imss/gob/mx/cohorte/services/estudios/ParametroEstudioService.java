@@ -5,7 +5,7 @@ import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudioRepository;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudioRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +18,15 @@ import java.util.Optional;
 public class ParametroEstudioService {
 
     private final ParametroEstudioRepository parametroRepository;
+
+    @Transactional(readOnly = true)
+    public List<ParametroEstudio> getAll() {
+        return parametroRepository.findAll();
+    }
+    @Transactional(readOnly = true)
+    public ParametroEstudio getOne(Long id) {
+        return parametroRepository.findById(id).orElseThrow(() -> new ObjNotFoundException(("No se encontro el parametro de estudio")));
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public ParametroEstudio create(ParametroEstudio parametroEstudio) {

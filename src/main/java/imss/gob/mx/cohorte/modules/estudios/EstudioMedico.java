@@ -15,7 +15,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "Estudio_Medico")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class EstudioMedico {
     @Id
@@ -46,4 +47,5 @@ public class EstudioMedico {
     @ManyToOne
     @JoinColumn(name = "id_usuario_realiza", nullable = false)
     private BeanUser usuarioRealiza;
+
 }

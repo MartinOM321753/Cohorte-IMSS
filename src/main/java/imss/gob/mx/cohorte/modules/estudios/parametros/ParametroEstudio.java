@@ -8,7 +8,8 @@ import lombok.*;
 
 @Entity
 @Table(name = "Parametro_Estudio")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 public class ParametroEstudio {
 
@@ -27,4 +28,6 @@ public class ParametroEstudio {
 
     @Column(name = "unidad", length = 20)
     private String unidad;
+
+
 }

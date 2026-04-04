@@ -6,7 +6,7 @@ import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ public class ResultadoExamenService {
         return resultadoExamenRepository.findByPaciente_Folio(folioPaciente);
     }
     public List<ResultadoExamen> findAllByUUID(String uuidPaciente) {
-        return resultadoExamenRepository.findByPaciente_UUID(uuidPaciente);
+        return resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente);
     }
     public ResultadoExamen getResultado(Long id) {
         return resultadoExamenRepository.findById(id)
