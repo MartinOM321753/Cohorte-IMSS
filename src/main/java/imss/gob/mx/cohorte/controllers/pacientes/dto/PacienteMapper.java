@@ -44,7 +44,7 @@ public class PacienteMapper {
 
         return PacienteResponseDTO.builder()
             .id(p.getId())
-            .UUID(p.getUUID())
+            .UUID(p.getUuid())
             .folio(p.getFolio())
             .activo(p.getActivo())
             .fechaRegistro(p.getFechaRegistro())
@@ -62,7 +62,7 @@ public class PacienteMapper {
         }
         return PacienteResumenDTO.builder()
             .id(p.getId())
-            .UUID(p.getUUID())
+            .UUID(p.getUuid())
             .folio(p.getFolio())
             .nombreCompleto(nombreCompleto.trim())
             .sexo(p.getPersona() != null && p.getPersona().getSexo() != null ? p.getPersona().getSexo().name() : null)

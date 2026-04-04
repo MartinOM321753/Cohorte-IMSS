@@ -1,6 +1,8 @@
 package imss.gob.mx.cohorte.application;
 
 import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.modules.usuarios.role.Role;
+import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
@@ -15,6 +17,8 @@ import java.util.List;
 public class UserApplicationService {
     private final UserService userService;
     private final PersonaService personaService;
+    private final RoleRepository roleRepository;
+
 
     @Transactional
     public List<BeanUser> findAllUser() {
@@ -39,6 +43,8 @@ public class UserApplicationService {
     @Transactional
     public BeanUser saveUser(BeanUser beanUser) {
         Persona savePersona = personaService.createPerson(beanUser.getPersona());
+        Role findRole =  roleRepository.findByRole("USER").get();
+        beanUser.setRol(findRole);
         beanUser.setPersona(savePersona);
         return userService.save(beanUser);
     }

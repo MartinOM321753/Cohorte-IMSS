@@ -1,11 +1,11 @@
 package imss.gob.mx.cohorte.controllers.users.dto;
 
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
+import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+
 import java.util.List;
 
 public class UserMapper {
@@ -57,5 +57,9 @@ public class UserMapper {
 
     public static List<UserResponseDTO> toResponseDTOList(List<BeanUser> list) {
         return list.stream().map(UserMapper::toResponseDTO).toList();
+    }
+
+    public static UsuarioResumenDTO toResumenDTO(BeanUser usuarioRegistro) {
+        return null;
     }
 }

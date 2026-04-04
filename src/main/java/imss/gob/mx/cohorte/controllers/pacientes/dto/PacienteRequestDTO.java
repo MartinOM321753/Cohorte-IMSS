@@ -2,13 +2,13 @@ package imss.gob.mx.cohorte.controllers.pacientes.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class PacienteRequestDTO {
 
     @NotBlank(message = "El folio es obligatorio")
