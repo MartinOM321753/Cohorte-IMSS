@@ -1,8 +1,8 @@
 package imss.gob.mx.cohorte.utils.Exceptions;
 
 import imss.gob.mx.cohorte.utils.APIResponse;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;

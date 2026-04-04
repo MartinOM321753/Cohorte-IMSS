@@ -6,7 +6,7 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,11 +32,11 @@ public class PruebaService {
     }
     @Transactional(rollbackFor = Exception.class)
     public PruebaEscalon create(PruebaEscalon pruebaEscalon){
-        Optional <Paciente> findPatient = pacienteRepository.findByUUID(pruebaEscalon.getPaciente().getUUID());
+        Optional <Paciente> findPatient = pacienteRepository.findByUuid(pruebaEscalon.getPaciente().getUuid());
         Optional <BeanUser> findUser = userRepository.findByUUID(pruebaEscalon.getUsuarioRealiza().getUUID());
 
         if(findPatient.isEmpty()){throw new ObjNotFoundException("No se encontro el paciente");}
-        if(findUser.get().getActivo()){throw new ObjNotFoundException("El Usuario no puede realizar esta accion");}
+        if(!findUser.get().getActivo()){throw new ObjNotFoundException("El Usuario no puede realizar esta accion");}
 
         pruebaEscalon.setFechaRegistro(LocalDateTime.now());
         pruebaEscalon.setFechaActualizacion(LocalDateTime.now());
@@ -47,7 +47,7 @@ public class PruebaService {
     public PruebaEscalon update(PruebaEscalon pruebaEscalon){
         Optional<PruebaEscalon> pruebaEscalonBD = pruebaEscalonRepository.findById(pruebaEscalon.getId());
         if (pruebaEscalonBD.isEmpty()){throw new ObjNotFoundException("No se encontro el prueba escalon");}
-        Paciente pacienteBD = pacienteRepository.findByUUID(pruebaEscalon.getPaciente().getUUID())
+        Paciente pacienteBD = pacienteRepository.findByUuid(pruebaEscalon.getPaciente().getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
         BeanUser usuarioRealizaBD = userRepository.findByUUID(pruebaEscalon.getUsuarioRealiza().getUUID())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el usuario que realiza la prueba"));

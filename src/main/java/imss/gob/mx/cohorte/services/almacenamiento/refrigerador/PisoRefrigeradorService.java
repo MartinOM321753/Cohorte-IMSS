@@ -2,9 +2,8 @@ package imss.gob.mx.cohorte.services.almacenamiento.refrigerador;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigeradorRepository;
-import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.RefrigeradorRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,17 +11,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class PisoRefrigeradorService {
 
     private final PisoRefrigeradorRepository pisoRefrigeradorRepository;
-    private final RefrigeradorRepository refrigeradorRepository;
+
 
     @Transactional(readOnly = true)
-    public List<PisoRefrigerador> getAllPisos() {
-        return pisoRefrigeradorRepository.findAll();
+    public List<PisoRefrigerador> getAllPisos(Long idRefrigerador) {
+        return pisoRefrigeradorRepository.findAllByRefrigerador_Id(idRefrigerador);
     }
 
     @Transactional(readOnly = true)
@@ -30,14 +30,21 @@ public class PisoRefrigeradorService {
         return pisoRefrigeradorRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con id: " + id));
     }
+    @Transactional(readOnly = true)
+    public PisoRefrigerador getPisoByNumber(String numero) {
+        return pisoRefrigeradorRepository.findByNumeroPiso(numero)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con el numero: " + numero));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PisoRefrigerador> findByNumber(String numero) {
+        return pisoRefrigeradorRepository.findByNumeroPiso(numero);
+    }
 
     @Transactional
     public PisoRefrigerador createPiso(PisoRefrigerador piso) {
-        // Validar existencia del refrigerador
-        Long idRefri = piso.getRefrigerador().getId();
-        Refrigerador refri = refrigeradorRepository.findById(idRefri)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró el refrigerador con id: " + idRefri));
-        piso.setRefrigerador(refri);
+       Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPiso(piso.getNumeroPiso());
+       if (findPiso.isPresent()) {throw new ObjNotFoundException("El piso de refrigerador ya existe");}
         piso.setFechaRegistro(Timestamp.from(Instant.now()));
         piso.setActivo(true);
         return pisoRefrigeradorRepository.save(piso);
@@ -48,21 +55,23 @@ public class PisoRefrigeradorService {
         PisoRefrigerador pisoBD = pisoRefrigeradorRepository.findById(piso.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con id: " + piso.getId()));
 
-        // Validar si cambia el refrigerador asociado
-        if (piso.getRefrigerador() != null) {
-            Long idRefri = piso.getRefrigerador().getId();
-            Refrigerador refri = refrigeradorRepository.findById(idRefri)
-                    .orElseThrow(() -> new ObjNotFoundException("No se encontró el refrigerador con id: " + idRefri));
-            pisoBD.setRefrigerador(refri);
+        if (!pisoBD.getNumeroPiso().equals(piso.getNumeroPiso())) {
+            Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPiso(piso.getNumeroPiso());
+            if (findPiso.isPresent()) {throw new ObjNotFoundException("El piso de refrigerador ya existe");}
+            pisoBD.setNumeroPiso(piso.getNumeroPiso());
+
         }
 
-        pisoBD.setNumeroPiso(piso.getNumeroPiso());
         pisoBD.setFilas(piso.getFilas());
         pisoBD.setColumnas(piso.getColumnas());
         pisoBD.setAltura(piso.getAltura());
         pisoBD.setActivo(piso.getActivo());
-        // fechaRegistro no se actualiza
 
         return pisoRefrigeradorRepository.save(pisoBD);
+    }
+
+    public void deletePiso(Long id) {
+        // Implementación básica para eliminar un piso
+        pisoRefrigeradorRepository.deleteById(id);
     }
 }

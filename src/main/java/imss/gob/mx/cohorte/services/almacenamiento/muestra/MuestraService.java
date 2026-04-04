@@ -9,8 +9,8 @@ import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjConflictException;
-import imss.gob.mx.cohorte.utils.Exceptions.ExceptionsClass.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -44,10 +43,7 @@ public class MuestraService {
     public Muestra create(Muestra muestra) {
 
         // Validar etiqueta única
-        Optional<Muestra> etiquetaExistente = muestraRepository.findAll().stream()
-                .filter(m -> m.getEtiqueta().equalsIgnoreCase(muestra.getEtiqueta()))
-                .findFirst();
-        if (etiquetaExistente.isPresent()) {
+        if (muestraRepository.findByEtiquetaIgnoreCase(muestra.getEtiqueta()).isPresent()) {
             throw new ObjConflictException("La etiqueta de la muestra ya existe");
         }
 
@@ -84,10 +80,7 @@ public class MuestraService {
 
         // Validar si se cambia etiqueta y que sea única
         if (!muestraBD.getEtiqueta().equalsIgnoreCase(muestra.getEtiqueta())) {
-            Optional<Muestra> etiquetaExistente = muestraRepository.findAll().stream()
-                    .filter(m -> m.getEtiqueta().equalsIgnoreCase(muestra.getEtiqueta()))
-                    .findFirst();
-            if (etiquetaExistente.isPresent()) {
+            if (muestraRepository.findByEtiquetaIgnoreCase(muestra.getEtiqueta()).isPresent()) {
                 throw new ObjConflictException("La etiqueta de la muestra ya existe");
             }
             muestraBD.setEtiqueta(muestra.getEtiqueta());
