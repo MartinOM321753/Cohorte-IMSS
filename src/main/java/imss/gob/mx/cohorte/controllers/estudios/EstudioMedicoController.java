@@ -52,7 +52,7 @@ public class EstudioMedicoController {
     })
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
-        List<EstudioMedicoResponseDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
+        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios obtenidos correctamente", HttpStatus.OK, false));
     }
 
@@ -149,6 +149,7 @@ public class EstudioMedicoController {
                 .nombre(t.getNombre())
                 .descripcion(t.getDescripcion())
                 .activo(t.getActivo())
+                .parametroEstudios(t.getParametros())
                 .build())
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio obtenidos correctamente", HttpStatus.OK, false));

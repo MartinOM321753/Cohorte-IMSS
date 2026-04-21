@@ -73,6 +73,7 @@ public class EstudioMapper {
                 .nombre(e.getTipoEstudio().getNombre())
                 .descripcion(e.getTipoEstudio().getDescripcion())
                 .activo(e.getTipoEstudio().getActivo())
+                    .parametroEstudios(e.getTipoEstudio().getParametros())
                 .build();
         }
 
@@ -100,7 +101,22 @@ public class EstudioMapper {
             .build();
     }
 
-    public static List<EstudioMedicoResponseDTO> toResponseDTOList(List<EstudioMedico> list) {
-        return list.stream().map(EstudioMapper::toResponseDTO).collect(Collectors.toList());
+    public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e) {
+
+        return EstudioListRequestDTO.builder()
+                .id(e.getId())
+                .fechaEstudio(e.getFechaEstudio())
+                .paciente(e.getPaciente().getPersona().getNombre()+" "+e.getPaciente().getPersona().getApellidoPaterno()+" "+e.getPaciente().getPersona().getApellidoMaterno())
+                .pacienteuuid(e.getPaciente().getUuid())
+                .usuarioRealiza(e.getUsuarioRealiza().getPersona().getNombre()+" "+e.getUsuarioRealiza().getPersona().getApellidoPaterno()+" "+e.getUsuarioRealiza().getPersona().getApellidoMaterno())
+                .usuarioRealizauuid(e.getUsuarioRealiza().getUUID())
+                .tipoEstudio(e.getTipoEstudio().getNombre())
+                .tipoEstudioid(e.getTipoEstudio().getId())
+                .build();
+    }
+
+
+    public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {
+        return list.stream().map(EstudioMapper::toResponseDTOList).collect(Collectors.toList());
     }
 }

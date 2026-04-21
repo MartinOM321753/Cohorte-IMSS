@@ -25,7 +25,7 @@ public class ResultadoEstudio {
     @Column(name = "valor_texto", length = 255)
     private String valorTexto;
 
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.PERSIST)
     @JsonIgnore
     @JoinColumn(name = "id_estudio", nullable = false)
     private EstudioMedico estudio;

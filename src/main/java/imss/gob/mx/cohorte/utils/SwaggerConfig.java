@@ -14,8 +14,8 @@ public class SwaggerConfig {
     public OpenAPI config() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("API REST de almacenes")
-                        .description("Documentación de los endpoints del servicio de almacenes")
+                        .title("API REST de Cohorte")
+                        .description("Documentación de los endpoints del servicio de Cohorte")
                         .version("V1.0"))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth")) // <<-- Aplica seguridad
                 .components(new Components().addSecuritySchemes("bearerAuth", // <<-- Define esquema

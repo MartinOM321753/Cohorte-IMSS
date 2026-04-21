@@ -33,7 +33,6 @@ public class UserMapper {
         if (user.getPersona() != null) {
             Persona p = user.getPersona();
             personaDTO = PersonaResponseDTO.builder()
-                .id(p.getId())
                 .nombre(p.getNombre())
                 .apellidoPaterno(p.getApellidoPaterno())
                 .apellidoMaterno(p.getApellidoMaterno())
@@ -60,6 +59,6 @@ public class UserMapper {
     }
 
     public static UsuarioResumenDTO toResumenDTO(BeanUser usuarioRegistro) {
-        return null;
+        return new UsuarioResumenDTO().toUserEntity(usuarioRegistro);
     }
 }

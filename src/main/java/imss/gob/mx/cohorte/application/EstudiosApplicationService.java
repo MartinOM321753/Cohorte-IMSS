@@ -90,10 +90,10 @@ public class EstudiosApplicationService {
 
 
     private void resolveRelaciones(EstudioMedico estudioMedico) {
-        if (estudioMedico.getPaciente() == null || estudioMedico.getPaciente().getId() == null) {
+        if (estudioMedico.getPaciente() == null || estudioMedico.getPaciente().getUuid() == null) {
             throw new ObjNotFoundException("Falta información de paciente");
         }
-        if (estudioMedico.getUsuarioRealiza() == null || estudioMedico.getUsuarioRealiza().getId() == null) {
+        if (estudioMedico.getUsuarioRealiza() == null || estudioMedico.getUsuarioRealiza().getUUID() == null) {
             throw new ObjNotFoundException("Falta información de usuario");
         }
         if (estudioMedico.getTipoEstudio() == null || estudioMedico.getTipoEstudio().getId() == null) {
