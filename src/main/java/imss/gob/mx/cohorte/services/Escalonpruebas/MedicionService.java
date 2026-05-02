@@ -18,28 +18,27 @@ public class MedicionService {
     private final PruebaEscalonMedicionRepository medicionRepository;
     private final PruebaEscalonEtapaRepository etapaRepository;
 
-
     @Transactional(readOnly = true)
-    public PruebaEscalonMedicion getOne(Long id){
-        return medicionRepository.findById(id).orElseThrow(()-> new ObjNotFoundException("No se encontro el valor solicitado"));
-
+    public PruebaEscalonMedicion getOne(Long id) {
+        return medicionRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el valor solicitado"));
     }
+
     @Transactional(readOnly = true)
-    public List<PruebaEscalonMedicion> getAll(){
+    public List<PruebaEscalonMedicion> getAll() {
         return medicionRepository.findAll();
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public PruebaEscalonMedicion create(PruebaEscalonMedicion valor){
+    public PruebaEscalonMedicion create(PruebaEscalonMedicion valor) {
         PruebaEscalonEtapa etapa = etapaRepository.findById(valor.getEtapa().getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro la etapa asociada"));
         valor.setEtapa(etapa);
-
         return medicionRepository.save(valor);
-
     }
+
     @Transactional(rollbackFor = Exception.class)
-    public PruebaEscalonMedicion update(PruebaEscalonMedicion valor){
+    public PruebaEscalonMedicion update(PruebaEscalonMedicion valor) {
         PruebaEscalonMedicion medicion = medicionRepository.findById(valor.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el valor asociado"));
 
@@ -47,15 +46,14 @@ public class MedicionService {
         medicion.setValor(valor.getValor());
         medicion.setUnidad(valor.getUnidad());
 
-        return medicionRepository.save(valor);
-
+        return medicionRepository.save(medicion);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public PruebaEscalonMedicion delete(Long id){
-        PruebaEscalonMedicion medicion = medicionRepository.findById(id).orElseThrow(() -> new ObjNotFoundException("No se encontro el valor asociado"));
+    public PruebaEscalonMedicion delete(Long id) {
+        PruebaEscalonMedicion medicion = medicionRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el valor asociado"));
         medicionRepository.deleteById(id);
         return medicion;
     }
-
 }

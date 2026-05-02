@@ -25,4 +25,5 @@ public class EstudioMedicoResponseDTO {
     private UsuarioResumenDTO usuarioRealiza;
     private TipoEstudioResponseDTO tipoEstudio;
     private List<ResultadoEstudioResponseDTO> resultados;
+    private List<EstudioAdjuntoResponseDTO> adjuntos;
 }

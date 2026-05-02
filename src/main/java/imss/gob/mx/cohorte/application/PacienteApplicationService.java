@@ -21,14 +21,17 @@ public class PacienteApplicationService {
     public List<Paciente> getAll() {
         return pacienteService.findAll();
     }
+
     @Transactional(readOnly = true)
     public List<Paciente> getActivos() {
         return pacienteService.findAllStatus(true);
     }
+
     @Transactional
     public List<Paciente> findAll(Paciente paciente) {
         return pacienteService.findAll();
     }
+
     @Transactional
     public List<Paciente> findAllActive(Paciente paciente) {
         return pacienteService.findAllStatus(true);
@@ -49,7 +52,9 @@ public class PacienteApplicationService {
     }
 
     @Transactional
-    public Paciente findByFolio(String folio) {return pacienteService.getByFolio(folio);}
+    public Paciente findByFolio(String folio) {
+        return pacienteService.getByFolio(folio);
+    }
 
     @Transactional
     public Paciente saveUser(Paciente paciente) {
@@ -60,10 +65,10 @@ public class PacienteApplicationService {
 
     @Transactional
     public Paciente updateUser(Paciente paciente) {
-        Persona updatePersona = personaService.createPerson(paciente.getPersona());
+        Paciente existing = pacienteService.getPatient(paciente.getId());
+        paciente.getPersona().setId(existing.getPersona().getId());
+        Persona updatePersona = personaService.update(paciente.getPersona());
         paciente.setPersona(updatePersona);
         return pacienteService.updatePatient(paciente);
     }
-
-
 }

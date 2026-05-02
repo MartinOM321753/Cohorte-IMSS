@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.ResultadoService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,14 +51,14 @@ public class GestionEstudiosApplicationService {
     @Transactional
     public ParametroEstudio createParametro(ParametroEstudio parametroEstudio) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
-        if (tipoEstudio == null) throw new RuntimeException("No se encontro el tipo de estudio");
+        if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
         return parametroService.create(parametroEstudio);
     }
     @Transactional
     public ParametroEstudio updateParametro(ParametroEstudio parametroEstudio) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
-        if (tipoEstudio == null) throw new RuntimeException("No se encontro el tipo de estudio");
+        if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
         return parametroService.update(parametroEstudio);
     }

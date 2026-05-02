@@ -1,9 +1,9 @@
 package imss.gob.mx.cohorte.modules.estudios;
 
 
+import imss.gob.mx.cohorte.modules.estudios.adjuntos.EstudioAdjunto;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
-import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
@@ -41,8 +41,13 @@ public class EstudioMedico {
     @JoinColumn(name = "id_tipo_estudio", nullable = false)
     private TipoEstudio tipoEstudio;
 
-    @OneToMany(mappedBy = "estudio")
+    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("grupoCodigo ASC, ordenResultado ASC, id ASC")
     private List<ResultadoEstudio> resultadoEstudio;
+
+    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orden ASC, id ASC")
+    private List<EstudioAdjunto> adjuntos;
 
     @ManyToOne
     @JoinColumn(name = "id_usuario_realiza", nullable = false)

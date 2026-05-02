@@ -36,7 +36,9 @@ public class UserService {
     public BeanUser getByUUID(String idUser) {
         BeanUser findUser = userRepository.findByUUID(idUser)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el usuario"));
-        if (!findUser.getActivo()) throw new ObjNotFoundException("El usuario no esta activo");
+        if (!findUser.getActivo()) {
+            throw new ObjNotFoundException("El usuario no esta activo");
+        }
         return findUser;
     }
 
@@ -50,11 +52,9 @@ public class UserService {
 
     @Transactional
     public BeanUser save(BeanUser beanUser) {
-
         if (userRepository.findByUsername(beanUser.getUsername()).isPresent()) {
             throw new ObjConflictException("El nombre de usuario ya existe");
         }
-
 
         beanUser.setPassword(passwordEncoder.encode(beanUser.getPassword()));
         beanUser.setFechaCreacion(LocalDateTime.now());
@@ -65,19 +65,22 @@ public class UserService {
     @Transactional
     public BeanUser updateUser(BeanUser beanUser) {
         BeanUser beanUserBD = userRepository.findById(beanUser.getId())
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró el usuario"));
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el usuario"));
 
-        if (!beanUser.getUsername().equals(beanUserBD.getUsername())) {
-            if (userRepository.findByUsername(beanUser.getUsername()).isPresent()) {
-                throw new ObjConflictException("El nombre de usuario ya existe");
-            }
-            beanUserBD.setUsername(beanUser.getUsername());
+        if (!beanUser.getUsername().equals(beanUserBD.getUsername())
+                && userRepository.findByUsername(beanUser.getUsername()).isPresent()) {
+            throw new ObjConflictException("El nombre de usuario ya existe");
         }
+
+        beanUserBD.setUsername(beanUser.getUsername());
         if (!passwordEncoder.matches(beanUser.getPassword(), beanUserBD.getPassword())) {
             beanUserBD.setPassword(passwordEncoder.encode(beanUser.getPassword()));
         }
-
-        beanUserBD.setActivo(beanUser.getActivo());
+        beanUserBD.setPersona(beanUser.getPersona());
+        beanUserBD.setRol(beanUser.getRol());
+        if (beanUser.getActivo() != null) {
+            beanUserBD.setActivo(beanUser.getActivo());
+        }
         beanUserBD.setFechaActualizacion(LocalDateTime.now());
 
         return userRepository.save(beanUserBD);

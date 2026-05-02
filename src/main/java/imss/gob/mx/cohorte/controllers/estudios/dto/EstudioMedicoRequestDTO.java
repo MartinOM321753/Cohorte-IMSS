@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.estudios.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -28,5 +29,9 @@ public class EstudioMedicoRequestDTO {
 
     private String observaciones;
 
+    @Valid
     private List<ResultadoEstudioRequestDTO> resultados;
+
+    @Valid
+    private List<EstudioAdjuntoRequestDTO> adjuntos;
 }

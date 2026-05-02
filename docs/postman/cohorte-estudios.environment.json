@@ -1,0 +1,45 @@
+{
+  "name": "Cohorte Estudios Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "enabled": true
+    },
+    {
+      "key": "username",
+      "value": "admin",
+      "enabled": true
+    },
+    {
+      "key": "password",
+      "value": "password123",
+      "enabled": true
+    },
+    {
+      "key": "token",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "pacienteUUID",
+      "value": "REEMPLAZAR_PACIENTE_UUID",
+      "enabled": true
+    },
+    {
+      "key": "usuarioUUID",
+      "value": "REEMPLAZAR_USUARIO_UUID",
+      "enabled": true
+    },
+    {
+      "key": "tipoEstudioId",
+      "value": "REEMPLAZAR_TIPO_ESTUDIO_ID",
+      "enabled": true
+    },
+    {
+      "key": "fechaEstudio",
+      "value": "2026-04-20",
+      "enabled": true
+    }
+  ]
+}
