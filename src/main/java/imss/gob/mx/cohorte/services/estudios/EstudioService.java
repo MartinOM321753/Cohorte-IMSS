@@ -26,6 +26,11 @@ public class EstudioService {
         return estudioMedicoRepository.findAllByOrderByFechaEstudioDesc();
     }
 
+    @Transactional(readOnly = true)
+    public List<EstudioMedico> getAllByPacienteUUID(String uuid) {
+        return estudioMedicoRepository.findAllByPaciente_UuidOrderByFechaEstudioDesc(uuid);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public EstudioMedico create(EstudioMedico estudioMedico) {
         if (estudioMedico.getFechaRegistro() == null) {

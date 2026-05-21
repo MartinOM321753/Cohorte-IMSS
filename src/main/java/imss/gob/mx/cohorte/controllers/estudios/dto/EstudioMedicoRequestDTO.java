@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.Valid;
 import lombok.*;
 
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -31,7 +32,4 @@ public class EstudioMedicoRequestDTO {
 
     @Valid
     private List<ResultadoEstudioRequestDTO> resultados;
-
-    @Valid
-    private List<EstudioAdjuntoRequestDTO> adjuntos;
 }

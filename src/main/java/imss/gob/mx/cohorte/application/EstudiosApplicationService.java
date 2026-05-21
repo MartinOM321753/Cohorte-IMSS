@@ -1,7 +1,6 @@
 package imss.gob.mx.cohorte.application;
 
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
-import imss.gob.mx.cohorte.modules.estudios.adjuntos.EstudioAdjunto;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
@@ -15,16 +14,17 @@ import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class EstudiosApplicationService {
@@ -48,10 +48,14 @@ public class EstudiosApplicationService {
         return estudioService.getOne(id);
     }
 
+    @Transactional(readOnly = true)
+    public List<EstudioMedico> getEstudiosByPaciente(String uuid) {
+        return estudioService.getAllByPacienteUUID(uuid);
+    }
+
     @Transactional
     public EstudioMedico createEstudio(EstudioMedico estudioMedico) {
         resolveRelaciones(estudioMedico);
-        estudioMedico.setFechaRegistro(LocalDateTime.now());
         return estudioService.create(estudioMedico);
     }
 
@@ -67,7 +71,6 @@ public class EstudiosApplicationService {
         existente.setObservaciones(estudioMedico.getObservaciones());
 
         replaceResultados(existente, estudioMedico.getResultadoEstudio());
-        replaceAdjuntos(existente, estudioMedico.getAdjuntos());
 
         return estudioService.update(existente);
     }
@@ -82,13 +85,12 @@ public class EstudiosApplicationService {
         if (estudioMedico.getTipoEstudio() == null || estudioMedico.getTipoEstudio().getId() == null) {
             throw new ObjNotFoundException("Falta informacion de tipo de estudio");
         }
-
+        System.out.println("USUARIO REALIZA= " + estudioMedico.getUsuarioRealiza().getUUID());
         Paciente paciente = pacienteService.getByUUID(estudioMedico.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(estudioMedico.getUsuarioRealiza().getUUID());
         TipoEstudio tipoEstudio = tipoEstudioService.getOne(estudioMedico.getTipoEstudio().getId());
 
         resolveResultados(estudioMedico, tipoEstudio);
-        resolveAdjuntos(estudioMedico);
 
         estudioMedico.setPaciente(paciente);
         estudioMedico.setUsuarioRealiza(usuario);
@@ -131,26 +133,6 @@ public class EstudiosApplicationService {
         }
     }
 
-    private void resolveAdjuntos(EstudioMedico estudioMedico) {
-        if (estudioMedico.getAdjuntos() == null || estudioMedico.getAdjuntos().isEmpty()) {
-            estudioMedico.setAdjuntos(new ArrayList<>());
-            return;
-        }
-
-        Set<Integer> ordenes = new HashSet<>();
-        for (EstudioAdjunto adjunto : estudioMedico.getAdjuntos()) {
-            if (!ordenes.add(adjunto.getOrden())) {
-                throw new ObjConflictException("No se permiten adjuntos con el mismo orden");
-            }
-            adjunto.setTipo(adjunto.getTipo().trim());
-            adjunto.setNombreOriginal(adjunto.getNombreOriginal().trim());
-            adjunto.setMimeType(adjunto.getMimeType().trim());
-            adjunto.setRutaUrl(adjunto.getRutaUrl().trim());
-            adjunto.setDescripcion(adjunto.getDescripcion() == null ? null : adjunto.getDescripcion().trim());
-            adjunto.setEstudio(estudioMedico);
-        }
-    }
-
     private void replaceResultados(EstudioMedico estudio, List<ResultadoEstudio> nuevosResultados) {
         if (estudio.getResultadoEstudio() == null) {
             estudio.setResultadoEstudio(new ArrayList<>());
@@ -163,21 +145,6 @@ public class EstudiosApplicationService {
             resultado.setId(null);
             resultado.setEstudio(estudio);
             estudio.getResultadoEstudio().add(resultado);
-        }
-    }
-
-    private void replaceAdjuntos(EstudioMedico estudio, List<EstudioAdjunto> nuevosAdjuntos) {
-        if (estudio.getAdjuntos() == null) {
-            estudio.setAdjuntos(new ArrayList<>());
-        }
-        estudio.getAdjuntos().clear();
-        if (nuevosAdjuntos == null) {
-            return;
-        }
-        for (EstudioAdjunto adjunto : nuevosAdjuntos) {
-            adjunto.setId(null);
-            adjunto.setEstudio(estudio);
-            estudio.getAdjuntos().add(adjunto);
         }
     }
 

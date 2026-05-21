@@ -9,4 +9,6 @@ import java.util.List;
 public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Long> {
 
     List<EstudioMedico> findAllByOrderByFechaEstudioDesc();
+
+    List<EstudioMedico> findAllByPaciente_UuidOrderByFechaEstudioDesc(String uuid);
 }

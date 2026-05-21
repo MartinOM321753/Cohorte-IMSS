@@ -5,7 +5,6 @@ import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
-import imss.gob.mx.cohorte.modules.estudios.adjuntos.EstudioAdjunto;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
@@ -60,24 +59,6 @@ public class EstudioMapper {
             estudio.setResultadoEstudio(new ArrayList<>());
         }
 
-        if (dto.getAdjuntos() != null && !dto.getAdjuntos().isEmpty()) {
-            List<EstudioAdjunto> adjuntos = dto.getAdjuntos().stream()
-                    .map(a -> {
-                        EstudioAdjunto adjunto = new EstudioAdjunto();
-                        adjunto.setTipo(a.getTipo());
-                        adjunto.setNombreOriginal(a.getNombreOriginal());
-                        adjunto.setMimeType(a.getMimeType());
-                        adjunto.setRutaUrl(a.getRutaUrl());
-                        adjunto.setDescripcion(a.getDescripcion());
-                        adjunto.setOrden(a.getOrden());
-                        return adjunto;
-                    })
-                    .collect(Collectors.toList());
-            estudio.setAdjuntos(adjuntos);
-        } else {
-            estudio.setAdjuntos(new ArrayList<>());
-        }
-
         return estudio;
     }
 
@@ -112,21 +93,6 @@ public class EstudioMapper {
                     .collect(Collectors.toList());
         }
 
-        List<EstudioAdjuntoResponseDTO> adjuntosDTO = null;
-        if (e.getAdjuntos() != null) {
-            adjuntosDTO = e.getAdjuntos().stream()
-                    .map(a -> EstudioAdjuntoResponseDTO.builder()
-                            .id(a.getId())
-                            .tipo(a.getTipo())
-                            .nombreOriginal(a.getNombreOriginal())
-                            .mimeType(a.getMimeType())
-                            .rutaUrl(a.getRutaUrl())
-                            .descripcion(a.getDescripcion())
-                            .orden(a.getOrden())
-                            .build())
-                    .collect(Collectors.toList());
-        }
-
         return EstudioMedicoResponseDTO.builder()
                 .id(e.getId())
                 .observaciones(e.getObservaciones())
@@ -136,7 +102,6 @@ public class EstudioMapper {
                 .usuarioRealiza(usuarioDTO)
                 .tipoEstudio(tipoDTO)
                 .resultados(resultadosDTO)
-                .adjuntos(adjuntosDTO)
                 .build();
     }
 
