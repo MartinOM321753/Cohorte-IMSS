@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cita cancelada</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+
+          <!-- Cabecera -->
+          <tr>
+            <td style="background:#dc2626;padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">
+                Cita Cancelada
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Cuerpo -->
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;font-size:16px;color:#374151;">
+                Hola, <strong th:text="${nombre}">Nombre Apellido</strong>
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+                Te informamos que la siguiente cita ha sido <strong style="color:#dc2626;">cancelada</strong>:
+              </p>
+
+              <!-- Tarjeta de cita -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#fff5f5;border-left:4px solid #dc2626;border-radius:4px;opacity:.85;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 10px;font-size:14px;color:#374151;text-decoration:line-through;">
+                      📅 <strong>Fecha</strong><br>
+                      <span th:text="${fecha}">lunes 26 de mayo de 2025</span>
+                    </p>
+                    <p style="margin:0;font-size:14px;color:#374151;text-decoration:line-through;">
+                      ⏰ <strong>Hora</strong><br>
+                      <span th:text="${hora + ' hrs'}">10:00 hrs</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:28px 0 0;font-size:15px;color:#374151;">
+                Si deseas agendar una nueva cita, comunícate con nosotros.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pie -->
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Este es un mensaje automático. Por favor no respondas a este correo.<br>
+                Sistema de Cohorte — IMSS
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
