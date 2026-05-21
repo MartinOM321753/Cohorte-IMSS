@@ -38,7 +38,7 @@ public class JWTUtils {
         return claimsResolver.apply(extractAllClaims(token));
     }
 
-    public String extractUsername(String token) {
+    public String extractUserUuid(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -51,7 +51,7 @@ public class JWTUtils {
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
+        final String username = extractUserUuid(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
@@ -67,9 +67,13 @@ public class JWTUtils {
 
     public String generateToken(BeanUser beanUser) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("uuid", beanUser.getUUID());
-        claims.put("id", beanUser.getId());
+        String fullName = beanUser.getPersona().getNombre() + " " + beanUser.getPersona().getApellidoPaterno();
+        if (beanUser.getPersona().getApellidoMaterno() != null && !beanUser.getPersona().getApellidoMaterno().isEmpty()) {
+            fullName += " " + beanUser.getPersona().getApellidoMaterno();
+        }
+        claims.put("name", fullName);
         claims.put("activo", beanUser.getActivo());
-        return createToken(claims, beanUser.getUsername());
+        claims.put("role", beanUser.getRol().getRole());
+        return createToken(claims, beanUser.getUUID());
     }
 }
