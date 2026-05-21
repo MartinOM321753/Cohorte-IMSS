@@ -35,5 +35,8 @@ public class ParametroEstudio {
     @Column(name = "unidad", length = 20)
     private String unidad;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false, length = 10)
+    private TipoParametro tipo;
 
 }

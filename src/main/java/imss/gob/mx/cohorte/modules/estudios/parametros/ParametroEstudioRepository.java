@@ -10,4 +10,6 @@ public interface ParametroEstudioRepository extends JpaRepository<ParametroEstud
     Optional<ParametroEstudio> findByTipoEstudio_IdAndNombreIgnoreCase(Long tipoEstudioId, String nombre);
 
     List<ParametroEstudio> findAllByTipoEstudio_Nombre(String tipoEstudioNombre);
+
+    List<ParametroEstudio> findAllByTipoEstudio_Id(Long tipoEstudioId);
 }

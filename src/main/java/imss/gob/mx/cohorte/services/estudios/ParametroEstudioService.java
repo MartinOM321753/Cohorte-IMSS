@@ -23,6 +23,12 @@ public class ParametroEstudioService {
     }
 
     @Transactional(readOnly = true)
+    public List<ParametroEstudio> getByTipoEstudio(Long tipoEstudioId) {
+        return parametroRepository.findAllByTipoEstudio_Id(tipoEstudioId);
+    }
+
+
+    @Transactional(readOnly = true)
     public ParametroEstudio getOne(Long id) {
         return parametroRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el parametro de estudio"));
@@ -56,6 +62,7 @@ public class ParametroEstudioService {
         parametroDB.setTipoEstudio(parametroEstudio.getTipoEstudio());
         parametroDB.setNombre(parametroEstudio.getNombre());
         parametroDB.setUnidad(parametroEstudio.getUnidad());
+        parametroDB.setTipo(parametroEstudio.getTipo());
 
         return parametroRepository.save(parametroDB);
     }
