@@ -7,19 +7,29 @@ import imss.gob.mx.cohorte.services.almacenamiento.caja.CajaCriojenicaService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
-import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
 public class CajasApplicationService {
 
     private final CajaCriojenicaService cajaCriojenicaService;
     private final PosicionCajaService posicionCajaService;
     private final PosicionPisoService posicionPisoService;
+
+    @Autowired
+    public CajasApplicationService(CajaCriojenicaService cajaCriojenicaService, 
+                                 PosicionCajaService posicionCajaService, 
+                                 PosicionPisoService posicionPisoService) {
+        this.cajaCriojenicaService = cajaCriojenicaService;
+        this.posicionCajaService = posicionCajaService;
+        this.posicionPisoService = posicionPisoService;
+    }
 
     @Transactional(readOnly = true)
     public List<CajaCriogenica> getAllCajas() {
@@ -41,6 +51,10 @@ public class CajasApplicationService {
             caja.setPosicionPiso(posicion);
         }
         CajaCriogenica saved = cajaCriojenicaService.create(caja);
+        
+        // Generar posiciones automáticamente
+        posicionCajaService.generarPosicionesParaCaja(saved.getId());
+
         if (idPosicionPiso != null) {
             marcarPosicionPisoOcupada(idPosicionPiso, true);
         }
@@ -64,6 +78,51 @@ public class CajasApplicationService {
             }
             marcarPosicionPisoOcupada(idPosicionNueva, true);
         }
+
+        int nuevasFilas = caja.getFilas() != null ? caja.getFilas() : cajaBD.getFilas();
+        int nuevasColumnas = caja.getColumnas() != null ? caja.getColumnas() : cajaBD.getColumnas();
+        boolean cambiaronDimensiones = (nuevasFilas != cajaBD.getFilas() || nuevasColumnas != cajaBD.getColumnas());
+
+        if (cambiaronDimensiones) {
+            List<PosicionCaja> todasPosiciones = posicionCajaService.getPositionsByCaja(id);
+
+            List<PosicionCaja> afectadas = todasPosiciones.stream()
+                .filter(p -> p.getOcupada() && (p.getFila() > nuevasFilas || p.getColumna() > nuevasColumnas))
+                .toList();
+
+            if (!afectadas.isEmpty()) {
+                String detalles = afectadas.stream()
+                    .map(p -> "Fila " + p.getFila() + " Col " + p.getColumna())
+                    .collect(Collectors.joining(", "));
+                throw new ObjConflictException(
+                    "No se puede actualizar la caja: posiciones ocupadas fuera del nuevo rango " +
+                    nuevasFilas + "x" + nuevasColumnas + " → " + detalles);
+            }
+
+            List<PosicionCaja> aEliminar = todasPosiciones.stream()
+                .filter(p -> p.getFila() > nuevasFilas || p.getColumna() > nuevasColumnas)
+                .toList();
+            posicionCajaService.deletePositions(aEliminar);
+
+            caja.setId(id);
+            CajaCriogenica cajaActualizada = cajaCriojenicaService.update(caja);
+
+            Set<String> existentes = todasPosiciones.stream()
+                .filter(p -> p.getFila() <= nuevasFilas && p.getColumna() <= nuevasColumnas)
+                .map(p -> p.getFila() + "-" + p.getColumna())
+                .collect(Collectors.toSet());
+
+            for (int f = 1; f <= nuevasFilas; f++) {
+                for (int c = 1; c <= nuevasColumnas; c++) {
+                    if (!existentes.contains(f + "-" + c)) {
+                        posicionCajaService.crearPosicionSiNoExiste(cajaActualizada, f, c);
+                    }
+                }
+            }
+
+            return cajaActualizada;
+        }
+
         caja.setId(id);
         return cajaCriojenicaService.update(caja);
     }

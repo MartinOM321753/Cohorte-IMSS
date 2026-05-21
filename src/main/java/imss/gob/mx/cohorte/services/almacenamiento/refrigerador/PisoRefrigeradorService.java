@@ -2,7 +2,6 @@ package imss.gob.mx.cohorte.services.almacenamiento.refrigerador;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigeradorRepository;
-import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.RefrigeradorRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

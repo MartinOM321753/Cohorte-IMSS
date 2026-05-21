@@ -2,7 +2,6 @@ package imss.gob.mx.cohorte.modules.almacenamiento.refrigerador;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PisoRefrigeradorService;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
@@ -18,7 +17,7 @@ public class PisoRefrigerador {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_piso")
-    private Long Id;
+    private Long id;
 
     @ManyToOne
     @JsonIgnore
