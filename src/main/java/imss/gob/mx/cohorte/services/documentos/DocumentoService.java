@@ -10,6 +10,9 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -262,9 +265,26 @@ public class DocumentoService {
         return prefix + "/" + UUID.randomUUID() + "-" + sanitized;
     }
 
+    // ─── Helper: rol del usuario actual ─────────────────────────────────────────
+
+    private String getCurrentRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return "";
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.substring(5))
+                .findFirst()
+                .orElse("");
+    }
+
     private DocumentoResponseDTO toDTO(Documento doc) {
         // No se expone URL firmada de MinIO. El acceso a archivos va por
         // GET /api/documentos/{id}/download (requiere JWT válido).
+        // puedeDescargar se calcula en tiempo de respuesta según el rol activo,
+        // de modo que el frontend pueda ocultar los botones sin necesitar otra llamada.
+        boolean puedeDescargar = permisosConfig.puedeVer(getCurrentRole(), doc.getTipoEntidad());
+
         return DocumentoResponseDTO.builder()
                 .id(doc.getId())
                 .nombreOriginal(doc.getNombreOriginal())
@@ -273,6 +293,8 @@ public class DocumentoService {
                 .descripcion(doc.getDescripcion())
                 .fechaSubida(doc.getFechaSubida())
                 .subidoPorUUID(doc.getSubidoPorUUID())
+                .tipoEntidad(doc.getTipoEntidad() != null ? doc.getTipoEntidad().name() : null)
+                .puedeDescargar(puedeDescargar)
                 .url(null) // acceso controlado vía endpoint autenticado
                 .build();
     }

@@ -15,6 +15,14 @@ public class DocumentoResponseDTO {
     private String descripcion;
     private LocalDateTime fechaSubida;
     private String subidoPorUUID;
+    /** Tipo de entidad al que pertenece (ESTUDIO, MUESTRA, PACIENTE_CONSENTIMIENTO, PACIENTE_GENERAL). */
+    private String tipoEntidad;
+    /**
+     * Indica si el usuario autenticado que recibe esta respuesta tiene permiso
+     * para descargar / visualizar el contenido del archivo.
+     * El frontend usa este campo para mostrar u ocultar los botones de acción.
+     */
+    private boolean puedeDescargar;
     /** URL firmada temporal de MinIO para descargar/visualizar el archivo. */
     private String url;
 }

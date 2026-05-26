@@ -7,6 +7,7 @@ import imss.gob.mx.cohorte.modules.documentos.TipoDocumentoPaciente;
 import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
 import imss.gob.mx.cohorte.services.documentos.DocumentoService;
 import imss.gob.mx.cohorte.utils.APIResponse;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.MinioUnavailableException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -123,16 +124,19 @@ public class DocumentoController {
 
     // ─── Consulta ────────────────────────────────────────────────────────────────
 
+    // ── Listado de documentos — metadata visible para todos los roles autenticados ──
+    // La autorización para descargar el contenido se refleja en el campo
+    // `puedeDescargar` de cada DocumentoResponseDTO y se aplica también en el
+    // endpoint /download (doble capa de seguridad).
+
     @GetMapping("/estudio/{estudioId}")
     public ResponseEntity<APIResponse> getByEstudio(@PathVariable Long estudioId) {
-        documentoService.verificarPuedeVer(getCurrentRole(), TipoEntidadDocumento.ESTUDIO);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByEstudio(estudioId);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
 
     @GetMapping("/paciente/{uuid}")
     public ResponseEntity<APIResponse> getByPaciente(@PathVariable String uuid) {
-        documentoService.verificarPuedeVer(getCurrentRole(), TipoEntidadDocumento.PACIENTE_GENERAL);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPaciente(uuid);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -142,17 +146,12 @@ public class DocumentoController {
             @PathVariable String uuid,
             @PathVariable TipoDocumentoPaciente tipoDoc
     ) {
-        TipoEntidadDocumento tipoEntidadVer = tipoDoc == TipoDocumentoPaciente.CONSENTIMIENTO
-                ? TipoEntidadDocumento.PACIENTE_CONSENTIMIENTO
-                : TipoEntidadDocumento.PACIENTE_GENERAL;
-        documentoService.verificarPuedeVer(getCurrentRole(), tipoEntidadVer);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPacienteYTipo(uuid, tipoDoc);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
 
     @GetMapping("/muestra/{muestraId}")
     public ResponseEntity<APIResponse> getByMuestra(@PathVariable Long muestraId) {
-        documentoService.verificarPuedeVer(getCurrentRole(), TipoEntidadDocumento.MUESTRA);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByMuestra(muestraId);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -170,12 +169,24 @@ public class DocumentoController {
      * Descarga un archivo pasando el contenido a través del backend.
      * Requiere JWT válido — MinIO nunca queda expuesto directamente al cliente.
      * Soporta tanto descarga (attachment) como visualización inline (inline).
+     * <p>
+     * Si MinIO no está disponible lanza {@link MinioUnavailableException} ANTES de
+     * fijar el Content-Type del archivo; el GlobalExceptionHandler la convierte en
+     * un 503 JSON limpio sin conflicto de serialización.
      */
     @GetMapping("/{id}/download")
     public ResponseEntity<StreamingResponseBody> download(
             @PathVariable Long id,
             @RequestParam(value = "inline", defaultValue = "false") boolean inline
     ) {
+        // ── Verificar MinIO ANTES de fijar Content-Type del archivo ─────────────
+        // Lanzar excepción (no retornar ResponseEntity) para que el tipo de retorno
+        // siga siendo ResponseEntity<StreamingResponseBody> y Spring resuelva el
+        // converter correcto en el camino feliz.
+        if (!minioStorageService.isAvailable()) {
+            throw new MinioUnavailableException();
+        }
+
         Documento doc = documentoService.getDocumentoById(id);
         documentoService.verificarPuedeVer(getCurrentRole(), doc.getTipoEntidad());
 
