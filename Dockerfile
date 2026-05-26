@@ -1,23 +1,23 @@
-#FROM openjdk:21-ea-1-jdk-slim
-#ARG JAR_FILE=target/cohorte_test-0.0.1-SNAPSHOT.jar
-#COPY ${JAR_FILE} cohorte_test.jar
-#EXPOSE 8080
-#ENTRYPOINT ["java", "-jar", "cohorte_test.jar"]
-
-
-FROM maven:3.9.9-eclipse-temurin-21
+# ── Stage 1: Build ──────────────────────────────────────────────────────────
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
 WORKDIR /app
 
-# Copiar toda la estructura del proyecto al directorio de trabajo
-COPY . .
+# Copiar solo el pom primero para cachear dependencias
+COPY pom.xml .
+RUN mvn dependency:go-offline -q
 
-# Esto generara el jar y cambia el nombre del jar a app.jar
-RUN mvn clean package -DskipTests && cp target/*.jar app.jar
+# Copiar fuentes y compilar
+COPY src ./src
+RUN mvn clean package -Dmaven.test.skip=true -q && mv target/*.jar app.jar
 
-# Exponer el en puerto 8080 del contenedor
+# ── Stage 2: Runtime ─────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/app.jar app.jar
+
 EXPOSE 8080
 
-# java -jar app.jar
-
-ENTRYPOINT [ "java", "-jar", "app.jar" ]
+ENTRYPOINT ["java", "-jar", "app.jar"]

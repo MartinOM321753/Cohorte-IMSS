@@ -25,8 +25,10 @@ public class InitialConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        Role rolAdmin = ensureRole("ADMIN");
-        ensureRole("USER");
+        Role rolAdmin = ensureRole("ADMINISTRADOR");
+        ensureRole("RECEPCIONISTA");
+        ensureRole("MEDICO");
+        ensureRole("LABORATORISTA");
 
         if (userRepository.findByUsername("admin").isPresent()) {
             return;

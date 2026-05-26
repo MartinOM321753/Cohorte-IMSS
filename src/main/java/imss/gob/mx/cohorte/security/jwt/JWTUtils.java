@@ -74,6 +74,8 @@ public class JWTUtils {
         claims.put("name", fullName);
         claims.put("activo", beanUser.getActivo());
         claims.put("role", beanUser.getRol().getRole());
+        // Indica al frontend si debe forzar cambio de contraseña en el primer login
+        claims.put("mustChangePassword", Boolean.TRUE.equals(beanUser.getDebeResetear()));
         return createToken(claims, beanUser.getUUID());
     }
 }
