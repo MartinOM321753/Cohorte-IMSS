@@ -2,7 +2,10 @@ package imss.gob.mx.cohorte.controllers.auth;
 
 
 import imss.gob.mx.cohorte.application.AuthApplicationService;
+import imss.gob.mx.cohorte.controllers.auth.dto.ForgotPasswordRequestDTO;
 import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
+import imss.gob.mx.cohorte.controllers.auth.dto.ResetPasswordRequestDTO;
+import imss.gob.mx.cohorte.services.auth.PasswordResetService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Controlador de Autenticación", description = "Operaciones relacionadas con autenticación y registro de usuarios")
 public class AuthController {
     private final AuthApplicationService authService;
+    private final PasswordResetService passwordResetService;
 
 
     @PostMapping("/login")
@@ -59,9 +63,42 @@ public class AuthController {
 
 
 
-  /*  @GetMapping("/forgotPassword")
-    public ResponseEntity<APIResponse> forgotPassword(@RequestParam String email) {
-        APIResponse response = authService.forwardPassword(email);
-        return new ResponseEntity<>(response, response.getStatus());
-    }*/
+    // ── Recuperación de contraseña ─────────────────────────────────────────────
+
+    /**
+     * Paso 1: el usuario ingresa su correo. Si existe, se envía un email con un
+     * enlace temporal válido 15 minutos. Siempre responde con el mismo mensaje
+     * para no revelar si el email está registrado.
+     * Límite: 1 solicitud por hora por cuenta.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<APIResponse> forgotPassword(
+            @jakarta.validation.Valid @RequestBody ForgotPasswordRequestDTO body) {
+        passwordResetService.solicitarReset(body.email());
+        return ResponseEntity.ok(new APIResponse(
+                "Si el correo está registrado recibirás un enlace en los próximos minutos.",
+                null, false, HttpStatus.OK));
+    }
+
+    /**
+     * Paso 1b (opcional): el frontend puede pre-validar que el token sigue activo
+     * antes de mostrar el formulario de nueva contraseña.
+     */
+    @GetMapping("/reset-password/validate")
+    public ResponseEntity<APIResponse> validateToken(@RequestParam String token) {
+        passwordResetService.validarToken(token);
+        return ResponseEntity.ok(new APIResponse("Token válido.", null, false, HttpStatus.OK));
+    }
+
+    /**
+     * Paso 2: el usuario envía token + nueva contraseña.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<APIResponse> resetPassword(
+            @jakarta.validation.Valid @RequestBody ResetPasswordRequestDTO body) {
+        passwordResetService.resetearPassword(body.token(), body.nuevaPassword());
+        return ResponseEntity.ok(new APIResponse(
+                "Contraseña actualizada correctamente. Ya puedes iniciar sesión.",
+                null, false, HttpStatus.OK));
+    }
 }
