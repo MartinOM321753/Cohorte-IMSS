@@ -12,8 +12,8 @@ public class UserMapper {
 
     public static BeanUser toEntity(UserRequestDTO dto) {
         BeanUser user = new BeanUser();
-        user.setUsername(dto.getUsername());
-        user.setPassword(dto.getPassword());
+        // username se genera automáticamente en UserApplicationService.saveUser()
+        // La contraseña también la genera el sistema ahí mismo
 
         Persona persona = new Persona();
         persona.setNombre(dto.getPersona().getNombre());
@@ -25,8 +25,9 @@ public class UserMapper {
         persona.setEmail(dto.getPersona().getEmail());
         user.setPersona(persona);
 
+        // El UUID del rol se resuelve a la entidad completa en UserApplicationService
         Role role = new Role();
-        role.setId(dto.getIdRol());
+        role.setUuid(dto.getRolUuid());
         user.setRol(role);
 
         return user;
@@ -52,7 +53,9 @@ public class UserMapper {
                 .username(user.getUsername())
                 .UUID(user.getUUID())
                 .activo(user.getActivo())
-                .rol(user.getRol() != null ? user.getRol().getRole() : null)
+                .rol(user.getRol() != null
+                        ? new UserResponseDTO.RolDTO(user.getRol().getUuid(), user.getRol().getRole())
+                        : null)
                 .fechaCreacion(user.getFechaCreacion())
                 .persona(personaDTO)
                 .build();

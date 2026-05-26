@@ -17,7 +17,10 @@ public class UserResponseDTO {
     private String username;
     private String UUID;
     private Boolean activo;
-    private String rol;
+    private RolDTO rol;
     private LocalDateTime fechaCreacion;
     private PersonaResponseDTO persona;
+
+    /** Representación mínima del rol para el frontend (sin exponer PK numérica). */
+    public record RolDTO(String uuid, String nombre) {}
 }

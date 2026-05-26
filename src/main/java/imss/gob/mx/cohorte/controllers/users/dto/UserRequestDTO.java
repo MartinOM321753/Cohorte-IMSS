@@ -11,16 +11,11 @@ import lombok.*;
 @Setter
 public class UserRequestDTO {
 
-    @NotBlank(message = "El username es obligatorio")
-    @Size(min = 4, max = 50, message = "Username entre 4 y 50 caracteres")
-    private String username;
+    // username ya no se recibe del frontend: el backend lo genera automáticamente
+    // a partir de nombre + apellidoPaterno de la persona.
 
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 8, message = "Contraseña mínimo 8 caracteres")
-    private String password;
-
-    @NotNull(message = "El rol es obligatorio")
-    private Long idRol;
+    @NotBlank(message = "El rol es obligatorio")
+    private String rolUuid;
 
     @NotNull(message = "Los datos de persona son obligatorios")
     @Valid

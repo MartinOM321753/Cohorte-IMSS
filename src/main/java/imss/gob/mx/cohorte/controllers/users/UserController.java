@@ -133,6 +133,24 @@ public class UserController {
             .body(new APIResponse("Usuario creado exitosamente", UserMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
 
+    @PatchMapping("/{id}/activo")
+    @Operation(summary = "Activar o desactivar usuario", description = "Invierte el estado activo/inactivo del usuario especificado")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Estado actualizado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> toggleActivo(
+            @Parameter(description = "ID numérico del usuario", required = true)
+            @PathVariable Long id) {
+        BeanUser updated = userApplicationService.toggleActivo(id);
+        String msg = Boolean.TRUE.equals(updated.getActivo()) ? "Usuario activado" : "Usuario desactivado";
+        return ResponseEntity.ok(new APIResponse(msg, UserMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar usuario", description = "Actualiza los datos de un usuario existente identificado por su ID numérico")
     @ApiResponses(value = {
