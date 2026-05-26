@@ -1,7 +1,6 @@
 package imss.gob.mx.cohorte.services.notificaciones;
 
 import imss.gob.mx.cohorte.infrastructure.email.EmailService;
-import imss.gob.mx.cohorte.infrastructure.whatsapp.EvolutionApiClient;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.modules.notificaciones.CanalNotificacion;
 import imss.gob.mx.cohorte.modules.notificaciones.NotificacionCita;
@@ -20,7 +19,6 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.thymeleaf.context.Context;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,7 +30,6 @@ import java.util.Locale;
 public class CitaNotificacionService {
 
     private final EmailService emailService;
-    private final EvolutionApiClient whatsAppClient;
     private final NotificacionCitaRepository notificacionRepo;
 
     private static final ZoneId ZONA_MX =
@@ -80,7 +77,6 @@ public class CitaNotificacionService {
         int    duracion = cita.getDurationMinutes() != null ? cita.getDurationMinutes() : 60;
 
         enviarEmail(cita, tipo, persona.getEmail(), nombre, fecha, hora, duracion);
-        enviarWhatsApp(cita, tipo, persona.getTelefono(), nombre, fecha, hora);
     }
 
     private void enviarEmail(Cita cita, TipoNotificacion tipo,
@@ -106,23 +102,6 @@ public class CitaNotificacionService {
         }
     }
 
-    private void enviarWhatsApp(Cita cita, TipoNotificacion tipo,
-                                 String telefono, String nombre,
-                                 String fecha, String hora) {
-        if (telefono == null || telefono.isBlank()) {
-            log.debug("WhatsApp omitido para cita {}: sin teléfono registrado", cita.getUuid());
-            return;
-        }
-        try {
-            String mensaje = mensajeWhatsApp(tipo, nombre, fecha, hora);
-            whatsAppClient.enviarMensaje(telefono, mensaje);
-            notificacionRepo.save(NotificacionCita.exitosa(cita, tipo, CanalNotificacion.WHATSAPP));
-        } catch (Exception e) {
-            log.error("Fallo WhatsApp {} | cita {}: {}", tipo, cita.getUuid(), e.getMessage());
-            notificacionRepo.save(NotificacionCita.fallida(cita, tipo, CanalNotificacion.WHATSAPP, e.getMessage()));
-        }
-    }
-
     // ── Helpers de contenido ───────────────────────────────────────────────────
 
     private String templateEmail(TipoNotificacion tipo) {
@@ -138,41 +117,6 @@ public class CitaNotificacionService {
             case CONFIRMACION    -> "Confirmación de cita — " + fecha;
             case RECORDATORIO_24H -> "Recordatorio: tienes cita mañana — " + fecha;
             case CANCELACION     -> "Tu cita ha sido cancelada";
-        };
-    }
-
-    private String mensajeWhatsApp(TipoNotificacion tipo, String nombre, String fecha, String hora) {
-        return switch (tipo) {
-            case CONFIRMACION -> """
-                    ¡Hola %s! 👋
-
-                    Tu cita ha sido *confirmada*:
-                    📅 *%s*
-                    ⏰ *%s hrs*
-
-                    Si necesitas cancelar o reagendar, comunícate con nosotros con anticipación.
-
-                    _Sistema de Cohorte_""".formatted(nombre, fecha, hora);
-
-            case RECORDATORIO_24H -> """
-                    ¡Hola %s! 🔔
-
-                    Te recordamos que *mañana* tienes una cita:
-                    📅 *%s*
-                    ⏰ *%s hrs*
-
-                    Por favor preséntate 10 minutos antes.
-
-                    _Sistema de Cohorte_""".formatted(nombre, fecha, hora);
-
-            case CANCELACION -> """
-                    ¡Hola %s!
-
-                    Tu cita del *%s* a las *%s hrs* ha sido *cancelada*.
-
-                    Para agendar una nueva cita comunícate con nosotros.
-
-                    _Sistema de Cohorte_""".formatted(nombre, fecha, hora);
         };
     }
 }

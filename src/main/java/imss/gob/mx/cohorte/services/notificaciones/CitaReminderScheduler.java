@@ -52,13 +52,10 @@ public class CitaReminderScheduler {
     }
 
     /**
-     * Considera "ya notificada" si al menos uno de los canales fue exitoso.
-     * Así si solo falló WhatsApp pero el email llegó, no se reenvía todo.
+     * Considera "ya notificada" si el email fue enviado exitosamente.
      */
     private boolean yaNotificadoExitosamente(Cita cita) {
         return notificacionRepo.existsByCitaAndTipoAndCanalAndExitoso(
-                       cita, TipoNotificacion.RECORDATORIO_24H, CanalNotificacion.EMAIL, true)
-               || notificacionRepo.existsByCitaAndTipoAndCanalAndExitoso(
-                       cita, TipoNotificacion.RECORDATORIO_24H, CanalNotificacion.WHATSAPP, true);
+                cita, TipoNotificacion.RECORDATORIO_24H, CanalNotificacion.EMAIL, true);
     }
 }
