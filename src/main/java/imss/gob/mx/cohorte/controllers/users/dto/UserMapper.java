@@ -3,8 +3,8 @@ package imss.gob.mx.cohorte.controllers.users.dto;
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
 import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
 import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
-
 
 import java.util.List;
 
@@ -12,8 +12,8 @@ public class UserMapper {
 
     public static BeanUser toEntity(UserRequestDTO dto) {
         BeanUser user = new BeanUser();
-        user.setUsername(dto.getUsername());
-        user.setPassword(dto.getPassword());
+        // username se genera automáticamente en UserApplicationService.saveUser()
+        // La contraseña también la genera el sistema ahí mismo
 
         Persona persona = new Persona();
         persona.setNombre(dto.getPersona().getNombre());
@@ -25,6 +25,11 @@ public class UserMapper {
         persona.setEmail(dto.getPersona().getEmail());
         user.setPersona(persona);
 
+        // El UUID del rol se resuelve a la entidad completa en UserApplicationService
+        Role role = new Role();
+        role.setUuid(dto.getRolUuid());
+        user.setRol(role);
+
         return user;
     }
 
@@ -33,26 +38,27 @@ public class UserMapper {
         if (user.getPersona() != null) {
             Persona p = user.getPersona();
             personaDTO = PersonaResponseDTO.builder()
-                .id(p.getId())
-                .nombre(p.getNombre())
-                .apellidoPaterno(p.getApellidoPaterno())
-                .apellidoMaterno(p.getApellidoMaterno())
-                .fechaNacimiento(p.getFechaNacimiento())
-                .sexo(p.getSexo() != null ? p.getSexo().name() : null)
-                .telefono(p.getTelefono())
-                .email(p.getEmail())
-                .build();
+                    .nombre(p.getNombre())
+                    .apellidoPaterno(p.getApellidoPaterno())
+                    .apellidoMaterno(p.getApellidoMaterno())
+                    .fechaNacimiento(p.getFechaNacimiento())
+                    .sexo(p.getSexo() != null ? p.getSexo().name() : null)
+                    .telefono(p.getTelefono())
+                    .email(p.getEmail())
+                    .build();
         }
 
         return UserResponseDTO.builder()
-            .id(user.getId())
-            .username(user.getUsername())
-            .UUID(user.getUUID())
-            .activo(user.getActivo())
-            .rol(user.getRol() != null ? user.getRol().getRole() : null)
-            .fechaCreacion(user.getFechaCreacion())
-            .persona(personaDTO)
-            .build();
+                .id(user.getId())
+                .username(user.getUsername())
+                .UUID(user.getUUID())
+                .activo(user.getActivo())
+                .rol(user.getRol() != null
+                        ? new UserResponseDTO.RolDTO(user.getRol().getUuid(), user.getRol().getRole())
+                        : null)
+                .fechaCreacion(user.getFechaCreacion())
+                .persona(personaDTO)
+                .build();
     }
 
     public static List<UserResponseDTO> toResponseDTOList(List<BeanUser> list) {
@@ -60,6 +66,6 @@ public class UserMapper {
     }
 
     public static UsuarioResumenDTO toResumenDTO(BeanUser usuarioRegistro) {
-        return null;
+        return new UsuarioResumenDTO().toUserEntity(usuarioRegistro);
     }
 }

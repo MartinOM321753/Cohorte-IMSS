@@ -30,6 +30,8 @@ public class CajaMapper {
                 pos.getColumna(),
                 pos.getAltura());
         }
+        Long idPosicionPiso = c.getPosicionPiso() != null ? c.getPosicionPiso().getId() : null;
+
         return CajaResponseDTO.builder()
             .id(c.getId())
             .codigoCaja(c.getCodigoCaja())
@@ -39,6 +41,7 @@ public class CajaMapper {
             .color(c.getColor())
             .observaciones(c.getObservaciones())
             .activo(c.getActivo())
+            .idPosicionPiso(idPosicionPiso)
             .ubicacionPiso(ubicacion)
             .build();
     }

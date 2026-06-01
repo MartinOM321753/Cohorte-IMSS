@@ -4,21 +4,29 @@ import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenicaRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPisoRepository;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 public class CajaCriojenicaService {
 
     private final CajaCriogenicaRepository cajaCriogenicaRepository;
     private final PosicionPisoRepository posicionPisoRepository;
+
+    @Autowired
+    public CajaCriojenicaService(CajaCriogenicaRepository cajaCriogenicaRepository, 
+                                 PosicionPisoRepository posicionPisoRepository) {
+        this.cajaCriogenicaRepository = cajaCriogenicaRepository;
+        this.posicionPisoRepository = posicionPisoRepository;
+    }
 
     @Transactional(readOnly = true)
     public List<CajaCriogenica> getAll() {
@@ -33,6 +41,10 @@ public class CajaCriojenicaService {
 
     @Transactional
     public CajaCriogenica create(CajaCriogenica caja) {
+        Optional<CajaCriogenica> cajaBD = cajaCriogenicaRepository.findByCodigoCaja(caja.getCodigoCaja());
+        if (cajaBD.isPresent()) {
+            throw new ObjConflictException("El codgo de la caja ya existe");
+        }
         if (caja.getCodigoCaja() == null || caja.getCodigoCaja().trim().isEmpty()) {
             throw new IllegalArgumentException("El código de la caja es obligatorio");
         }
@@ -70,10 +82,13 @@ public class CajaCriojenicaService {
         cajaBD.setTipoCaja(caja.getTipoCaja());
         cajaBD.setColor(caja.getColor());
         cajaBD.setObservaciones(caja.getObservaciones());
+        // Aplicar siempre: null = quitar posición, non-null = asignar/mantener
         if (caja.getPosicionPiso() != null && caja.getPosicionPiso().getId() != null) {
             PosicionPiso posicion = posicionPisoRepository.findById(caja.getPosicionPiso().getId())
                     .orElseThrow(() -> new ObjNotFoundException("La posición de piso no existe"));
             cajaBD.setPosicionPiso(posicion);
+        } else {
+            cajaBD.setPosicionPiso(null);
         }
         cajaBD.setActivo(caja.getActivo() != null ? caja.getActivo() : cajaBD.getActivo());
         // La fechaRegistro no se actualiza (updatable = false)

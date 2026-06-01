@@ -7,19 +7,22 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CitaResponseDTO {
-    private Long id;
+    private String uuid;
     private String estadoCita;
-    private LocalDateTime fechaCita;
-    private Integer duracionMinutos;
+    private Instant startAtUtc;
+    private Instant endAtUtc;
+    private Integer durationMinutes;
+    private String timezone;
+    private String colorHex;
     private String observaciones;
-    private LocalDateTime fechaRegistro;
+    private Instant createdAtUtc;
     private PacienteResumenDTO paciente;
     private UsuarioResumenDTO usuarioAgenda;
 }

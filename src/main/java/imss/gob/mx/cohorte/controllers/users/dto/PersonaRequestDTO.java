@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.controllers.users.dto;
 
+import imss.gob.mx.cohorte.utils.validation.MayorDeEdad;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -22,7 +23,7 @@ public class PersonaRequestDTO {
     private String apellidoMaterno;
 
     @NotNull(message = "La fecha de nacimiento es obligatoria")
-    @Past(message = "La fecha de nacimiento debe ser en el pasado")
+    @MayorDeEdad(message = "El usuario debe ser mayor de 18 años (tolerancia de 3 meses)")
     private LocalDate fechaNacimiento;
 
     @NotNull(message = "El sexo es obligatorio")
@@ -32,6 +33,7 @@ public class PersonaRequestDTO {
     @Pattern(regexp = "\\d{10}", message = "El teléfono debe tener 10 dígitos")
     private String telefono;
 
+    @NotBlank(message = "El correo electrónico es obligatorio")
     @Email(message = "Email inválido")
     private String email;
 }

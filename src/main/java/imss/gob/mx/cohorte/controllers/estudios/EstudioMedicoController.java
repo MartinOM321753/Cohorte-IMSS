@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.controllers.estudios.dto.*;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
+import jakarta.validation.constraints.NotBlank;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -52,7 +53,7 @@ public class EstudioMedicoController {
     })
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
-        List<EstudioMedicoResponseDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
+        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios obtenidos correctamente", HttpStatus.OK, false));
     }
 
@@ -128,6 +129,30 @@ public class EstudioMedicoController {
         return ResponseEntity.ok(new APIResponse(responseDTO, "Estudio actualizado correctamente", HttpStatus.OK, false));
     }
 
+    @GetMapping("/tipos/todos")
+    @Operation(summary = "Listar todos los tipos de estudio", description = "Obtiene todos los tipos de estudio (activos e inactivos) para gestión en catálogos")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getAllTipos() {
+        List<TipoEstudio> tipos = gestionEstudiosApplicationService.getAllTipos();
+        List<TipoEstudioResponseDTO> dtos = tipos.stream()
+            .map(t -> TipoEstudioResponseDTO.builder()
+                .id(t.getId())
+                .nombre(t.getNombre())
+                .descripcion(t.getDescripcion())
+                .activo(t.getActivo())
+                .parametroEstudios(t.getParametros())
+                .build())
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio obtenidos correctamente", HttpStatus.OK, false));
+    }
+
     @GetMapping("/tipos")
     @Operation(summary = "Listar tipos de estudio activos", description = "Obtiene una lista de todos los tipos de estudio que se encuentran activos")
     @ApiResponses(value = {
@@ -149,6 +174,7 @@ public class EstudioMedicoController {
                 .nombre(t.getNombre())
                 .descripcion(t.getDescripcion())
                 .activo(t.getActivo())
+                .parametroEstudios(t.getParametros())
                 .build())
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio obtenidos correctamente", HttpStatus.OK, false));
@@ -240,6 +266,56 @@ public class EstudioMedicoController {
         return ResponseEntity.ok(new APIResponse(activo, "Estado del tipo de estudio actualizado correctamente", HttpStatus.OK, false));
     }
 
+    @GetMapping("/tipos/{id}/parametros")
+    @Operation(summary = "Listar parámetros de un tipo de estudio", description = "Obtiene todos los parámetros asociados a un tipo de estudio identificado por su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Tipo de estudio no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getParametrosByTipo(
+        @Parameter(description = "Identificador único del tipo de estudio", required = true)
+        @PathVariable Long id) {
+        List<ParametroEstudio> parametros = gestionEstudiosApplicationService.getParametrosByTipo(id);
+        List<ParametroEstudioResponseDTO> dtos = parametros.stream()
+            .map(p -> ParametroEstudioResponseDTO.builder()
+                .id(p.getId())
+                .nombre(p.getNombre())
+                .unidad(p.getUnidad())
+                .tipo(p.getTipo())
+                .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
+                .build())
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(new APIResponse(dtos, "Parámetros obtenidos correctamente", HttpStatus.OK, false));
+    }
+
+    @GetMapping("/paciente/{uuid}")
+    @Operation(summary = "Listar estudios médicos por paciente", description = "Obtiene todos los estudios médicos registrados para un paciente identificado por su UUID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "UUID inválido",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getByPaciente(
+        @Parameter(description = "UUID del paciente", required = true)
+        @PathVariable @NotBlank String uuid) {
+        List<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPaciente(uuid);
+        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
+        return ResponseEntity.ok(new APIResponse(dtos, "Estudios del paciente obtenidos correctamente", HttpStatus.OK, false));
+    }
+
     @PostMapping("/parametros")
     @Operation(summary = "Crear parámetro de estudio", description = "Registra un nuevo parámetro asociado a un tipo de estudio específico")
     @ApiResponses(value = {
@@ -260,11 +336,13 @@ public class EstudioMedicoController {
         parametro.setTipoEstudio(tipoEstudio);
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
+        parametro.setTipo(dto.getTipo());
         ParametroEstudio creado = gestionEstudiosApplicationService.createParametro(parametro);
         ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
             .id(creado.getId())
             .nombre(creado.getNombre())
             .unidad(creado.getUnidad())
+            .tipo(creado.getTipo())
             .tipoEstudio(creado.getTipoEstudio() != null ? creado.getTipoEstudio().getNombre() : null)
             .build();
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -298,11 +376,13 @@ public class EstudioMedicoController {
         parametro.setTipoEstudio(tipoEstudio);
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
+        parametro.setTipo(dto.getTipo());
         ParametroEstudio actualizado = gestionEstudiosApplicationService.updateParametro(parametro);
         ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
             .id(actualizado.getId())
             .nombre(actualizado.getNombre())
             .unidad(actualizado.getUnidad())
+            .tipo(actualizado.getTipo())
             .tipoEstudio(actualizado.getTipoEstudio() != null ? actualizado.getTipoEstudio().getNombre() : null)
             .build();
         return ResponseEntity.ok(new APIResponse(responseDTO, "Parámetro actualizado correctamente", HttpStatus.OK, false));

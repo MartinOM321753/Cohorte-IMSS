@@ -21,7 +21,7 @@ public class UDService  implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        BeanUser found = userRepository.findByUsername(username)
+        BeanUser found = userRepository.findByUUID(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
 
         if (!found.getActivo()) {
@@ -31,7 +31,7 @@ public class UDService  implements UserDetailsService {
         GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + found.getRol().getRole());
 
         return new org.springframework.security.core.userdetails.User(
-                found.getUsername(),
+                found.getUUID(),
                 found.getPassword(),
                 Collections.singleton(authority)
         );

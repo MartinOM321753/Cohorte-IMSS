@@ -1,12 +1,11 @@
 package imss.gob.mx.cohorte.utils;
 
 import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
-
-import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import lombok.AllArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
@@ -14,8 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
 
 @Configuration
 @AllArgsConstructor
@@ -23,56 +20,54 @@ public class InitialConfig implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final PersonaRepository personaRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PersonaService personaService;
-
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
+        Role rolAdmin = ensureRole("ADMINISTRADOR");
+        ensureRole("RECEPCIONISTA");
+        ensureRole("MEDICO");
+        ensureRole("LABORATORISTA");
+        ensureRole("ENCARGADO");
 
-        try {
+        if (userRepository.findByUsername("admin").isPresent()) {
+            return;
+        }
 
-            Optional<Role> rolAdmin = roleRepository.findByRole("ADMIN");
-            if (rolAdmin.isEmpty()) {
-                rolAdmin = Optional.of(new Role());
-                rolAdmin.get().setRole("ADMIN");
-                roleRepository.saveAndFlush(rolAdmin.get());
-            }
+        Persona persona = personaRepository.findByEmail("admin@cohorte.local")
+                .orElseGet(() -> {
+                    Persona nuevaPersona = new Persona();
+                    nuevaPersona.setNombre("Admin");
+                    nuevaPersona.setApellidoPaterno("Cohorte");
+                    nuevaPersona.setApellidoMaterno("Sistema");
+                    nuevaPersona.setFechaNacimiento(LocalDate.of(1990, 1, 1));
+                    nuevaPersona.setSexo(Persona.Sexo.M);
+                    nuevaPersona.setTelefono("7772589476");
+                    nuevaPersona.setEmail("admin@cohorte.local");
+                    nuevaPersona.setFechaRegistro(LocalDateTime.now());
+                    nuevaPersona.setFechaActualizacion(LocalDateTime.now());
+                    return personaRepository.save(nuevaPersona);
+                });
 
-            Optional<Role> rolUser = roleRepository.findByRole("USER");
-            if (rolUser.isEmpty()) {
-                rolUser = Optional.of(new Role());
-                rolUser.get().setRole("USER");
-                roleRepository.saveAndFlush(rolUser.get());
-            }
-            LocalDate newDate = LocalDate.now();
-            LocalDateTime newDateTime = LocalDateTime.now();
+        BeanUser admin = new BeanUser();
+        admin.setUsername("admin");
+        admin.setPassword(passwordEncoder.encode("password123"));
+        admin.setActivo(true);
+        admin.setRol(rolAdmin);
+        admin.setPersona(persona);
+        admin.setFechaCreacion(LocalDateTime.now());
+        admin.setFechaActualizacion(LocalDateTime.now());
 
-            Optional<Role> adminrol = roleRepository.findByRole("ADMIN");
-
-            Persona persona = new Persona( "Admin", "Admin", "Admin", newDate, Persona.Sexo.M, "7772589476", "adlajsdajl@gmail.com", newDateTime, newDateTime);
-            Persona newPerson = personaService.createPerson(persona);
-
-            if (newPerson != null && adminrol.isPresent()) {
-
-                BeanUser admin = new BeanUser();
-                Optional<BeanUser> userAdmin = userRepository.findByUsername("admin");
-
-                admin.setUsername("admin");
-                admin.setUUID(UUID.randomUUID().toString());
-                admin.setPassword(passwordEncoder.encode("password123"));
-                admin.setActivo(true);
-                admin.setRol(adminrol.get());
-                admin.setPersona(persona);
-                admin.setFechaCreacion(LocalDateTime.now());
-
-                BeanUser respAdmin = userRepository.saveAndFlush(admin);
-                System.out.println(" Usuario creado: admin - " + respAdmin);
-
-            }else{ System.out.println("Algo salio mal al crear a la persona o usuario"); }
-
-        }catch (Exception e){ System.out.println("Algo salio mal con la configuracion Inicial"); }
-
+        userRepository.save(admin);
     }
 
+    private Role ensureRole(String roleName) {
+        return roleRepository.findByRole(roleName)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setRole(roleName);
+                    return roleRepository.saveAndFlush(role);
+                });
+    }
 }

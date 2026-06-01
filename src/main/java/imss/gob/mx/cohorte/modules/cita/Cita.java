@@ -3,9 +3,11 @@ package imss.gob.mx.cohorte.modules.cita;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
+import java.util.UUID;
 
 
 @Entity
@@ -13,13 +15,16 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class Cita {
-    public enum EstadoCita { Programada, Confirmada, Realizada, Cancelada, No_asistió }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cita")
-    private Long Id;
+    private Long id;
+
+    @Column(name = "uuid", unique = true, length = 36)
+    private String uuid;
 
     @ManyToOne
     @JoinColumn(name = "id_paciente", nullable = false)
@@ -29,22 +34,64 @@ public class Cita {
     @JoinColumn(name = "id_usuario_agenda", nullable = false)
     private BeanUser usuarioAgenda;
 
-    @Column(name = "fecha_cita", nullable = false)
-    private LocalDateTime fechaCita;
+    @Column(name = "start_at_utc")
+    private Instant startAtUtc;
 
-    @Column(name = "duracion_minutos", nullable = false)
-    private Integer duracionMinutos = 60;
+    @Column(name = "end_at_utc")
+    private Instant endAtUtc;
+
+    @Column(name = "duracion_minutos")
+    private Integer durationMinutes = 60;
+
+    @Column(name = "timezone", length = 50)
+    private String timezone;
+
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Formato de color hexadecimal inválido")
+    @Column(name = "color_hex", length = 7)
+    private String colorHex;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado_cita", length = 20, nullable = false, columnDefinition = "ENUM('Programada','Confirmada','Realizada','Cancelada','No asistió')")
+    @Column(name = "estado_cita", length = 20, nullable = false)
     private EstadoCita estadoCita = EstadoCita.Programada;
 
     @Column(name = "observaciones", length = 250)
     private String observaciones;
 
-    @Column(name = "fecha_registro", nullable = false)
-    private Timestamp fechaRegistro;
+    // Auditoría
+    @Column(name = "created_by", updatable = false)
+    private String createdBy;
 
-    @Column(name = "fecha_actualizacion")
-    private Timestamp fechaActualizacion;
+    @Column(name = "updated_by")
+    private String updatedBy;
+
+    @Column(name = "created_at_utc", updatable = false)
+    private Instant createdAtUtc;
+
+    @Column(name = "updated_at_utc")
+    private Instant updatedAtUtc;
+
+    @Version
+    private Long version;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.uuid == null) {
+            this.uuid = UUID.randomUUID().toString();
+        }
+        this.createdAtUtc = Instant.now();
+        this.updatedAtUtc = Instant.now();
+
+        if (this.startAtUtc != null && this.durationMinutes != null) {
+            this.endAtUtc = this.startAtUtc.plusSeconds(this.durationMinutes * 60L);
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAtUtc = Instant.now();
+
+        if (this.startAtUtc != null && this.durationMinutes != null) {
+            this.endAtUtc = this.startAtUtc.plusSeconds(this.durationMinutes * 60L);
+        }
+    }
 }

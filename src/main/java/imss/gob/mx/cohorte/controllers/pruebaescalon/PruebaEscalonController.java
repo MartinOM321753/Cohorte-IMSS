@@ -27,6 +27,7 @@ import java.util.List;
 @AllArgsConstructor
 @Tag(name = "Prueba Escalón", description = "Gestión de pruebas escalón")
 @SecurityRequirement(name = "bearerAuth")
+@Deprecated
 public class PruebaEscalonController {
 
     private final PruebaEscalonApplicationService pruebaEscalonApplicationService;

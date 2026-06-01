@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Optional;
 @Repository
 public interface ParametroEstudioRepository extends JpaRepository<ParametroEstudio, Long> {
-    Optional<ParametroEstudio> findByNombre(String nombre);
+    Optional<ParametroEstudio> findByTipoEstudio_IdAndNombreIgnoreCase(Long tipoEstudioId, String nombre);
 
     List<ParametroEstudio> findAllByTipoEstudio_Nombre(String tipoEstudioNombre);
+
+    List<ParametroEstudio> findAllByTipoEstudio_Id(Long tipoEstudioId);
 }

@@ -36,6 +36,10 @@ public class BeanUser {
     @Column(name = "activo")
     private Boolean activo = true;
 
+    /** true cuando la contraseña fue generada por el sistema y el usuario aún no la ha cambiado. */
+    @Column(name = "debe_cambiar_password", nullable = false)
+    private Boolean debeResetear = false;
+
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
 

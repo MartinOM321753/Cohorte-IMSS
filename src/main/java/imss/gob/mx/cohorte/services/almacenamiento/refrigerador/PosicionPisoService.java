@@ -5,18 +5,24 @@ import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPisoRepos
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigeradorRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class PosicionPisoService {
 
     private final PosicionPisoRepository posicionPisoRepository;
     private final PisoRefrigeradorRepository pisoRefrigeradorRepository;
+
+    @Autowired
+    public PosicionPisoService(PosicionPisoRepository posicionPisoRepository, 
+                               PisoRefrigeradorRepository pisoRefrigeradorRepository) {
+        this.posicionPisoRepository = posicionPisoRepository;
+        this.pisoRefrigeradorRepository = pisoRefrigeradorRepository;
+    }
 
     @Transactional(readOnly = true)
     public List<PosicionPiso> getAllPosiciones() {
@@ -29,6 +35,11 @@ public class PosicionPisoService {
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la posición en piso con id: " + id));
     }
     
+
+    @Transactional(readOnly = true)
+    public List<PosicionPiso> getPosicionesPorPiso(Long idPiso) {
+        return posicionPisoRepository.findAllByPiso_Id(idPiso);
+    }
 
     @Transactional
     public PosicionPiso updatePosicion(PosicionPiso posicion) {
@@ -88,7 +99,25 @@ public class PosicionPisoService {
     }
 
 
-    private String toAlphabetLabel(int num) {
+    @Transactional
+    public void deletePositions(List<PosicionPiso> positions) {
+        posicionPisoRepository.deleteAll(positions);
+    }
+
+    @Transactional
+    public void crearPosicionSiNoExiste(PisoRefrigerador piso, String fila, String columna, String altura) {
+        if (posicionPisoRepository.findByPiso_IdAndFilaAndColumnaAndAltura(piso.getId(), fila, columna, altura).isEmpty()) {
+            PosicionPiso nueva = new PosicionPiso();
+            nueva.setPiso(piso);
+            nueva.setFila(fila);
+            nueva.setColumna(columna);
+            nueva.setAltura(altura);
+            nueva.setOcupada(false);
+            posicionPisoRepository.save(nueva);
+        }
+    }
+
+    public String toAlphabetLabel(int num) {
         StringBuilder sb = new StringBuilder();
         int n = num;
         while (n > 0) {
@@ -98,5 +127,13 @@ public class PosicionPisoService {
             n /= 26;
         }
         return sb.toString();
+    }
+
+    public int fromAlphabetLabel(String label) {
+        int num = 0;
+        for (char c : label.toCharArray()) {
+            num = num * 26 + (c - 'A' + 1);
+        }
+        return num;
     }
 }

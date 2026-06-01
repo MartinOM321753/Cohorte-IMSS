@@ -31,26 +31,25 @@ public class JWTFilter extends OncePerRequestFilter {
 
         final String AUTHORIZATION_HEADER = request.getHeader("Authorization");
 
-        String username = null;
+        String userUuid = null;
         String token = null;
         System.out.println("HEADER: [" + AUTHORIZATION_HEADER + "]");
-        System.out.println("TOKEN: [" + token + "]");
         if (AUTHORIZATION_HEADER != null && AUTHORIZATION_HEADER.startsWith("Bearer ")) {
 
             token = AUTHORIZATION_HEADER.substring(7).trim();
 
             if (!token.isEmpty()) {
                 try {
-                    username = jwtUtils.extractUsername(token);
+                    userUuid = jwtUtils.extractUserUuid(token);
                 } catch (Exception e) {
                     System.out.println("JWT inválido: " + e.getMessage());
                 }
             }
         }
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (userUuid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            UserDetails userDetails = udService.loadUserByUsername(username);
+            UserDetails userDetails = udService.loadUserByUsername(userUuid);
 
             if (jwtUtils.validateToken(token, userDetails)) {
 

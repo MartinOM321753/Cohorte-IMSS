@@ -17,6 +17,9 @@ import java.util.stream.Collectors;
 
 public class EstudioMapper {
 
+    private static final String ROOT_GROUP_CODE = "ROOT";
+    private static final int ROOT_ORDER = 0;
+
     public static EstudioMedico toEntity(EstudioMedicoRequestDTO dto) {
         EstudioMedico estudio = new EstudioMedico();
 
@@ -37,16 +40,20 @@ public class EstudioMapper {
 
         if (dto.getResultados() != null && !dto.getResultados().isEmpty()) {
             List<ResultadoEstudio> resultados = dto.getResultados().stream()
-                .map(r -> {
-                    ResultadoEstudio resultado = new ResultadoEstudio();
-                    ParametroEstudio parametro = new ParametroEstudio();
-                    parametro.setId(r.getIdParametro());
-                    resultado.setParametro(parametro);
-                    resultado.setValorNumerico(r.getValorNumerico());
-                    resultado.setValorTexto(r.getValorTexto());
-                    return resultado;
-                })
-                .collect(Collectors.toList());
+                    .map(r -> {
+                        ResultadoEstudio resultado = new ResultadoEstudio();
+                        ParametroEstudio parametro = new ParametroEstudio();
+                        parametro.setId(r.getIdParametro());
+                        resultado.setParametro(parametro);
+                        resultado.setValorNumerico(r.getValorNumerico());
+                        resultado.setValorTexto(r.getValorTexto());
+                        resultado.setValorBooleano(r.getValorBooleano());
+                        resultado.setGrupoCodigo(r.getGrupoCodigo());
+                        resultado.setGrupoEtiqueta(r.getGrupoEtiqueta());
+                        resultado.setOrdenResultado(r.getOrden());
+                        return resultado;
+                    })
+                    .collect(Collectors.toList());
             estudio.setResultadoEstudio(resultados);
         } else {
             estudio.setResultadoEstudio(new ArrayList<>());
@@ -56,51 +63,62 @@ public class EstudioMapper {
     }
 
     public static EstudioMedicoResponseDTO toResponseDTO(EstudioMedico e) {
-        PacienteResumenDTO pacienteDTO = null;
-        if (e.getPaciente() != null) {
-            pacienteDTO = PacienteMapper.toResumenDTO(e.getPaciente());
-        }
-
-        UsuarioResumenDTO usuarioDTO = null;
-        if (e.getUsuarioRealiza() != null) {
-            usuarioDTO = UserMapper.toResumenDTO(e.getUsuarioRealiza());
-        }
+        PacienteResumenDTO pacienteDTO = e.getPaciente() != null ? PacienteMapper.toResumenDTO(e.getPaciente()) : null;
+        UsuarioResumenDTO usuarioDTO = e.getUsuarioRealiza() != null ? UserMapper.toResumenDTO(e.getUsuarioRealiza()) : null;
 
         TipoEstudioResponseDTO tipoDTO = null;
         if (e.getTipoEstudio() != null) {
             tipoDTO = TipoEstudioResponseDTO.builder()
-                .id(e.getTipoEstudio().getId())
-                .nombre(e.getTipoEstudio().getNombre())
-                .descripcion(e.getTipoEstudio().getDescripcion())
-                .activo(e.getTipoEstudio().getActivo())
-                .build();
+                    .id(e.getTipoEstudio().getId())
+                    .nombre(e.getTipoEstudio().getNombre())
+                    .descripcion(e.getTipoEstudio().getDescripcion())
+                    .activo(e.getTipoEstudio().getActivo())
+                    .parametroEstudios(e.getTipoEstudio().getParametros())
+                    .build();
         }
 
         List<ResultadoEstudioResponseDTO> resultadosDTO = null;
         if (e.getResultadoEstudio() != null) {
             resultadosDTO = e.getResultadoEstudio().stream()
-                .map(r -> ResultadoEstudioResponseDTO.builder()
-                    .id(r.getId())
-                    .valorNumerico(r.getValorNumerico())
-                    .valorTexto(r.getValorTexto())
-                    .parametro(r.getParametro() != null ? r.getParametro().getNombre() : null)
-                    .build())
-                .collect(Collectors.toList());
+                    .map(r -> ResultadoEstudioResponseDTO.builder()
+                            .id(r.getId())
+                            .valorNumerico(r.getValorNumerico())
+                            .valorTexto(r.getValorTexto())
+                            .valorBooleano(r.getValorBooleano())
+                            .parametro(r.getParametro() != null ? r.getParametro().getNombre() : null)
+                            .grupoCodigo(ROOT_GROUP_CODE.equals(r.getGrupoCodigo()) ? null : r.getGrupoCodigo())
+                            .grupoEtiqueta(ROOT_GROUP_CODE.equals(r.getGrupoCodigo()) ? null : r.getGrupoEtiqueta())
+                            .orden(ROOT_GROUP_CODE.equals(r.getGrupoCodigo()) && r.getOrdenResultado() == ROOT_ORDER ? null : r.getOrdenResultado())
+                            .build())
+                    .collect(Collectors.toList());
         }
 
         return EstudioMedicoResponseDTO.builder()
-            .id(e.getId())
-            .observaciones(e.getObservaciones())
-            .fechaEstudio(e.getFechaEstudio())
-            .fechaRegistro(e.getFechaRegistro())
-            .paciente(pacienteDTO)
-            .usuarioRealiza(usuarioDTO)
-            .tipoEstudio(tipoDTO)
-            .resultados(resultadosDTO)
-            .build();
+                .id(e.getId())
+                .observaciones(e.getObservaciones())
+                .fechaEstudio(e.getFechaEstudio())
+                .fechaRegistro(e.getFechaRegistro())
+                .paciente(pacienteDTO)
+                .usuarioRealiza(usuarioDTO)
+                .tipoEstudio(tipoDTO)
+                .resultados(resultadosDTO)
+                .build();
     }
 
-    public static List<EstudioMedicoResponseDTO> toResponseDTOList(List<EstudioMedico> list) {
-        return list.stream().map(EstudioMapper::toResponseDTO).collect(Collectors.toList());
+    public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e) {
+        return EstudioListRequestDTO.builder()
+                .id(e.getId())
+                .fechaEstudio(e.getFechaEstudio())
+                .paciente(e.getPaciente().getPersona().getNombre() + " " + e.getPaciente().getPersona().getApellidoPaterno() + " " + e.getPaciente().getPersona().getApellidoMaterno())
+                .pacienteuuid(e.getPaciente().getUuid())
+                .usuarioRealiza(e.getUsuarioRealiza().getPersona().getNombre() + " " + e.getUsuarioRealiza().getPersona().getApellidoPaterno() + " " + e.getUsuarioRealiza().getPersona().getApellidoMaterno())
+                .usuarioRealizauuid(e.getUsuarioRealiza().getUUID())
+                .tipoEstudio(e.getTipoEstudio().getNombre())
+                .tipoEstudioid(e.getTipoEstudio().getId())
+                .build();
+    }
+
+    public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {
+        return list.stream().map(EstudioMapper::toResponseDTOList).collect(Collectors.toList());
     }
 }

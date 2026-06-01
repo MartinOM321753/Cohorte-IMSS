@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.almacenamiento.refrigerador;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,10 +15,11 @@ public class PosicionPiso {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_posicion_piso")
-    private Long Id;
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "id_piso", nullable = false)
+    @JsonIgnore
     private PisoRefrigerador piso;
 
     @Column(name = "fila", nullable = false)

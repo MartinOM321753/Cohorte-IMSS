@@ -38,7 +38,7 @@ public class JWTUtils {
         return claimsResolver.apply(extractAllClaims(token));
     }
 
-    public String extractUsername(String token) {
+    public String extractUserUuid(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -51,8 +51,30 @@ public class JWTUtils {
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
+        final String username = extractUserUuid(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    /**
+     * Extrae la fecha de emisión del token (claim "iat").
+     * Se usa para calcular la duración de la sesión en el evento LOGOUT.
+     */
+    public Date extractIssuedAt(String token) {
+        return extractClaim(token, Claims::getIssuedAt);
+    }
+
+    /**
+     * Extrae el claim "name" del token (nombre completo del usuario).
+     */
+    public String extractNombreCompleto(String token) {
+        return extractClaim(token, claims -> claims.get("name", String.class));
+    }
+
+    /**
+     * Extrae el claim "role" del token.
+     */
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
@@ -67,9 +89,15 @@ public class JWTUtils {
 
     public String generateToken(BeanUser beanUser) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("uuid", beanUser.getUUID());
-        claims.put("id", beanUser.getId());
+        String fullName = beanUser.getPersona().getNombre() + " " + beanUser.getPersona().getApellidoPaterno();
+        if (beanUser.getPersona().getApellidoMaterno() != null && !beanUser.getPersona().getApellidoMaterno().isEmpty()) {
+            fullName += " " + beanUser.getPersona().getApellidoMaterno();
+        }
+        claims.put("name", fullName);
         claims.put("activo", beanUser.getActivo());
-        return createToken(claims, beanUser.getUsername());
+        claims.put("role", beanUser.getRol().getRole());
+        // Indica al frontend si debe forzar cambio de contraseña en el primer login
+        claims.put("mustChangePassword", Boolean.TRUE.equals(beanUser.getDebeResetear()));
+        return createToken(claims, beanUser.getUUID());
     }
 }

@@ -9,7 +9,10 @@ import lombok.*;
 
 @Entity
 @Table(name = "Resultado_Estudio",
-        uniqueConstraints = @UniqueConstraint(name = "uk_estudio_parametro", columnNames = {"id_estudio", "id_parametro"})
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_estudio_parametro_grupo_orden",
+                columnNames = {"id_estudio", "id_parametro", "grupo_codigo", "orden_resultado"}
+        )
 )
 @Getter @Setter
 @NoArgsConstructor
@@ -24,6 +27,18 @@ public class ResultadoEstudio {
 
     @Column(name = "valor_texto", length = 255)
     private String valorTexto;
+
+    @Column(name = "valor_booleano")
+    private Boolean valorBooleano;
+
+    @Column(name = "grupo_codigo", nullable = false, length = 50)
+    private String grupoCodigo;
+
+    @Column(name = "grupo_etiqueta", length = 100)
+    private String grupoEtiqueta;
+
+    @Column(name = "orden_resultado", nullable = false)
+    private Integer ordenResultado;
 
     @ManyToOne
     @JsonIgnore

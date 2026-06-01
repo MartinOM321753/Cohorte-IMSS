@@ -1,0 +1,272 @@
+{
+  "info": {
+    "name": "Cohorte - Estudios Medicos",
+    "_postman_id": "7d4a24cc-2d1e-4fb7-a2c7-7fdad39b6d44",
+    "description": "Coleccion base para catalogos y captura de estudios medicos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  pm.environment.set('token', json.data);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listar Usuarios Activos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/users/activos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "activos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Listar Pacientes Activos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pacientes/activos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pacientes",
+            "activos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Tipo de Estudio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Antropometria\",\n  \"descripcion\": \"Medidas corporales y bioimpedancia\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios/tipos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios",
+            "tipos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Parametro de Estudio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idTipoEstudio\": {{tipoEstudioId}},\n  \"nombre\": \"Peso\",\n  \"unidad\": \"kg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios/parametros",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios",
+            "parametros"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Estudio Medico",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteUUID\": \"{{pacienteUUID}}\",\n  \"usuarioRealizaUUID\": \"{{usuarioUUID}}\",\n  \"idTipoEstudio\": {{tipoEstudioId}},\n  \"fechaEstudio\": \"{{fechaEstudio}}\",\n  \"observaciones\": \"Captura desde Postman\",\n  \"resultados\": [\n    {\n      \"idParametro\": 1,\n      \"valorNumerico\": 72.4\n    }\n  ],\n  \"adjuntos\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Estudio con Adjuntos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteUUID\": \"{{pacienteUUID}}\",\n  \"usuarioRealizaUUID\": \"{{usuarioUUID}}\",\n  \"idTipoEstudio\": {{tipoEstudioId}},\n  \"fechaEstudio\": \"{{fechaEstudio}}\",\n  \"observaciones\": \"Captura con PDF o imagen\",\n  \"resultados\": [\n    {\n      \"idParametro\": 1,\n      \"valorBooleano\": true\n    }\n  ],\n  \"adjuntos\": [\n    {\n      \"tipo\": \"PDF\",\n      \"nombreOriginal\": \"reporte.pdf\",\n      \"mimeType\": \"application/pdf\",\n      \"rutaUrl\": \"/estudios/reporte.pdf\",\n      \"descripcion\": \"Archivo almacenado externamente\",\n      \"orden\": 0\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Estudio con Grupos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteUUID\": \"{{pacienteUUID}}\",\n  \"usuarioRealizaUUID\": \"{{usuarioUUID}}\",\n  \"idTipoEstudio\": {{tipoEstudioId}},\n  \"fechaEstudio\": \"{{fechaEstudio}}\",\n  \"observaciones\": \"Captura por etapas o momentos\",\n  \"resultados\": [\n    {\n      \"idParametro\": 1,\n      \"valorNumerico\": 120,\n      \"grupoCodigo\": \"BASAL\",\n      \"grupoEtiqueta\": \"Basal\",\n      \"orden\": 0\n    },\n    {\n      \"idParametro\": 2,\n      \"valorNumerico\": 80,\n      \"grupoCodigo\": \"BASAL\",\n      \"grupoEtiqueta\": \"Basal\",\n      \"orden\": 1\n    },\n    {\n      \"idParametro\": 1,\n      \"valorNumerico\": 135,\n      \"grupoCodigo\": \"POST\",\n      \"grupoEtiqueta\": \"Post\",\n      \"orden\": 0\n    }\n  ],\n  \"adjuntos\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Listar Tipos Activos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/estudios/tipos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estudios",
+            "tipos"
+          ]
+        }
+      }
+    }
+  ]
+}

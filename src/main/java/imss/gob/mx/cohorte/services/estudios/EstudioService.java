@@ -2,7 +2,6 @@ package imss.gob.mx.cohorte.services.estudios;
 
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
-
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,41 +15,35 @@ import java.util.List;
 public class EstudioService {
     private final EstudioMedicoRepository estudioMedicoRepository;
 
-
     @Transactional(readOnly = true)
-    public EstudioMedico getOne(Long id){
-        return estudioMedicoRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el valor solicitado"));
+    public EstudioMedico getOne(Long id) {
+        return estudioMedicoRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el estudio medico"));
     }
 
     @Transactional(readOnly = true)
-    public List<EstudioMedico> getAll(){
+    public List<EstudioMedico> getAll() {
         return estudioMedicoRepository.findAllByOrderByFechaEstudioDesc();
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public EstudioMedico create(EstudioMedico estudioMedico){
+    @Transactional(readOnly = true)
+    public List<EstudioMedico> getAllByPacienteUUID(String uuid) {
+        return estudioMedicoRepository.findAllByPaciente_UuidOrderByFechaEstudioDesc(uuid);
+    }
 
-        estudioMedico.setFechaRegistro(LocalDateTime.now());
+    @Transactional(rollbackFor = Exception.class)
+    public EstudioMedico create(EstudioMedico estudioMedico) {
+        if (estudioMedico.getFechaRegistro() == null) {
+            estudioMedico.setFechaRegistro(LocalDateTime.now());
+        }
         return estudioMedicoRepository.save(estudioMedico);
     }
+
     @Transactional(rollbackFor = Exception.class)
-    public EstudioMedico update(EstudioMedico estudioMedico){
-
-        EstudioMedico estudioMedicoBD = estudioMedicoRepository.findById(estudioMedico.getId()).orElseThrow(() -> new ObjNotFoundException("No se encontro el estudio medico"));
-
-
-        estudioMedicoBD.setPaciente(estudioMedico.getPaciente());
-        estudioMedicoBD.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
-        estudioMedicoBD.setTipoEstudio(estudioMedico.getTipoEstudio());
-
-        estudioMedicoBD.setResultadoEstudio(estudioMedico.getResultadoEstudio());
-        estudioMedicoBD.setFechaEstudio(estudioMedico.getFechaEstudio());
-        estudioMedicoBD.setObservaciones(estudioMedico.getObservaciones());
-
-        return estudioMedicoRepository.save(estudioMedicoBD);
+    public EstudioMedico update(EstudioMedico estudioMedico) {
+        if (!estudioMedicoRepository.existsById(estudioMedico.getId())) {
+            throw new ObjNotFoundException("No se encontro el estudio medico");
+        }
+        return estudioMedicoRepository.save(estudioMedico);
     }
-
-
-
-
 }

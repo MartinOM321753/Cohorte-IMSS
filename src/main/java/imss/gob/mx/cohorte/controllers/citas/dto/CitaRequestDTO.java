@@ -18,13 +18,18 @@ public class CitaRequestDTO {
     @NotBlank(message = "El UUID del usuario que agenda es obligatorio")
     private String usuarioAgendaUUID;
 
-    @NotNull(message = "La fecha de cita es obligatoria")
-    @Future(message = "La fecha de cita debe ser futura")
-    private LocalDateTime fechaCita;
+    @NotBlank(message = "La fecha local es obligatoria")
+    private String startAtLocal; // Formato "YYYY-MM-DDTHH:mm"
+
+    @NotBlank(message = "El timezone es obligatorio")
+    private String timezone;
 
     @Min(value = 15, message = "La duración mínima es 15 minutos")
     @Max(value = 240, message = "La duración máxima es 240 minutos")
-    private Integer duracionMinutos = 60;
+    private Integer durationMinutes = 60;
+
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Formato de color hexadecimal inválido")
+    private String colorHex;
 
     private String observaciones;
 }

@@ -70,6 +70,20 @@ public class MuestraApplicationService {
     public Muestra updateMuestra(Long id, Muestra muestra) {
         Muestra muestraBD = muestraService.getById(id);
 
+        // Resolver entidades por UUID antes de pasar al servicio de dominio
+        // (el controller solo pasa uuid/uuid, sin id numérico)
+        if (muestra.getPaciente() != null && muestra.getPaciente().getUuid() != null) {
+            muestra.setPaciente(pacienteService.getByUUID(muestra.getPaciente().getUuid()));
+        } else {
+            muestra.setPaciente(muestraBD.getPaciente());
+        }
+
+        if (muestra.getUsuarioRecolecta() != null && muestra.getUsuarioRecolecta().getUUID() != null) {
+            muestra.setUsuarioRecolecta(userService.getByUUID(muestra.getUsuarioRecolecta().getUUID()));
+        } else {
+            muestra.setUsuarioRecolecta(muestraBD.getUsuarioRecolecta());
+        }
+
         Long idPosActual = muestraBD.getPosicionCaja() != null ? muestraBD.getPosicionCaja().getId() : null;
         Long idPosNueva = muestra.getPosicionCaja() != null ? muestra.getPosicionCaja().getId() : null;
 

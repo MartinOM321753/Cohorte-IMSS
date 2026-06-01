@@ -7,6 +7,7 @@ import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -183,5 +184,71 @@ public class RefrigeradorController {
         List<PisoRefrigerador> pisos = pisoRefrigeradorApplicationService.createPisos(pisosDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Pisos creados exitosamente", pisos, false, HttpStatus.CREATED));
+    }
+
+    @PutMapping("/pisos/{id}")
+    @Operation(summary = "Actualizar piso de refrigerador", description = "Actualiza dimensiones y datos de un piso. Elimina posiciones libres fuera del nuevo rango y crea las nuevas. Rechaza si hay posiciones ocupadas que quedarían fuera.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Conflicto: posiciones ocupadas afectadas",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> updatePiso(
+        @Parameter(description = "ID numérico del piso", required = true)
+        @PathVariable Long id, @RequestBody PisoRefrigerador piso) {
+        PisoRefrigerador updated = pisoRefrigeradorApplicationService.updatePiso(id, piso);
+        return ResponseEntity.ok(new APIResponse("Piso actualizado", updated, false, HttpStatus.OK));
+    }
+
+    @DeleteMapping("/pisos/{id}")
+    @Operation(summary = "Eliminar piso de refrigerador", description = "Elimina un piso del refrigerador. Rechaza si el piso tiene posiciones ocupadas por cajas.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Conflicto: piso con posiciones asociadas",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> deletePiso(
+        @Parameter(description = "ID numérico del piso", required = true)
+        @PathVariable Long id) {
+        pisoRefrigeradorApplicationService.deletePiso(id);
+        return ResponseEntity.ok(new APIResponse("Piso eliminado exitosamente", null, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/pisos/{id}/posiciones")
+    @Operation(summary = "Listar posiciones de un piso", description = "Obtiene todas las posiciones de almacenamiento asociadas a un piso específico mediante su ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getPosicionesByPiso(
+        @Parameter(description = "ID numérico del piso", required = true)
+        @PathVariable Long id) {
+        List<PosicionPiso> posiciones = pisoRefrigeradorApplicationService.getPosiciones(id);
+        return ResponseEntity.ok(new APIResponse("Posiciones encontradas", posiciones, false, HttpStatus.OK));
     }
 }

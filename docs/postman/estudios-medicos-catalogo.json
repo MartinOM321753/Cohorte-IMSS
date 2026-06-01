@@ -1,0 +1,222 @@
+{
+  "tiposEstudio": [
+    {
+      "nombre": "Consentimiento informado",
+      "descripcion": "Aceptacion del participante y resguardo de carta firmada",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "Acepta participar", "unidad": null, "tipoValor": "boolean" }
+      ]
+    },
+    {
+      "nombre": "Toma de tension arterial",
+      "descripcion": "Registro hemodinamico en reposo",
+      "usaAdjuntos": false,
+      "parametros": [
+        { "nombre": "Presion arterial sistolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "Presion arterial diastolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "Frecuencia cardiaca", "unidad": "lpm", "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Laboratorio sangre",
+      "descripcion": "Resultados de laboratorio y PDF de reporte",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "Glucosa", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Creatinina", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Acido urico", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Colesterol total", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Trigliceridos", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Albumina", "unidad": "g/dL", "tipoValor": "number" },
+        { "nombre": "AST", "unidad": "U/L", "tipoValor": "number" },
+        { "nombre": "ALT", "unidad": "U/L", "tipoValor": "number" },
+        { "nombre": "VSG", "unidad": "mm/h", "tipoValor": "number" },
+        { "nombre": "Hematocrito", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "PCR", "unidad": "mg/L", "tipoValor": "number" },
+        { "nombre": "HDL", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "LDL", "unidad": "mg/dL", "tipoValor": "number" },
+        { "nombre": "Hemoglobina glucosilada", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "PSA", "unidad": "ng/mL", "tipoValor": "number" },
+        { "nombre": "Plaquetas", "unidad": "10^3/uL", "tipoValor": "number" },
+        { "nombre": "AGES", "unidad": null, "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Entrega de biomasa",
+      "descripcion": "Consentimiento y entrega de muestra biologica",
+      "usaAdjuntos": false,
+      "parametros": [
+        { "nombre": "Acepta entregar muestra", "unidad": null, "tipoValor": "boolean" }
+      ]
+    },
+    {
+      "nombre": "Antropometria",
+      "descripcion": "Medidas corporales y TANITA",
+      "usaAdjuntos": false,
+      "parametros": [
+        { "nombre": "Peso", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "Talla", "unidad": "cm", "tipoValor": "number" },
+        { "nombre": "IMC", "unidad": "kg/m2", "tipoValor": "number" },
+        { "nombre": "Circunferencia cintura", "unidad": "cm", "tipoValor": "number" },
+        { "nombre": "Circunferencia cadera", "unidad": "cm", "tipoValor": "number" },
+        { "nombre": "TANITA tipo de cuerpo", "unidad": null, "tipoValor": "text" },
+        { "nombre": "TANITA sexo", "unidad": null, "tipoValor": "text" },
+        { "nombre": "TANITA edad", "unidad": "anios", "tipoValor": "number" },
+        { "nombre": "TANITA altura", "unidad": "cm", "tipoValor": "number" },
+        { "nombre": "TANITA peso", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "TANITA BMI", "unidad": "kg/m2", "tipoValor": "number" },
+        { "nombre": "TANITA porcentaje grasa", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "TANITA BMR", "unidad": "kcal", "tipoValor": "number" },
+        { "nombre": "TANITA impedancia", "unidad": "ohm", "tipoValor": "number" },
+        { "nombre": "TANITA masa grasa", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "TANITA masa magra", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "TANITA agua total", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "TANITA rango deseable", "unidad": null, "tipoValor": "text" }
+      ]
+    },
+    {
+      "nombre": "Ultrasonido vias biliares",
+      "descripcion": "Imagen hepatobiliar con PDF e imagen",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "Litiasis", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Higado graso", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Grosor pared vesicula", "unidad": "mm", "tipoValor": "number" },
+        { "nombre": "Tamano vesicula longitudinal", "unidad": "mm", "tipoValor": "number" },
+        { "nombre": "Tamano vesicula transversal", "unidad": "mm", "tipoValor": "number" },
+        { "nombre": "Medicion higado longitudinal", "unidad": "mm", "tipoValor": "number" },
+        { "nombre": "Medicion rinon longitudinal", "unidad": "mm", "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Electrocardiograma",
+      "descripcion": "Registro electrico cardiaco con PDF e imagen",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "Frecuencia cardiaca", "unidad": "lpm", "tipoValor": "number" },
+        { "nombre": "Ritmo cardiaco", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Eje electrico", "unidad": "grados", "tipoValor": "number" },
+        { "nombre": "PR", "unidad": "ms", "tipoValor": "number" },
+        { "nombre": "QRS", "unidad": "ms", "tipoValor": "number" },
+        { "nombre": "QT", "unidad": "ms", "tipoValor": "number" },
+        { "nombre": "QT corregido", "unidad": "ms", "tipoValor": "number" },
+        { "nombre": "Segmento ST", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Ondas P", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Ondas T", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Complejo QRS morfologia", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Amplitud voltaje", "unidad": "mV", "tipoValor": "number" },
+        { "nombre": "Bloqueos de rama", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Arritmias", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Ondas Q patologicas", "unidad": null, "tipoValor": "text" }
+      ]
+    },
+    {
+      "nombre": "Ultrasonido de hueso",
+      "descripcion": "SOS y T-score con PDF e imagen",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "SOS", "unidad": "m/s", "tipoValor": "number" },
+        { "nombre": "T-score", "unidad": null, "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Espirometria",
+      "descripcion": "Funcion pulmonar con PDF o exportacion",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "FVC", "unidad": "L", "tipoValor": "number" },
+        { "nombre": "FEV1", "unidad": "L", "tipoValor": "number" },
+        { "nombre": "FEV1/FVC", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "PEF", "unidad": "L/s", "tipoValor": "number" },
+        { "nombre": "FEF 25-75", "unidad": "L/s", "tipoValor": "number" },
+        { "nombre": "FET", "unidad": "s", "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Densitometria",
+      "descripcion": "Densidad mineral osea y composicion corporal",
+      "usaAdjuntos": true,
+      "parametros": [
+        { "nombre": "DMO cuello", "unidad": "g/cm2", "tipoValor": "number" },
+        { "nombre": "T-score cuello", "unidad": null, "tipoValor": "number" },
+        { "nombre": "Z-score cuello", "unidad": null, "tipoValor": "number" },
+        { "nombre": "DMO columna L1-L4", "unidad": "g/cm2", "tipoValor": "number" },
+        { "nombre": "T-score columna L1-L4", "unidad": null, "tipoValor": "number" },
+        { "nombre": "Z-score columna L1-L4", "unidad": null, "tipoValor": "number" },
+        { "nombre": "Porcentaje grasa corporal", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "Masa total", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "Grasa total", "unidad": "g", "tipoValor": "number" },
+        { "nombre": "Magro total", "unidad": "g", "tipoValor": "number" },
+        { "nombre": "CMO", "unidad": "g", "tipoValor": "number" },
+        { "nombre": "Grasa libre", "unidad": "g", "tipoValor": "number" },
+        { "nombre": "Androide porcentaje grasa", "unidad": "%", "tipoValor": "number" },
+        { "nombre": "Ginoide porcentaje grasa", "unidad": "%", "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Caminata 6 minutos",
+      "descripcion": "Prueba funcional con series por etapa o momento",
+      "usaAdjuntos": false,
+      "usaGrupos": true,
+      "parametros": [
+        { "nombre": "Tension arterial sistolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "Tension arterial diastolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "Medicamentos previos", "unidad": null, "tipoValor": "text" },
+        { "nombre": "Frecuencia cardiaca", "unidad": "lpm", "tipoValor": "number" },
+        { "nombre": "Contador vueltas", "unidad": "vueltas", "tipoValor": "number" },
+        { "nombre": "Distancia recorrida", "unidad": "m", "tipoValor": "number" },
+        { "nombre": "Escala de Borg", "unidad": null, "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Prueba del escalon",
+      "descripcion": "Captura generica con grupos BASAL y ETAPAS",
+      "usaAdjuntos": false,
+      "usaGrupos": true,
+      "parametros": [
+        { "nombre": "TA sistolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "TA diastolica", "unidad": "mmHg", "tipoValor": "number" },
+        { "nombre": "Pulso", "unidad": "lpm", "tipoValor": "number" },
+        { "nombre": "Talla", "unidad": "cm", "tipoValor": "number" },
+        { "nombre": "Peso", "unidad": "kg", "tipoValor": "number" },
+        { "nombre": "IMC", "unidad": "kg/m2", "tipoValor": "number" },
+        { "nombre": "FCM", "unidad": "lpm", "tipoValor": "number" },
+        { "nombre": "Tiempo en segundos", "unidad": "s", "tipoValor": "number" },
+        { "nombre": "Observaciones por etapa", "unidad": null, "tipoValor": "text" }
+      ]
+    },
+    {
+      "nombre": "Acelerometria",
+      "descripcion": "Actividad fisica objetiva por monitoreo",
+      "usaAdjuntos": false,
+      "parametros": [
+        { "nombre": "Minutos actividad fisica semanal", "unidad": "min", "tipoValor": "number" },
+        { "nombre": "Minutos actividad ligera", "unidad": "min", "tipoValor": "number" },
+        { "nombre": "Minutos actividad moderada vigorosa", "unidad": "min", "tipoValor": "number" },
+        { "nombre": "Minutos sedentarismo", "unidad": "min", "tipoValor": "number" },
+        { "nombre": "Minutos caminata", "unidad": "min", "tipoValor": "number" }
+      ]
+    },
+    {
+      "nombre": "Fibroscan",
+      "descripcion": "Pendiente de definir variables clinicas",
+      "usaAdjuntos": true,
+      "parametros": []
+    },
+    {
+      "nombre": "Cuestionario Minimental",
+      "descripcion": "Evaluacion cognitiva breve",
+      "usaAdjuntos": false,
+      "parametros": [
+        { "nombre": "Orientacion temporal espacial", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Fijacion memoria inmediata", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Atencion y calculo", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Memoria diferida", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Lenguaje", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Capacidad visoconstructiva", "unidad": "puntos", "tipoValor": "number" },
+        { "nombre": "Puntaje total", "unidad": "puntos", "tipoValor": "number" }
+      ]
+    }
+  ]
+}

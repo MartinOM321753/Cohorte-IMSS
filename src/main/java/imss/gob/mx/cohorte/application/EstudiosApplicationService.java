@@ -8,33 +8,35 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.services.estudios.EstudioService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
-import imss.gob.mx.cohorte.services.estudios.ResultadoService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class EstudiosApplicationService {
 
+    private static final String ROOT_GROUP_CODE = "ROOT";
+    private static final int ROOT_ORDER = 0;
+
     private final EstudioService estudioService;
     private final TipoService tipoEstudioService;
-    private final ResultadoService resultadoService;
     private final PacienteService pacienteService;
     private final UserService userService;
     private final ParametroEstudioService parametroService;
-
-    // ─────────────────────────────────────────────
-    // CRUD
-    // ─────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getAllEstudios() {
@@ -43,66 +45,50 @@ public class EstudiosApplicationService {
 
     @Transactional(readOnly = true)
     public EstudioMedico getEstudio(Long id) {
-        return findEstudioOrThrow(id);
+        return estudioService.getOne(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstudioMedico> getEstudiosByPaciente(String uuid) {
+        return estudioService.getAllByPacienteUUID(uuid);
     }
 
     @Transactional
     public EstudioMedico createEstudio(EstudioMedico estudioMedico) {
         resolveRelaciones(estudioMedico);
-        guardarResultados(estudioMedico); // se guardan explícitamente los resultados, si existen
         return estudioService.create(estudioMedico);
     }
 
     @Transactional
     public EstudioMedico updateEstudio(Long id, EstudioMedico estudioMedico) {
-        EstudioMedico existing = findEstudioOrThrow(id);
-
         resolveRelaciones(estudioMedico);
 
-        // Actualiza los campos principales
-        existing.setPaciente(estudioMedico.getPaciente());
-        existing.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
-        existing.setTipoEstudio(estudioMedico.getTipoEstudio());
-        existing.setObservaciones(estudioMedico.getObservaciones());
-        existing.setFechaEstudio(estudioMedico.getFechaEstudio());
+        EstudioMedico existente = estudioService.getOne(id);
+        existente.setPaciente(estudioMedico.getPaciente());
+        existente.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
+        existente.setTipoEstudio(estudioMedico.getTipoEstudio());
+        existente.setFechaEstudio(estudioMedico.getFechaEstudio());
+        existente.setObservaciones(estudioMedico.getObservaciones());
 
-        // sincronización explícita de resultados (update seguro, elimina los results antiguos no presentes):
-        sincronizarResultados(existing, estudioMedico.getResultadoEstudio());
+        replaceResultados(existente, estudioMedico.getResultadoEstudio());
 
-        return estudioService.update(existing);
+        return estudioService.update(existente);
     }
 
-//    @Transactional
-//    public void deleteEstudio(Long id) {
-//        EstudioMedico estudio = findEstudioOrThrow(id);
-//        // Primero elimina todos los resultados asociados para evitar huérfanos
-//        if (estudio.getResultadoEstudio() != null && !estudio.getResultadoEstudio().isEmpty()) {
-//            for (ResultadoEstudio r : estudio.getResultadoEstudio()) {
-//                resultadoService.delete(r.getId());
-//            }
-//        }
-//        estudioService.delete(id);
-//    }
-
-    // ─────────────────────────────────────────────
-    // Helpers privados
-    // ─────────────────────────────────────────────
-
-
     private void resolveRelaciones(EstudioMedico estudioMedico) {
-        if (estudioMedico.getPaciente() == null || estudioMedico.getPaciente().getId() == null) {
-            throw new ObjNotFoundException("Falta información de paciente");
+        if (estudioMedico.getPaciente() == null || estudioMedico.getPaciente().getUuid() == null) {
+            throw new ObjNotFoundException("Falta informacion de paciente");
         }
-        if (estudioMedico.getUsuarioRealiza() == null || estudioMedico.getUsuarioRealiza().getId() == null) {
-            throw new ObjNotFoundException("Falta información de usuario");
+        if (estudioMedico.getUsuarioRealiza() == null || estudioMedico.getUsuarioRealiza().getUUID() == null) {
+            throw new ObjNotFoundException("Falta informacion de usuario");
         }
         if (estudioMedico.getTipoEstudio() == null || estudioMedico.getTipoEstudio().getId() == null) {
-            throw new ObjNotFoundException("Falta información de tipo de estudio");
+            throw new ObjNotFoundException("Falta informacion de tipo de estudio");
         }
-
-        Paciente paciente = findPacienteOrThrow(estudioMedico.getPaciente().getUuid());
-        BeanUser usuario = findUsuarioOrThrow(estudioMedico.getUsuarioRealiza().getUUID());
-        TipoEstudio tipoEstudio = findTipoEstudioOrThrow(estudioMedico.getTipoEstudio().getId());
+        System.out.println("USUARIO REALIZA= " + estudioMedico.getUsuarioRealiza().getUUID());
+        Paciente paciente = pacienteService.getByUUID(estudioMedico.getPaciente().getUuid());
+        BeanUser usuario = userService.getByUUID(estudioMedico.getUsuarioRealiza().getUUID());
+        TipoEstudio tipoEstudio = tipoEstudioService.getOne(estudioMedico.getTipoEstudio().getId());
 
         resolveResultados(estudioMedico, tipoEstudio);
 
@@ -111,120 +97,74 @@ public class EstudiosApplicationService {
         estudioMedico.setTipoEstudio(tipoEstudio);
     }
 
-    /**
-     * Valida y enlaza cada resultado con su parámetro y el estudio padre. 
-     * Verifica que el tipo de estudio del parámetro coincida con el del estudio.
-     */
     private void resolveResultados(EstudioMedico estudioMedico, TipoEstudio tipoEstudio) {
         if (estudioMedico.getResultadoEstudio() == null || estudioMedico.getResultadoEstudio().isEmpty()) {
-            estudioMedico.setResultadoEstudio(new ArrayList<>()); // Mejor deja una lista vacía en vez de null para evitar problemas con JPA
+            estudioMedico.setResultadoEstudio(new ArrayList<>());
             return;
         }
 
+        Set<String> claves = new HashSet<>();
         for (ResultadoEstudio resultado : estudioMedico.getResultadoEstudio()) {
             if (resultado.getParametro() == null || resultado.getParametro().getId() == null) {
-                throw new ObjNotFoundException("Falta información del parámetro en un resultado");
+                throw new ObjNotFoundException("Falta informacion del parametro en un resultado");
             }
-            ParametroEstudio parametro = findParametroOrThrow(resultado.getParametro().getId());
+            if (resultado.getValorNumerico() == null
+                    && resultado.getValorTexto() == null
+                    && resultado.getValorBooleano() == null) {
+                throw new ObjConflictException("Cada resultado debe incluir al menos un valor");
+            }
 
-            TipoEstudio tipoDelParametro = parametro.getTipoEstudio();
-            if (tipoDelParametro == null)
-                throw new ObjNotFoundException("El parámetro no tiene tipo de estudio asociado");
+            ParametroEstudio parametro = parametroService.getOne(resultado.getParametro().getId());
+            if (parametro.getTipoEstudio() == null) {
+                throw new ObjNotFoundException("El parametro no tiene tipo de estudio asociado");
+            }
+            if (!Objects.equals(parametro.getTipoEstudio().getId(), tipoEstudio.getId())) {
+                throw new ObjConflictException("El tipo de estudio del parametro no coincide con el del estudio");
+            }
 
-            if (!Objects.equals(tipoDelParametro.getId(), tipoEstudio.getId()))
-                throw new ObjConflictException("El tipo de estudio del parámetro no coincide con el del estudio");
+            normalizeResultado(resultado);
+            String clave = buildResultadoKey(parametro.getId(), resultado.getGrupoCodigo(), resultado.getOrdenResultado());
+            if (!claves.add(clave)) {
+                throw new ObjConflictException("Hay resultados duplicados para el mismo parametro, grupo y orden");
+            }
 
             resultado.setParametro(parametro);
             resultado.setEstudio(estudioMedico);
         }
     }
 
-    /**
-     * Guarda explícitamente los resultados si existen.
-     */
-    private void guardarResultados(EstudioMedico estudioMedico) {
-        if (estudioMedico.getResultadoEstudio() != null) {
-            for (ResultadoEstudio resultado : estudioMedico.getResultadoEstudio()) {
-                resultadoService.create(resultado);
-            }
+    private void replaceResultados(EstudioMedico estudio, List<ResultadoEstudio> nuevosResultados) {
+        if (estudio.getResultadoEstudio() == null) {
+            estudio.setResultadoEstudio(new ArrayList<>());
         }
-    }
-
-    /**
-     * Sincroniza los resultados de un estudio: agrega nuevos, actualiza existentes y elimina los eliminados.
-     */
-    private void sincronizarResultados(EstudioMedico estudio, List<ResultadoEstudio> nuevosResultados) {
-        // Si no hay resultados, los elimina todos
-        if (nuevosResultados == null || nuevosResultados.isEmpty()) {
-            if (estudio.getResultadoEstudio() != null) {
-                for (ResultadoEstudio r : estudio.getResultadoEstudio()) {
-                    resultadoService.delete(r.getId());
-                }
-                estudio.setResultadoEstudio(new ArrayList<>());
-            }
+        estudio.getResultadoEstudio().clear();
+        if (nuevosResultados == null) {
             return;
         }
-        // Mapear los resultados existentes y los nuevos por id parámetro para sincronizar
-        Map<Long, ResultadoEstudio> actuales = estudio.getResultadoEstudio() == null ? new HashMap<>() :
-            estudio.getResultadoEstudio().stream()
-                    .filter(r -> r.getParametro() != null && r.getParametro().getId() != null)
-                    .collect(Collectors.toMap(r -> r.getParametro().getId(), r -> r));
-
-        List<ResultadoEstudio> resultadoFinal = new ArrayList<>();
-        for (ResultadoEstudio nuevo : nuevosResultados) {
-            if (nuevo.getParametro() == null || nuevo.getParametro().getId() == null)
-                throw new ObjNotFoundException("Falta info. de parámetro en resultado");
-
-            ResultadoEstudio existente = actuales.get(nuevo.getParametro().getId());
-            if (existente != null) {
-                // Actualiza el valor
-                existente.setValorNumerico(nuevo.getValorNumerico());
-                existente.setValorTexto(nuevo.getValorTexto());
-                resultadoService.update(existente);
-                resultadoFinal.add(existente);
-                actuales.remove(nuevo.getParametro().getId());
-            } else {
-                // Nuevo resultado
-                nuevo.setEstudio(estudio);
-                ResultadoEstudio creado = resultadoService.create(nuevo);
-                resultadoFinal.add(creado);
-            }
+        for (ResultadoEstudio resultado : nuevosResultados) {
+            resultado.setId(null);
+            resultado.setEstudio(estudio);
+            estudio.getResultadoEstudio().add(resultado);
         }
-        // Elimina los que ya no están
-        for (ResultadoEstudio r : actuales.values()) {
-            resultadoService.delete(r.getId());
+    }
+
+    private void normalizeResultado(ResultadoEstudio resultado) {
+        if (resultado.getGrupoCodigo() == null || resultado.getGrupoCodigo().isBlank()) {
+            resultado.setGrupoCodigo(ROOT_GROUP_CODE);
+        } else {
+            resultado.setGrupoCodigo(resultado.getGrupoCodigo().trim());
         }
-        estudio.setResultadoEstudio(resultadoFinal);
+        if (resultado.getGrupoEtiqueta() != null && !resultado.getGrupoEtiqueta().isBlank()) {
+            resultado.setGrupoEtiqueta(resultado.getGrupoEtiqueta().trim());
+        } else if (ROOT_GROUP_CODE.equals(resultado.getGrupoCodigo())) {
+            resultado.setGrupoEtiqueta(null);
+        }
+        if (resultado.getOrdenResultado() == null) {
+            resultado.setOrdenResultado(ROOT_ORDER);
+        }
     }
 
-
-    private EstudioMedico findEstudioOrThrow(Long id) {
-        EstudioMedico estudio = estudioService.getOne(id);
-        if (estudio == null) throw new ObjNotFoundException("No se encontró el estudio");
-        return estudio;
-    }
-
-    private Paciente findPacienteOrThrow(String uuid) {
-        Paciente paciente = pacienteService.getByUUID(uuid);
-        if (paciente == null) throw new ObjNotFoundException("No se encontró el paciente");
-        return paciente;
-    }
-
-    private BeanUser findUsuarioOrThrow(String uuid) {
-        BeanUser user = userService.getByUUID(uuid);
-        if (user == null) throw new ObjNotFoundException("No se encontró el usuario");
-        return user;
-    }
-
-    private TipoEstudio findTipoEstudioOrThrow(Long id) {
-        TipoEstudio tipo = tipoEstudioService.getOne(id);
-        if (tipo == null) throw new ObjNotFoundException("No se encontró el tipo de estudio");
-        return tipo;
-    }
-
-    private ParametroEstudio findParametroOrThrow(Long id) {
-        ParametroEstudio parametro = parametroService.getOne(id);
-        if (parametro == null) throw new ObjNotFoundException("No se encontró el parámetro");
-        return parametro;
+    private String buildResultadoKey(Long parametroId, String grupoCodigo, Integer ordenResultado) {
+        return parametroId + "|" + grupoCodigo + "|" + ordenResultado;
     }
 }

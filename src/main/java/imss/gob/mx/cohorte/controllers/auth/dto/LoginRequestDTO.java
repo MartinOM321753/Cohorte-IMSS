@@ -13,11 +13,23 @@ import lombok.Setter;
 @NoArgsConstructor
 public class LoginRequestDTO {
 
-    @NotBlank(message = "El username es requerido")
-    @Size(max = 50, message = "El username no puede exceder 50 caracteres")
-    private String username;
+    /**
+     * Acepta nombre de usuario o correo electrónico.
+     */
+    @NotBlank(message = "El usuario o correo es requerido")
+    @Size(max = 255, message = "El identificador no puede exceder 255 caracteres")
+    private String identifier;
 
     @NotBlank(message = "La contraseña es requerida")
     @Size(max = 255, message = "La contraseña no puede exceder 255 caracteres")
     private String password;
+
+    /** Latitud GPS capturada en el navegador. Opcional; null si el usuario rechazó permisos. */
+    private Double latitud;
+
+    /** Longitud GPS capturada en el navegador. Opcional; null si el usuario rechazó permisos. */
+    private Double longitud;
+
+    /** Margen de error de la lectura en metros (GeolocationCoordinates.accuracy). */
+    private Integer precisionM;
 }

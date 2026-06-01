@@ -7,7 +7,13 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "Parametro_Estudio")
+@Table(
+        name = "Parametro_Estudio",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_parametro_tipo_nombre",
+                columnNames = {"id_tipo_estudio", "nombre"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,11 +29,14 @@ public class ParametroEstudio {
     @JoinColumn(name = "id_tipo_estudio", nullable = false)
     private TipoEstudio tipoEstudio;
 
-    @Column(name = "nombre", nullable = false, length = 100,unique = true)
+    @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
     @Column(name = "unidad", length = 20)
     private String unidad;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false, length = 10)
+    private TipoParametro tipo;
 
 }
