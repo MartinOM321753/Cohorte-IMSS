@@ -140,6 +140,19 @@
             <artifactId>minio</artifactId>
             <version>8.5.12</version>
         </dependency>
+
+        <!-- p6spy: proxy JDBC para capturar SQL con valores reales (auditoría) -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+            <version>1.9.2</version>
+        </dependency>
+
+        <!-- Spring AOP (necesario para el aspecto de auditoría) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

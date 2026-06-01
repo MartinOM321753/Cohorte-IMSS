@@ -29,6 +29,7 @@ public class InitialConfig implements CommandLineRunner {
         ensureRole("RECEPCIONISTA");
         ensureRole("MEDICO");
         ensureRole("LABORATORISTA");
+        ensureRole("ENCARGADO");
 
         if (userRepository.findByUsername("admin").isPresent()) {
             return;
