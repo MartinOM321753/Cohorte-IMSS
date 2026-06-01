@@ -22,4 +22,6 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
      */
     @Query("SELECT u FROM BeanUser u WHERE LOWER(u.persona.email) = LOWER(:email) AND u.activo = true")
     Optional<BeanUser> findActiveUserByPersonaEmail(@Param("email") String email);
+
+    List<BeanUser> findAllByRol_RoleAndActivoTrue(String roleName);
 }

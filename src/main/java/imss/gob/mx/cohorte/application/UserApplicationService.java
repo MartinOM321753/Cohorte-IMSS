@@ -59,6 +59,11 @@ public class UserApplicationService {
         return userService.getByUUID(uuid);
     }
 
+    @Transactional(readOnly = true)
+    public List<BeanUser> findByRoleName(String roleName) {
+        return userService.getUsersByRole(roleName);
+    }
+
     // ── Creación ───────────────────────────────────────────────────────────────
 
     /**

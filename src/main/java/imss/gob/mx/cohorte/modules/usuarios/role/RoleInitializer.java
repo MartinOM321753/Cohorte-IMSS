@@ -11,9 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Asigna un UUID a cualquier rol que aún no tenga uno.
- * Se ejecuta una sola vez al arrancar la aplicación.
- * Después de la primera ejecución no hace nada (todos ya tienen UUID).
+ * Asigna UUIDs a roles que no los tengan y garantiza que el rol ENCARGADO
+ * exista en la base de datos. Se ejecuta al arrancar la aplicación.
  */
 @Component
 @RequiredArgsConstructor
@@ -24,7 +23,12 @@ public class RoleInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
-    public void asignarUuidsAuRolesSinUuid() {
+    public void inicializar() {
+        asignarUuidsARolesSinUuid();
+        garantizarRolEncargado();
+    }
+
+    private void asignarUuidsARolesSinUuid() {
         List<Role> sinUuid = roleRepository.findAll().stream()
                 .filter(r -> r.getUuid() == null || r.getUuid().isBlank())
                 .toList();
@@ -33,6 +37,16 @@ public class RoleInitializer {
 
         sinUuid.forEach(r -> r.setUuid(UUID.randomUUID().toString()));
         roleRepository.saveAll(sinUuid);
-        log.info("RoleInitializer: UUID asignado a {} rol(es) existente(s).", sinUuid.size());
+        log.info("RoleInitializer: UUID asignado a {} rol(es).", sinUuid.size());
+    }
+
+    private void garantizarRolEncargado() {
+        if (roleRepository.findByRole("ENCARGADO").isPresent()) return;
+
+        Role encargado = new Role();
+        encargado.setRole("ENCARGADO");
+        encargado.setUuid(UUID.randomUUID().toString());
+        roleRepository.save(encargado);
+        log.info("RoleInitializer: rol ENCARGADO creado.");
     }
 }

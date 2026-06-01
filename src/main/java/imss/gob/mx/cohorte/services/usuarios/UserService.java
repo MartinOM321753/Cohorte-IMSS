@@ -51,6 +51,10 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
+    public List<BeanUser> getUsersByRole(String roleName) {
+        return userRepository.findAllByRol_RoleAndActivoTrue(roleName);
+    }
+
     @Transactional
     public BeanUser save(BeanUser beanUser) {
         if (userRepository.findByUsername(beanUser.getUsername()).isPresent()) {

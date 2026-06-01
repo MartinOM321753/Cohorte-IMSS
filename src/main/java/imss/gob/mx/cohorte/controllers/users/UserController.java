@@ -113,6 +113,20 @@ public class UserController {
         return ResponseEntity.ok(new APIResponse("Usuario encontrado", UserMapper.toResponseDTO(user), false, HttpStatus.OK));
     }
 
+    @GetMapping("/rol/{roleName}")
+    @Operation(summary = "Listar usuarios activos por rol", description = "Obtiene todos los usuarios activos que tienen el rol indicado (ej. ENCARGADO)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getByRol(
+            @Parameter(description = "Nombre del rol (ej. ENCARGADO)", required = true)
+            @PathVariable String roleName) {
+        List<BeanUser> users = userApplicationService.findByRoleName(roleName);
+        return ResponseEntity.ok(new APIResponse("Usuarios encontrados", UserMapper.toResponseDTOList(users), false, HttpStatus.OK));
+    }
+
     @PostMapping
     @Operation(summary = "Crear nuevo usuario", description = "Registra un nuevo usuario en el sistema con los datos proporcionados en el cuerpo de la solicitud")
     @ApiResponses(value = {
