@@ -82,10 +82,13 @@ public class CajaCriojenicaService {
         cajaBD.setTipoCaja(caja.getTipoCaja());
         cajaBD.setColor(caja.getColor());
         cajaBD.setObservaciones(caja.getObservaciones());
+        // Aplicar siempre: null = quitar posición, non-null = asignar/mantener
         if (caja.getPosicionPiso() != null && caja.getPosicionPiso().getId() != null) {
             PosicionPiso posicion = posicionPisoRepository.findById(caja.getPosicionPiso().getId())
                     .orElseThrow(() -> new ObjNotFoundException("La posición de piso no existe"));
             cajaBD.setPosicionPiso(posicion);
+        } else {
+            cajaBD.setPosicionPiso(null);
         }
         cajaBD.setActivo(caja.getActivo() != null ? caja.getActivo() : cajaBD.getActivo());
         // La fechaRegistro no se actualiza (updatable = false)

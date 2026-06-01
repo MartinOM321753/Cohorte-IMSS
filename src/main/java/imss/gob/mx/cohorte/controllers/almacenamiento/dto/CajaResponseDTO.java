@@ -18,5 +18,6 @@ public class CajaResponseDTO {
     private String color;
     private String observaciones;
     private Boolean activo;
+    private Long idPosicionPiso;
     private String ubicacionPiso;
 }

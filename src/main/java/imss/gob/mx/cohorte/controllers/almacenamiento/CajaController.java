@@ -113,7 +113,7 @@ public class CajaController {
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id, @Validated @RequestBody CajaRequestDTO dto) {
         CajaCriogenica entity = CajaMapper.toEntity(dto);
-        CajaCriogenica updated = cajasApplicationService.updateCaja(id, entity);
+        CajaCriogenica updated = cajasApplicationService.updateCaja(id, entity, dto.getIdPosicionPiso());
         return ResponseEntity.ok(new APIResponse("Caja criogénica actualizada", CajaMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 

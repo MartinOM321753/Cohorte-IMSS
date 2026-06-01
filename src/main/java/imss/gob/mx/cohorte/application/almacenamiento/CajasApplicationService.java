@@ -62,21 +62,34 @@ public class CajasApplicationService {
     }
 
     @Transactional
-    public CajaCriogenica updateCaja(Long id, CajaCriogenica caja) {
+    public CajaCriogenica updateCaja(Long id, CajaCriogenica caja, Long idPosicionNueva) {
         CajaCriogenica cajaBD = cajaCriojenicaService.getById(id);
 
-        Long idPosicionNueva = caja.getPosicionPiso() != null ? caja.getPosicionPiso().getId() : null;
         Long idPosicionActual = cajaBD.getPosicionPiso() != null ? cajaBD.getPosicionPiso().getId() : null;
 
-        if (idPosicionNueva != null && !idPosicionNueva.equals(idPosicionActual)) {
-            PosicionPiso nuevaPos = posicionPisoService.getPosicion(idPosicionNueva);
-            if (nuevaPos.getOcupada()) {
-                throw new ObjConflictException("La posición de piso destino ya está ocupada");
+        // ── Gestión de posición de piso ──────────────────────────────────
+        if (idPosicionNueva != null) {
+            if (!idPosicionNueva.equals(idPosicionActual)) {
+                // Mover a una posición diferente
+                PosicionPiso nuevaPos = posicionPisoService.getPosicion(idPosicionNueva);
+                if (nuevaPos.getOcupada()) {
+                    throw new ObjConflictException("La posición de piso destino ya está ocupada");
+                }
+                if (idPosicionActual != null) {
+                    marcarPosicionPisoOcupada(idPosicionActual, false); // liberar anterior
+                }
+                marcarPosicionPisoOcupada(idPosicionNueva, true);
+                caja.setPosicionPiso(nuevaPos);
+            } else {
+                // Misma posición — mantener referencia para que el service la persista
+                caja.setPosicionPiso(cajaBD.getPosicionPiso());
             }
+        } else {
+            // null → quitar la posición asignada
             if (idPosicionActual != null) {
                 marcarPosicionPisoOcupada(idPosicionActual, false);
             }
-            marcarPosicionPisoOcupada(idPosicionNueva, true);
+            caja.setPosicionPiso(null);
         }
 
         int nuevasFilas = caja.getFilas() != null ? caja.getFilas() : cajaBD.getFilas();

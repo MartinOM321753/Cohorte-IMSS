@@ -69,8 +69,11 @@ public class PisoRefrigeradorService {
         return pisoRefrigeradorRepository.save(pisoBD);
     }
 
+    @Transactional
     public void deletePiso(Long id) {
-        // Implementación básica para eliminar un piso
+        if (!pisoRefrigeradorRepository.existsById(id)) {
+            throw new ObjNotFoundException("No se encontró el piso con id: " + id);
+        }
         pisoRefrigeradorRepository.deleteById(id);
     }
 }

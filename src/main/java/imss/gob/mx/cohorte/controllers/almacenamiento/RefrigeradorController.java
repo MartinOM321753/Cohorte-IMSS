@@ -209,6 +209,26 @@ public class RefrigeradorController {
         return ResponseEntity.ok(new APIResponse("Piso actualizado", updated, false, HttpStatus.OK));
     }
 
+    @DeleteMapping("/pisos/{id}")
+    @Operation(summary = "Eliminar piso de refrigerador", description = "Elimina un piso del refrigerador. Rechaza si el piso tiene posiciones ocupadas por cajas.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Conflicto: piso con posiciones asociadas",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> deletePiso(
+        @Parameter(description = "ID numérico del piso", required = true)
+        @PathVariable Long id) {
+        pisoRefrigeradorApplicationService.deletePiso(id);
+        return ResponseEntity.ok(new APIResponse("Piso eliminado exitosamente", null, false, HttpStatus.OK));
+    }
+
     @GetMapping("/pisos/{id}/posiciones")
     @Operation(summary = "Listar posiciones de un piso", description = "Obtiene todas las posiciones de almacenamiento asociadas a un piso específico mediante su ID")
     @ApiResponses(value = {
