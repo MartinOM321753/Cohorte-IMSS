@@ -55,6 +55,28 @@ public class JWTUtils {
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
+    /**
+     * Extrae la fecha de emisión del token (claim "iat").
+     * Se usa para calcular la duración de la sesión en el evento LOGOUT.
+     */
+    public Date extractIssuedAt(String token) {
+        return extractClaim(token, Claims::getIssuedAt);
+    }
+
+    /**
+     * Extrae el claim "name" del token (nombre completo del usuario).
+     */
+    public String extractNombreCompleto(String token) {
+        return extractClaim(token, claims -> claims.get("name", String.class));
+    }
+
+    /**
+     * Extrae el claim "role" del token.
+     */
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
                 .claims(claims)

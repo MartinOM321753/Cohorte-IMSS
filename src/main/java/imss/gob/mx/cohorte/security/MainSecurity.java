@@ -37,7 +37,11 @@ public class MainSecurity {
     private String corsOrigins;
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/**",
+            "/api/auth/login",
+            "/api/auth/logout",          // registro de logout no requiere token válido
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/auth/reset-password/validate",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
@@ -64,7 +68,7 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/users/me/**").authenticated()
 
                         // Gestión de usuarios: solo ADMINISTRADOR puede crear/modificar
-                        .requestMatchers(HttpMethod.GET, "/api/users/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.GET, "/api/users/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA", "ENCARGADO")
                         .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/users/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PATCH, "/api/users/**").hasRole("ADMINISTRADOR")
@@ -95,10 +99,18 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/examenes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/examenes/**").hasRole("ADMINISTRADOR")
 
-                        // Almacenamiento (refrigeradores, cajas, muestras)
+                        // Traslados y almacén propio: el ENCARGADO puede consultar y gestionar sus muestras.
+                        // DEBE ir ANTES de la regla general de /api/almacenamiento/**.
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/traslados/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA", "ENCARGADO")
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/almacenes/encargado/**").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/confirmar-recepcion").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/iniciar-devolucion").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
+
+                        // Almacenamiento general (refrigeradores, cajas, muestras, almacenes)
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/almacenam   iento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.POST, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.PATCH, "/api/almacenamiento/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/almacenamiento/**").hasRole("ADMINISTRADOR")
 
                         // Prueba escalón
@@ -111,6 +123,12 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.POST, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/documentos/**").hasRole("ADMINISTRADOR")
+
+                        // Bitácora: solo ADMINISTRADOR puede consultar los registros de auditoría
+                        .requestMatchers("/api/bitacora/**").hasRole("ADMINISTRADOR")
+
+                        // Dashboard: accesible para cualquier usuario autenticado
+                        .requestMatchers(HttpMethod.GET, "/api/dashboard/**").authenticated()
 
                         // Cualquier otro endpoint no especificado: requiere autenticación
                         .anyRequest().authenticated()

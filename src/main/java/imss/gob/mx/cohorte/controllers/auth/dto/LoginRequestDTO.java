@@ -23,4 +23,13 @@ public class LoginRequestDTO {
     @NotBlank(message = "La contraseña es requerida")
     @Size(max = 255, message = "La contraseña no puede exceder 255 caracteres")
     private String password;
+
+    /** Latitud GPS capturada en el navegador. Opcional; null si el usuario rechazó permisos. */
+    private Double latitud;
+
+    /** Longitud GPS capturada en el navegador. Opcional; null si el usuario rechazó permisos. */
+    private Double longitud;
+
+    /** Margen de error de la lectura en metros (GeolocationCoordinates.accuracy). */
+    private Integer precisionM;
 }
