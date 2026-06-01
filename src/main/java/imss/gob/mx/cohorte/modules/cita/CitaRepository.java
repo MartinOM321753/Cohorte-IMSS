@@ -29,4 +29,27 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
                                     @Param("citaUuid") String citaUuid);
 
     List<Cita> findByStartAtUtcBetween(Instant start, Instant end);
+
+    // ── Dashboard ────────────────────────────────────────────────────────────
+
+    /** Cuenta citas en estado Programada o Confirmada dentro del rango de fechas indicado. */
+    @Query("SELECT COUNT(c) FROM Cita c " +
+           "WHERE c.estadoCita IN ('Programada', 'Confirmada') " +
+           "AND c.startAtUtc >= :start AND c.startAtUtc <= :end")
+    long countCitasProgramadasEnMes(@Param("start") Instant start,
+                                    @Param("end")   Instant end);
+
+    /**
+     * Devuelve todas las citas no canceladas cuyo inicio esté en el rango [start, end),
+     * con paciente y persona en fetch eager para evitar N+1.
+     * Ordenadas por hora de inicio ascendente.
+     */
+    @Query("SELECT c FROM Cita c " +
+           "LEFT JOIN FETCH c.paciente pac " +
+           "LEFT JOIN FETCH pac.persona " +
+           "WHERE c.startAtUtc >= :start AND c.startAtUtc < :end " +
+           "AND c.estadoCita <> 'Cancelada' " +
+           "ORDER BY c.startAtUtc ASC")
+    List<Cita> findCitasHoy(@Param("start") Instant start,
+                             @Param("end")   Instant end);
 }

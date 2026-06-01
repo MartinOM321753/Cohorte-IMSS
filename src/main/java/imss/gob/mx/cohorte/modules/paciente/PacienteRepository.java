@@ -16,5 +16,6 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     boolean existsByUuid(String uuid);
 
-
+    /** Cuenta pacientes según su estado activo/inactivo (para el dashboard). */
+    long countByActivo(boolean activo);
 }
