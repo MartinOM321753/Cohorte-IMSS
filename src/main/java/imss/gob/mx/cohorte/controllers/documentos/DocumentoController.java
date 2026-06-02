@@ -8,6 +8,7 @@ import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
 import imss.gob.mx.cohorte.services.documentos.DocumentoService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.MinioUnavailableException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -190,16 +191,32 @@ public class DocumentoController {
         Documento doc = documentoService.getDocumentoById(id);
         documentoService.verificarPuedeVer(getCurrentRole(), doc.getTipoEntidad());
 
+        // ── Verificar que el archivo existe en MinIO ANTES de comprometer los headers ──
+        // Si se lanza aquí (antes del StreamingResponseBody), Spring aún no ha fijado
+        // Content-Type del archivo, por lo que el GlobalExceptionHandler puede devolver
+        // un 404 JSON limpio sin conflicto de serialización.
+        if (!minioStorageService.objectExists(doc.getObjectKey())) {
+            throw new ObjNotFoundException(
+                    "El archivo no se encontró en el almacenamiento: " + doc.getNombreOriginal()
+            );
+        }
+
         String mimeType = (doc.getMimeType() != null && !doc.getMimeType().isBlank())
                 ? doc.getMimeType()
                 : "application/octet-stream";
 
-        String encodedName = URLEncoder.encode(doc.getNombreOriginal(), StandardCharsets.UTF_8)
+        // RFC 5987 percent-encoded name (spaces as %20, not +)
+        String rfc5987Name = URLEncoder.encode(doc.getNombreOriginal(), StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
-        String disposition = inline
-                ? "inline; filename=\"" + encodedName + "\""
-                : "attachment; filename=\"" + encodedName + "\"";
+        // ASCII-only fallback for older clients (replace non-ASCII with underscore)
+        String asciiFallback = doc.getNombreOriginal().replaceAll("[^\\x20-\\x7E]", "_");
+
+        // Use both filename= (ASCII fallback) and filename*= (RFC 5987, full Unicode)
+        // Modern browsers prefer filename*; legacy browsers use filename=
+        String disposition = (inline ? "inline" : "attachment")
+                + "; filename=\"" + asciiFallback + "\""
+                + "; filename*=UTF-8''" + rfc5987Name;
 
         StreamingResponseBody stream = outputStream -> {
             try (InputStream is = minioStorageService.getObjectStream(doc.getObjectKey())) {
