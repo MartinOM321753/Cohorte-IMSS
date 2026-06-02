@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.examenes.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -28,5 +29,6 @@ public class ResultadoExamenRequestDTO {
     private String observaciones;
 
     @NotNull(message = "La fecha del resultado es obligatoria")
+    @PastOrPresent(message = "La fecha del resultado no puede ser futura")
     private LocalDateTime fechaResultado;
 }
