@@ -119,6 +119,12 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasRole("ADMINISTRADOR")
 
+                        // Somatometria
+                        .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.PUT, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.DELETE, "/api/somatometria/**").hasRole("ADMINISTRADOR")
+
                         // Documentos (archivos en MinIO): lectura y subida para RECEPCIONISTA y ADMINISTRADOR, borrado solo ADMINISTRADOR
                         .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.POST, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
@@ -151,6 +157,12 @@ public class MainSecurity {
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        // Expose response headers that the browser JS can read (needed for blob downloads)
+        configuration.setExposedHeaders(List.of(
+                "Content-Disposition",
+                "Content-Type",
+                "Content-Length"
+        ));
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
