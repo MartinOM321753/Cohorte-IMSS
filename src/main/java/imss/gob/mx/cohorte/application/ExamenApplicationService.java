@@ -48,6 +48,11 @@ public class ExamenApplicationService {
     public List<ResultadoExamen> findAllResultadoByUUID(String uuid) {
         return resultadoExamenService.findAllByUUID(uuid);
     }
+
+    @Transactional(readOnly = true)
+    public long countResultadosByPacienteUuid(String uuid) {
+        return resultadoExamenService.countByPacienteUuid(uuid);
+    }
     @Transactional
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
 

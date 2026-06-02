@@ -74,6 +74,13 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("Muestra encontrada", MuestraMapper.toResponseDTO(muestra), false, HttpStatus.OK));
     }
 
+    @GetMapping("/paciente/uuid/{uuid}/count")
+    @Operation(summary = "Contar muestras de un paciente por UUID")
+    public ResponseEntity<APIResponse> countByPacienteUUID(@PathVariable String uuid) {
+        long count = muestraApplicationService.countMuestrasByPacienteUuid(uuid);
+        return ResponseEntity.ok(new APIResponse("Conteo de muestras", count, false, HttpStatus.OK));
+    }
+
     @GetMapping("/paciente/uuid/{uuid}")
     @Operation(summary = "Obtener muestras de un paciente por UUID", description = "Obtiene todas las muestras biológicas asociadas a un paciente específico mediante su UUID")
     @ApiResponses(value = {

@@ -45,6 +45,15 @@ public class CitaController {
         return ResponseEntity.ok(new APIResponse("Citas encontradas", CitaMapper.toResponseDTOList(citas), false, HttpStatus.OK));
     }
 
+    @GetMapping("/paciente/{uuid}/resumen")
+    @Operation(summary = "Resumen de citas por UUID de paciente",
+               description = "Devuelve solo fecha (en zona local), tipo (observaciones) y estado de cada cita del paciente")
+    public ResponseEntity<APIResponse> getResumenByPacienteUuid(@PathVariable String uuid) {
+        List<Cita> citas = citaApplicationService.findAllByPacienteUuid(uuid);
+        return ResponseEntity.ok(new APIResponse(
+                "Citas del paciente", CitaResumenMapper.toResumenDTOList(citas), false, HttpStatus.OK));
+    }
+
     @GetMapping("/{uuid}")
     @Operation(summary = "Obtener cita por UUID")
     public ResponseEntity<APIResponse> getByUuid(@PathVariable String uuid) {

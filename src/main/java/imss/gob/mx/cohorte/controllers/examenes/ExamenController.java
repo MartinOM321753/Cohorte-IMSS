@@ -122,6 +122,13 @@ public class ExamenController {
         return ResponseEntity.ok(new APIResponse("Examen actualizado", ExamenMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
+    @GetMapping("/resultados/paciente/uuid/{uuid}/count")
+    @Operation(summary = "Contar resultados de examen por UUID del paciente")
+    public ResponseEntity<APIResponse> countResultadosByPacienteUUID(@PathVariable String uuid) {
+        long count = examenApplicationService.countResultadosByPacienteUuid(uuid);
+        return ResponseEntity.ok(new APIResponse("Conteo de resultados", count, false, HttpStatus.OK));
+    }
+
     @GetMapping("/resultados/paciente/uuid/{uuid}")
     @Operation(summary = "Obtener resultados de examen por UUID del paciente", description = "Obtiene todos los resultados de exámenes asociados a un paciente mediante su UUID")
     @ApiResponses(value = {

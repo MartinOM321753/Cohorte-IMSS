@@ -30,6 +30,8 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     List<Cita> findByStartAtUtcBetween(Instant start, Instant end);
 
+    List<Cita> findAllByPaciente_UuidOrderByStartAtUtcDesc(String pacienteUuid);
+
     // ── Dashboard ────────────────────────────────────────────────────────────
 
     /** Cuenta citas en estado Programada o Confirmada dentro del rango de fechas indicado. */

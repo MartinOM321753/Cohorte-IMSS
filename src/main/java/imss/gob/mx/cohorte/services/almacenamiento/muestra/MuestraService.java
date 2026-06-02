@@ -34,6 +34,11 @@ public class MuestraService {
     }
 
     @Transactional(readOnly = true)
+    public long countByPacienteUuid(String uuid) {
+        return muestraRepository.countByPaciente_Uuid(uuid);
+    }
+
+    @Transactional(readOnly = true)
     public Muestra getById(Long id) {
         return muestraRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));

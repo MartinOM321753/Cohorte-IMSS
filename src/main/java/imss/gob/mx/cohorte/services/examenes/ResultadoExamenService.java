@@ -32,6 +32,10 @@ public class ResultadoExamenService {
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + id));
     }
 
+    public long countByPacienteUuid(String uuid) {
+        return resultadoExamenRepository.countByPaciente_Uuid(uuid);
+    }
+
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
         resultadoExamen.setFechaRegistro(new Timestamp(System.currentTimeMillis()));
         if (resultadoExamen.getFechaResultado() == null) {

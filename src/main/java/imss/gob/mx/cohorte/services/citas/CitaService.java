@@ -51,6 +51,10 @@ public class CitaService {
                 .orElseThrow(() -> new ObjNotFoundException("El paciente no cuenta con una cita asignada"));
     }
 
+    public List<Cita> findAllByPacienteUuid(String uuid) {
+        return citaRepository.findAllByPaciente_UuidOrderByStartAtUtcDesc(uuid);
+    }
+
     @Transactional
     public Cita create(Cita cita) {
         validateFutureDate(cita.getStartAtUtc());

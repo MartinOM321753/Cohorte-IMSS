@@ -41,6 +41,11 @@ public class MuestraApplicationService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public long countMuestrasByPacienteUuid(String uuid) {
+        return muestraService.countByPacienteUuid(uuid);
+    }
+
     @Transactional
     public Muestra createMuestra(Muestra muestra) {
         Paciente paciente = pacienteService.getByUUID(muestra.getPaciente().getUuid());

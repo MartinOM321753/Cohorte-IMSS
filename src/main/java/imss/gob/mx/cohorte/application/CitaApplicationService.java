@@ -50,6 +50,11 @@ public class CitaApplicationService {
         return citaService.findPatientUuid(uuid);
     }
 
+    @Transactional(readOnly = true)
+    public List<Cita> findAllByPacienteUuid(String uuid) {
+        return citaService.findAllByPacienteUuid(uuid);
+    }
+
     @Transactional
     public Cita save(Cita cita){
         Paciente paciente = pacienteService.getByUUID(cita.getPaciente().getUuid());

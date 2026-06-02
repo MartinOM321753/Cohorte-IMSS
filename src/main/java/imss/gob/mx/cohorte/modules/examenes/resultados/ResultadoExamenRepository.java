@@ -10,5 +10,6 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
 
     List<ResultadoExamen> findByPaciente_Uuid(String uuid);
     List<ResultadoExamen> findByPaciente_Folio(String uuid);
+    long countByPaciente_Uuid(String uuid);
 
 }
