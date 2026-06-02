@@ -5,6 +5,10 @@ import imss.gob.mx.cohorte.controllers.dashboard.dto.DashboardStatsDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.modules.cita.CitaRepository;
+import imss.gob.mx.cohorte.modules.documentos.MuestraDocumentoRepository;
+import imss.gob.mx.cohorte.modules.documentos.PacienteDocumentoRepository;
+import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
+import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +37,13 @@ public class DashboardController {
     private static final ZoneId              ZONA         = ZoneId.of("America/Mexico_City");
     private static final DateTimeFormatter   FMT_HORA     = DateTimeFormatter.ofPattern("HH:mm");
 
-    private final PacienteRepository pacienteRepository;
-    private final MuestraRepository  muestraRepository;
-    private final CitaRepository     citaRepository;
+    private final PacienteRepository         pacienteRepository;
+    private final MuestraRepository          muestraRepository;
+    private final CitaRepository             citaRepository;
+    private final EstudioMedicoRepository    estudioMedicoRepository;
+    private final ResultadoExamenRepository  resultadoExamenRepository;
+    private final PacienteDocumentoRepository pacienteDocumentoRepository;
+    private final MuestraDocumentoRepository  muestraDocumentoRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/stats
@@ -60,7 +68,21 @@ public class DashboardController {
         // 3. Total de muestras en biobanco
         long muestrasBiobanco = muestraRepository.count();
 
-        DashboardStatsDTO stats = new DashboardStatsDTO(pacientesActivos, citasProgramadas, muestrasBiobanco);
+        // 4. Estudios médicos con al menos un resultado registrado
+        long estudiosConResultados = estudioMedicoRepository.countEstudiosConResultados();
+
+        // 5. Total de resultados de exámenes de laboratorio
+        long examenesLab = resultadoExamenRepository.count();
+
+        // 6. Documentos de paciente (consentimientos + generales)
+        long documentosGenerales = pacienteDocumentoRepository.count();
+
+        // 7. Documentos vinculados a muestras biológicas
+        long documentosMuestra = muestraDocumentoRepository.count();
+
+        DashboardStatsDTO stats = new DashboardStatsDTO(
+                pacientesActivos, citasProgramadas, muestrasBiobanco,
+                estudiosConResultados, examenesLab, documentosGenerales, documentosMuestra);
         return ResponseEntity.ok(
             new APIResponse("Estadísticas obtenidas", stats, false, HttpStatus.OK)
         );
