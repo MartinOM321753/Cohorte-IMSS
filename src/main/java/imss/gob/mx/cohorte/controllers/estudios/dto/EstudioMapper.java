@@ -106,6 +106,8 @@ public class EstudioMapper {
     }
 
     public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e) {
+        int numResultados = (e.getResultadoEstudio() != null) ? e.getResultadoEstudio().size() : 0;
+        int numAdjuntos   = (e.getAdjuntos() != null)        ? e.getAdjuntos().size()          : 0;
         return EstudioListRequestDTO.builder()
                 .id(e.getId())
                 .fechaEstudio(e.getFechaEstudio())
@@ -115,6 +117,8 @@ public class EstudioMapper {
                 .usuarioRealizauuid(e.getUsuarioRealiza().getUUID())
                 .tipoEstudio(e.getTipoEstudio().getNombre())
                 .tipoEstudioid(e.getTipoEstudio().getId())
+                .cantidadResultados(numResultados)
+                .cantidadAdjuntos(numAdjuntos)
                 .build();
     }
 

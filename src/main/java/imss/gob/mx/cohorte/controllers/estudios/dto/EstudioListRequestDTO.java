@@ -17,6 +17,8 @@ public class EstudioListRequestDTO {
     private String usuarioRealizauuid;
     private String tipoEstudio;
     private Long tipoEstudioid;
+    private Integer cantidadResultados;
+    private Integer cantidadAdjuntos;
 
 
 

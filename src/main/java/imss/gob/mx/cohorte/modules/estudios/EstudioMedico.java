@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.estudios;
 
 
+import imss.gob.mx.cohorte.modules.estudios.adjuntos.EstudioAdjunto;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
@@ -47,5 +48,9 @@ public class EstudioMedico {
     @ManyToOne
     @JoinColumn(name = "id_usuario_realiza", nullable = false)
     private BeanUser usuarioRealiza;
+
+    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orden ASC")
+    private List<EstudioAdjunto> adjuntos;
 
 }
