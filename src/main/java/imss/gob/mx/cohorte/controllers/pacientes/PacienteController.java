@@ -156,6 +156,16 @@ public class PacienteController {
             .body(new APIResponse("Paciente registrado exitosamente", PacienteMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
 
+    @PatchMapping("/uuid/{uuid}/toggle-activo")
+    @Operation(summary = "Activar / desactivar paciente",
+               description = "Alterna el campo activo del paciente (activo → inactivo o viceversa) sin eliminar el registro.")
+    public ResponseEntity<APIResponse> toggleActivo(@PathVariable String uuid) {
+        Paciente updated = pacienteApplicationService.toggleActivo(uuid);
+        return ResponseEntity.ok(new APIResponse(
+                updated.getActivo() ? "Paciente activado" : "Paciente desactivado",
+                PacienteMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar paciente", description = "Actualiza los datos de un paciente existente identificado por su ID numérico")
     @ApiResponses(value = {

@@ -71,4 +71,10 @@ public class PacienteApplicationService {
         paciente.setPersona(updatePersona);
         return pacienteService.updatePatient(paciente);
     }
+
+    /** Alterna el estado activo/inactivo del paciente. Devuelve el paciente actualizado. */
+    @Transactional
+    public Paciente toggleActivo(String uuid) {
+        return pacienteService.toggleActivo(uuid);
+    }
 }

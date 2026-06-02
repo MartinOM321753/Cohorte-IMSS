@@ -77,4 +77,13 @@ public class PacienteService {
         pacienteBD.setFechaActualizacion(LocalDateTime.now());
         return pacienteRepository.save(pacienteBD);
     }
+
+    /** Alterna el campo activo del paciente (activo ↔ inactivo) sin restricciones de estado. */
+    public Paciente toggleActivo(String uuid) {
+        Paciente paciente = pacienteRepository.findByUuid(uuid)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el paciente con uuid: " + uuid));
+        paciente.setActivo(!paciente.getActivo());
+        paciente.setFechaActualizacion(LocalDateTime.now());
+        return pacienteRepository.save(paciente);
+    }
 }

@@ -78,6 +78,7 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.GET, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.POST, "/api/pacientes/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/pacientes/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/pacientes/**").hasRole("ADMINISTRADOR")
 
                         // Citas: lectura y creación para RECEPCIONISTA y ADMINISTRADOR
