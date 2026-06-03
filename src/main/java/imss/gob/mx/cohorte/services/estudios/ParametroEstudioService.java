@@ -63,6 +63,8 @@ public class ParametroEstudioService {
         parametroDB.setNombre(parametroEstudio.getNombre());
         parametroDB.setUnidad(parametroEstudio.getUnidad());
         parametroDB.setTipo(parametroEstudio.getTipo());
+        parametroDB.setValorMinimo(parametroEstudio.getValorMinimo());
+        parametroDB.setValorMaximo(parametroEstudio.getValorMaximo());
 
         return parametroRepository.save(parametroDB);
     }
