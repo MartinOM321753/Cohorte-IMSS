@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.controllers.dashboard;
 
 import imss.gob.mx.cohorte.controllers.dashboard.dto.AgendaHoyItemDTO;
 import imss.gob.mx.cohorte.controllers.dashboard.dto.DashboardStatsDTO;
+import imss.gob.mx.cohorte.controllers.dashboard.dto.ExamenResultGlobalDTO;
+import imss.gob.mx.cohorte.controllers.dashboard.dto.SomatometriaGlobalDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.modules.cita.CitaRepository;
@@ -10,7 +12,9 @@ import imss.gob.mx.cohorte.modules.documentos.PacienteDocumentoRepository;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.modules.somatometria.SomatometriaRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
+import org.springframework.data.domain.Sort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,13 +41,14 @@ public class DashboardController {
     private static final ZoneId              ZONA         = ZoneId.of("America/Mexico_City");
     private static final DateTimeFormatter   FMT_HORA     = DateTimeFormatter.ofPattern("HH:mm");
 
-    private final PacienteRepository         pacienteRepository;
-    private final MuestraRepository          muestraRepository;
-    private final CitaRepository             citaRepository;
-    private final EstudioMedicoRepository    estudioMedicoRepository;
-    private final ResultadoExamenRepository  resultadoExamenRepository;
+    private final PacienteRepository          pacienteRepository;
+    private final MuestraRepository           muestraRepository;
+    private final CitaRepository              citaRepository;
+    private final EstudioMedicoRepository     estudioMedicoRepository;
+    private final ResultadoExamenRepository   resultadoExamenRepository;
     private final PacienteDocumentoRepository pacienteDocumentoRepository;
     private final MuestraDocumentoRepository  muestraDocumentoRepository;
+    private final SomatometriaRepository      somatometriaRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/stats
@@ -111,6 +116,66 @@ public class DashboardController {
 
         return ResponseEntity.ok(
             new APIResponse("Agenda del día obtenida", agenda, false, HttpStatus.OK)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/somatometria-global
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/somatometria-global")
+    @Operation(
+        summary     = "Datos globales de somatometría para gráficas",
+        description = "Retorna todos los registros de somatometría (campos numéricos únicamente) "
+                    + "ordenados por fecha ascendente, para construir gráficas de tendencia global."
+    )
+    public ResponseEntity<APIResponse> getSomatometriaGlobal() {
+        List<SomatometriaGlobalDTO> data = somatometriaRepository
+                .findAll(Sort.by("fechaMedicion").ascending())
+                .stream()
+                .map(s -> new SomatometriaGlobalDTO(
+                        s.getFechaMedicion() != null ? s.getFechaMedicion().toString() : null,
+                        s.getPesoKg()   != null ? s.getPesoKg().doubleValue()   : null,
+                        s.getImc()      != null ? s.getImc().doubleValue()       : null,
+                        s.getPresionSistolica(),
+                        s.getPresionDiastolica(),
+                        s.getCircunferenciaAbdominalCm() != null
+                                ? s.getCircunferenciaAbdominalCm().doubleValue() : null
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(
+            new APIResponse("Datos de somatometría global obtenidos", data, false, HttpStatus.OK)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/examenes-global
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/examenes-global")
+    @Operation(
+        summary     = "Datos globales de resultados de exámenes para gráficas",
+        description = "Retorna todos los resultados de exámenes (campos mínimos) ordenados por "
+                    + "fecha ascendente, para construir gráficas de distribución y tendencia global."
+    )
+    public ResponseEntity<APIResponse> getExamenesGlobal() {
+        List<ExamenResultGlobalDTO> data = resultadoExamenRepository
+                .findAll(Sort.by("fechaResultado").ascending())
+                .stream()
+                .filter(r -> r.getExamen() != null)
+                .map(r -> new ExamenResultGlobalDTO(
+                        r.getFechaResultado() != null ? r.getFechaResultado().toString() : null,
+                        r.getExamen().getParametro(),
+                        r.getExamen().getUnidad(),
+                        r.getValorObtenido(),
+                        r.getExamen().getValorMinHombres(),
+                        r.getExamen().getValorMaxHombres(),
+                        r.getExamen().getValorMinMujeres(),
+                        r.getExamen().getValorMaxMujeres()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(
+            new APIResponse("Datos de exámenes global obtenidos", data, false, HttpStatus.OK)
         );
     }
 
