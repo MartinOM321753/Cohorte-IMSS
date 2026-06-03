@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.estudios.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.Valid;
 import lombok.*;
 
@@ -26,6 +27,7 @@ public class EstudioMedicoRequestDTO {
     private Long idTipoEstudio;
 
     @NotNull
+    @PastOrPresent(message = "La fecha del estudio no puede ser futura")
     private LocalDate fechaEstudio;
 
     private String observaciones;

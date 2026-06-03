@@ -290,6 +290,8 @@ public class EstudioMedicoController {
                 .unidad(p.getUnidad())
                 .tipo(p.getTipo())
                 .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
+                .valorMinimo(p.getValorMinimo())
+                .valorMaximo(p.getValorMaximo())
                 .build())
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Parámetros obtenidos correctamente", HttpStatus.OK, false));
@@ -337,6 +339,8 @@ public class EstudioMedicoController {
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
         parametro.setTipo(dto.getTipo());
+        parametro.setValorMinimo(dto.getValorMinimo());
+        parametro.setValorMaximo(dto.getValorMaximo());
         ParametroEstudio creado = gestionEstudiosApplicationService.createParametro(parametro);
         ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
             .id(creado.getId())
@@ -344,6 +348,8 @@ public class EstudioMedicoController {
             .unidad(creado.getUnidad())
             .tipo(creado.getTipo())
             .tipoEstudio(creado.getTipoEstudio() != null ? creado.getTipoEstudio().getNombre() : null)
+            .valorMinimo(creado.getValorMinimo())
+            .valorMaximo(creado.getValorMaximo())
             .build();
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse(responseDTO, "Parámetro creado correctamente", HttpStatus.CREATED, false));
@@ -377,6 +383,8 @@ public class EstudioMedicoController {
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
         parametro.setTipo(dto.getTipo());
+        parametro.setValorMinimo(dto.getValorMinimo());
+        parametro.setValorMaximo(dto.getValorMaximo());
         ParametroEstudio actualizado = gestionEstudiosApplicationService.updateParametro(parametro);
         ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
             .id(actualizado.getId())
@@ -384,6 +392,8 @@ public class EstudioMedicoController {
             .unidad(actualizado.getUnidad())
             .tipo(actualizado.getTipo())
             .tipoEstudio(actualizado.getTipoEstudio() != null ? actualizado.getTipoEstudio().getNombre() : null)
+            .valorMinimo(actualizado.getValorMinimo())
+            .valorMaximo(actualizado.getValorMaximo())
             .build();
         return ResponseEntity.ok(new APIResponse(responseDTO, "Parámetro actualizado correctamente", HttpStatus.OK, false));
     }

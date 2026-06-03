@@ -16,4 +16,6 @@ public class ParametroEstudioResponseDTO {
     private String unidad;
     private TipoParametro tipo;
     private String tipoEstudio;
+    private Double valorMinimo;
+    private Double valorMaximo;
 }

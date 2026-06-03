@@ -39,4 +39,12 @@ public class ParametroEstudio {
     @Column(name = "tipo", nullable = false, length = 10)
     private TipoParametro tipo;
 
+    /** Valor mínimo de referencia (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_minimo")
+    private Double valorMinimo;
+
+    /** Valor máximo de referencia (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_maximo")
+    private Double valorMaximo;
+
 }

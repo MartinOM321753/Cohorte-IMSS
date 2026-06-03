@@ -26,4 +26,10 @@ public class ParametroEstudioRequestDTO {
 
     @NotNull
     private TipoParametro tipo;
+
+    /** Valor mínimo de referencia (solo aplica a parámetros NUMERICO, opcional). */
+    private Double valorMinimo;
+
+    /** Valor máximo de referencia (solo aplica a parámetros NUMERICO, opcional). */
+    private Double valorMaximo;
 }
