@@ -41,6 +41,22 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     long countCitasProgramadasEnMes(@Param("start") Instant start,
                                     @Param("end")   Instant end);
 
+    /** Cuenta todas las citas no canceladas en el mes (para la tarjeta "Citas del mes"). */
+    @Query("SELECT COUNT(c) FROM Cita c " +
+           "WHERE c.estadoCita <> 'Cancelada' " +
+           "AND c.startAtUtc >= :start AND c.startAtUtc <= :end")
+    long countCitasMes(@Param("start") Instant start,
+                       @Param("end")   Instant end);
+
+    /**
+     * Cuenta citas cuya hora de fin ya pasó pero aún están en estado Programada o Confirmada.
+     * Estas son citas que el usuario olvidó actualizar ("sin actualizar").
+     */
+    @Query("SELECT COUNT(c) FROM Cita c " +
+           "WHERE c.estadoCita IN ('Programada', 'Confirmada') " +
+           "AND c.endAtUtc < :now")
+    long countCitasSinActualizar(@Param("now") Instant now);
+
     /**
      * Devuelve todas las citas no canceladas cuyo inicio esté en el rango [start, end),
      * con paciente y persona en fetch eager para evitar N+1.

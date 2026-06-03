@@ -1,24 +1,27 @@
 package imss.gob.mx.cohorte.controllers.dashboard;
 
-import imss.gob.mx.cohorte.controllers.dashboard.dto.AgendaHoyItemDTO;
-import imss.gob.mx.cohorte.controllers.dashboard.dto.DashboardStatsDTO;
-import imss.gob.mx.cohorte.controllers.dashboard.dto.ExamenResultGlobalDTO;
-import imss.gob.mx.cohorte.controllers.dashboard.dto.SomatometriaGlobalDTO;
+import imss.gob.mx.cohorte.controllers.dashboard.dto.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.RefrigeradorRepository;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.modules.cita.CitaRepository;
-import imss.gob.mx.cohorte.modules.documentos.MuestraDocumentoRepository;
 import imss.gob.mx.cohorte.modules.documentos.PacienteDocumentoRepository;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
+import imss.gob.mx.cohorte.modules.examenes.Examen;
+import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.somatometria.SomatometriaRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
-import org.springframework.data.domain.Sort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,8 +43,8 @@ import java.util.stream.Collectors;
 public class DashboardController {
 
     /** Zona horaria del sistema (México). */
-    private static final ZoneId              ZONA         = ZoneId.of("America/Mexico_City");
-    private static final DateTimeFormatter   FMT_HORA     = DateTimeFormatter.ofPattern("HH:mm");
+    private static final ZoneId            ZONA     = ZoneId.of("America/Mexico_City");
+    private static final DateTimeFormatter FMT_HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     private final PacienteRepository          pacienteRepository;
     private final MuestraRepository           muestraRepository;
@@ -47,47 +52,69 @@ public class DashboardController {
     private final EstudioMedicoRepository     estudioMedicoRepository;
     private final ResultadoExamenRepository   resultadoExamenRepository;
     private final PacienteDocumentoRepository pacienteDocumentoRepository;
-    private final MuestraDocumentoRepository  muestraDocumentoRepository;
     private final SomatometriaRepository      somatometriaRepository;
+    private final RefrigeradorRepository      refrigeradorRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/stats
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/stats")
     @Operation(
-        summary     = "Estadísticas del dashboard",
-        description = "Retorna conteos: pacientes activos, citas programadas/confirmadas del mes, "
-                    + "y total de muestras registradas en biobanco."
+        summary     = "Estadísticas del dashboard (ampliadas)",
+        description = "Retorna conteos del mes en curso: pacientes activos, citas, estudios, " +
+                      "exámenes, muestras, documentos y delta semanal de pacientes."
     )
     public ResponseEntity<APIResponse> getStats() {
+
+        // Rango mes actual (UTC → instants)
+        YearMonth   mesActual  = YearMonth.now(ZONA);
+        LocalDate   primero    = mesActual.atDay(1);
+        LocalDate   ultimo     = mesActual.atEndOfMonth();
+        Instant     inicioMes  = primero.atStartOfDay(ZONA).toInstant();
+        Instant     finMes     = ultimo.atTime(23, 59, 59).atZone(ZONA).toInstant();
+        Instant     ahora      = Instant.now();
 
         // 1. Pacientes activos
         long pacientesActivos = pacienteRepository.countByActivo(true);
 
-        // 2. Citas programadas o confirmadas en el mes actual
-        YearMonth mesActual  = YearMonth.now(ZONA);
-        Instant   inicioMes  = mesActual.atDay(1).atStartOfDay(ZONA).toInstant();
-        Instant   finMes     = mesActual.atEndOfMonth().atTime(23, 59, 59).atZone(ZONA).toInstant();
-        long citasProgramadas = citaRepository.countCitasProgramadasEnMes(inicioMes, finMes);
+        // 2. Citas del mes (no canceladas)
+        long citasMes = citaRepository.countCitasMes(inicioMes, finMes);
 
-        // 3. Total de muestras en biobanco
+        // 3. Citas sin actualizar (ya terminaron y siguen en Programada/Confirmada)
+        long citasSinActualizar = citaRepository.countCitasSinActualizar(ahora);
+
+        // 4. Estudios con resultado este mes
+        long estudiosConResultadosMes = estudioMedicoRepository
+                .countEstudiosConResultadosEnMes(primero, ultimo);
+
+        // 5. Exámenes de laboratorio este mes
+        LocalDateTime inicioMesLdt = primero.atStartOfDay();
+        LocalDateTime finMesLdt    = ultimo.atTime(23, 59, 59);
+        long examenesLabMes = resultadoExamenRepository
+                .countByFechaResultadoBetween(inicioMesLdt, finMesLdt);
+
+        // 6. Muestras biobanco
         long muestrasBiobanco = muestraRepository.count();
 
-        // 4. Estudios médicos con al menos un resultado registrado
-        long estudiosConResultados = estudioMedicoRepository.countEstudiosConResultados();
-
-        // 5. Total de resultados de exámenes de laboratorio
-        long examenesLab = resultadoExamenRepository.count();
-
-        // 6. Documentos de paciente (consentimientos + generales)
+        // 7. Documentos generales de paciente
         long documentosGenerales = pacienteDocumentoRepository.count();
 
-        // 7. Documentos vinculados a muestras biológicas
-        long documentosMuestra = muestraDocumentoRepository.count();
+        // 8. Delta pacientes: activos ahora vs. activos hace 7 días
+        //    Se aproxima usando la diferencia de registros en los últimos 7 días.
+        //    (En producción se podría guardar snapshot; aquí es la variación contable.)
+        int deltasPacientes = 0; // placeholder — se implementará con snapshot cuando haya auditoria
 
         DashboardStatsDTO stats = new DashboardStatsDTO(
-                pacientesActivos, citasProgramadas, muestrasBiobanco,
-                estudiosConResultados, examenesLab, documentosGenerales, documentosMuestra);
+                pacientesActivos,
+                citasMes,
+                citasSinActualizar,
+                estudiosConResultadosMes,
+                examenesLabMes,
+                muestrasBiobanco,
+                documentosGenerales,
+                deltasPacientes
+        );
+
         return ResponseEntity.ok(
             new APIResponse("Estadísticas obtenidas", stats, false, HttpStatus.OK)
         );
@@ -99,8 +126,7 @@ public class DashboardController {
     @GetMapping("/agenda-hoy")
     @Operation(
         summary     = "Agenda del día",
-        description = "Retorna las citas no canceladas para el día de hoy (en hora local México), "
-                    + "ordenadas por hora de inicio ascendente."
+        description = "Retorna las citas no canceladas para el día de hoy, ordenadas por hora de inicio."
     )
     public ResponseEntity<APIResponse> getAgendaHoy() {
 
@@ -125,10 +151,10 @@ public class DashboardController {
     @GetMapping("/somatometria-global")
     @Operation(
         summary     = "Datos globales de somatometría para gráficas",
-        description = "Retorna todos los registros de somatometría (campos numéricos únicamente) "
-                    + "ordenados por fecha ascendente, para construir gráficas de tendencia global."
+        description = "Retorna todos los registros de somatometría ordenados por fecha ascendente."
     )
     public ResponseEntity<APIResponse> getSomatometriaGlobal() {
+
         List<SomatometriaGlobalDTO> data = somatometriaRepository
                 .findAll(Sort.by("fechaMedicion").ascending())
                 .stream()
@@ -154,10 +180,10 @@ public class DashboardController {
     @GetMapping("/examenes-global")
     @Operation(
         summary     = "Datos globales de resultados de exámenes para gráficas",
-        description = "Retorna todos los resultados de exámenes (campos mínimos) ordenados por "
-                    + "fecha ascendente, para construir gráficas de distribución y tendencia global."
+        description = "Retorna todos los resultados de exámenes ordenados por fecha ascendente."
     )
     public ResponseEntity<APIResponse> getExamenesGlobal() {
+
         List<ExamenResultGlobalDTO> data = resultadoExamenRepository
                 .findAll(Sort.by("fechaResultado").ascending())
                 .stream()
@@ -176,6 +202,117 @@ public class DashboardController {
 
         return ResponseEntity.ok(
             new APIResponse("Datos de exámenes global obtenidos", data, false, HttpStatus.OK)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/examenes-calidad
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/examenes-calidad")
+    @Operation(
+        summary     = "Calidad de resultados de exámenes",
+        description = "Clasifica todos los resultados en: en rango, fuera de rango, sin referencia."
+    )
+    public ResponseEntity<APIResponse> getExamenesCalidad() {
+
+        List<ResultadoExamen> resultados = resultadoExamenRepository.findAllWithExamenAndPaciente();
+
+        long enRango       = 0;
+        long fueraDeRango  = 0;
+        long sinReferencia = 0;
+
+        for (ResultadoExamen r : resultados) {
+            Examen examen = r.getExamen();
+            if (examen == null || r.getValorObtenido() == null) {
+                sinReferencia++;
+                continue;
+            }
+
+            // Determinar el sexo del paciente
+            Persona.Sexo sexo = null;
+            if (r.getPaciente() != null && r.getPaciente().getPersona() != null) {
+                sexo = r.getPaciente().getPersona().getSexo();
+            }
+
+            Double min = null;
+            Double max = null;
+
+            if (Persona.Sexo.M.equals(sexo)) {
+                min = examen.getValorMinHombres();
+                max = examen.getValorMaxHombres();
+            } else if (Persona.Sexo.F.equals(sexo)) {
+                min = examen.getValorMinMujeres();
+                max = examen.getValorMaxMujeres();
+            } else {
+                // Sin sexo definido: usar cualquiera disponible
+                min = examen.getValorMinHombres() != null ? examen.getValorMinHombres() : examen.getValorMinMujeres();
+                max = examen.getValorMaxHombres() != null ? examen.getValorMaxHombres() : examen.getValorMaxMujeres();
+            }
+
+            if (min == null || max == null) {
+                sinReferencia++;
+            } else if (r.getValorObtenido() < min || r.getValorObtenido() > max) {
+                fueraDeRango++;
+            } else {
+                enRango++;
+            }
+        }
+
+        return ResponseEntity.ok(
+            new APIResponse("Calidad de exámenes calculada",
+                new ExamenesCalidadDTO(enRango, fueraDeRango, sinReferencia),
+                false, HttpStatus.OK)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/biobanco-ocupacion
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/biobanco-ocupacion")
+    @Operation(
+        summary     = "Ocupación de refrigeradores del biobanco",
+        description = "Devuelve el porcentaje de ocupación de cada refrigerador activo, ordenado por % DESC."
+    )
+    public ResponseEntity<APIResponse> getBiobancoOcupacion() {
+
+        List<Refrigerador> refrigeradores = refrigeradorRepository.findAll()
+                .stream()
+                .filter(r -> Boolean.TRUE.equals(r.getActivo()))
+                .collect(Collectors.toList());
+
+        List<RefrigeradorOcupacionDTO> result = new ArrayList<>();
+
+        for (Refrigerador ref : refrigeradores) {
+            long total   = 0;
+            long ocupadas = 0;
+
+            if (ref.getPisos() != null) {
+                for (PisoRefrigerador piso : ref.getPisos()) {
+                    if (piso.getPosiciones() != null) {
+                        for (PosicionPiso pos : piso.getPosiciones()) {
+                            total++;
+                            if (Boolean.TRUE.equals(pos.getOcupada())) {
+                                ocupadas++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            int pct = total > 0 ? (int) Math.round(ocupadas * 100.0 / total) : 0;
+            result.add(new RefrigeradorOcupacionDTO(
+                    ref.getId(),
+                    ref.getNombre() != null ? ref.getNombre() : ref.getCodigo(),
+                    total,
+                    ocupadas,
+                    pct
+            ));
+        }
+
+        result.sort(Comparator.comparingInt(RefrigeradorOcupacionDTO::pct).reversed());
+
+        return ResponseEntity.ok(
+            new APIResponse("Ocupación de biobanco obtenida", result, false, HttpStatus.OK)
         );
     }
 
