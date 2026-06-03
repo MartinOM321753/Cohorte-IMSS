@@ -25,4 +25,43 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
            "AND e.fechaEstudio >= :inicio AND e.fechaEstudio <= :fin")
     long countEstudiosConResultadosEnMes(@Param("inicio") LocalDate inicio,
                                          @Param("fin")    LocalDate fin);
+
+    // ── Cobertura ────────────────────────────────────────────────────────────
+
+    /** Cuenta pacientes distintos con ≥ 1 estudio médico del tipo dado. */
+    @Query("SELECT COUNT(DISTINCT e.paciente.Id) FROM EstudioMedico e WHERE e.tipoEstudio.Id = :tipoId")
+    long countDistinctPacienteByTipoEstudioId(@Param("tipoId") Long tipoId);
+
+    /**
+     * Por cada paciente activo con al menos un estudio, devuelve cuántos tipos de estudio distintos
+     * tiene. Devuelve pares [pacienteId, count].
+     */
+    @Query("SELECT e.paciente.Id, COUNT(DISTINCT e.tipoEstudio.Id) " +
+           "FROM EstudioMedico e " +
+           "WHERE e.paciente.activo = true " +
+           "GROUP BY e.paciente.Id")
+    List<Object[]> countDistinctTipoByPacienteActivo();
+
+    /**
+     * Pacientes activos que NO tienen EstudioMedico con tipoEstudio.id = tipoId.
+     */
+    @Query("SELECT p.Id FROM Paciente p WHERE p.activo = true " +
+           "AND p.Id NOT IN (" +
+           "  SELECT DISTINCT e.paciente.Id FROM EstudioMedico e WHERE e.tipoEstudio.Id = :tipoId)")
+    List<Long> findPacientesActivosSinTipoEstudio(@Param("tipoId") Long tipoId);
+
+    /**
+     * Pacientes activos cuyo conteo de tipos de estudio distintos = k.
+     */
+    @Query("SELECT e.paciente.Id FROM EstudioMedico e " +
+           "WHERE e.paciente.activo = true " +
+           "GROUP BY e.paciente.Id " +
+           "HAVING COUNT(DISTINCT e.tipoEstudio.Id) = :k")
+    List<Long> findPacientesConExactamenteKEstudios(@Param("k") long k);
+
+    /**
+     * Tipos de estudio cubiertos (ids) para un paciente.
+     */
+    @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e WHERE e.paciente.Id = :pacienteId")
+    List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
 }

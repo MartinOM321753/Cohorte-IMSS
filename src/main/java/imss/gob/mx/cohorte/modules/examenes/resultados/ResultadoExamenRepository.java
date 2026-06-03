@@ -27,4 +27,51 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
            "LEFT JOIN FETCH r.paciente pac " +
            "LEFT JOIN FETCH pac.persona")
     List<ResultadoExamen> findAllWithExamenAndPaciente();
+
+    // ── Cobertura ────────────────────────────────────────────────────────────
+
+    /** Cuenta pacientes distintos que tienen ≥ 1 resultado para el examen dado. */
+    @Query("SELECT COUNT(DISTINCT r.paciente.Id) FROM ResultadoExamen r WHERE r.examen.Id = :examenId")
+    long countDistinctPacienteByExamenId(@Param("examenId") Long examenId);
+
+    /**
+     * Por cada paciente activo con al menos un resultado, devuelve cuántos exámenes distintos
+     * tiene. Devuelve pares [pacienteId, count].
+     */
+    @Query("SELECT r.paciente.Id, COUNT(DISTINCT r.examen.Id) " +
+           "FROM ResultadoExamen r " +
+           "WHERE r.paciente.activo = true " +
+           "GROUP BY r.paciente.Id")
+    List<Object[]> countDistinctExamenByPacienteActivo();
+
+    /**
+     * Pacientes activos que NO tienen ResultadoExamen con examen.id = tipoId.
+     * Devuelve IDs de paciente.
+     */
+    @Query("SELECT p.Id FROM Paciente p WHERE p.activo = true " +
+           "AND p.Id NOT IN (" +
+           "  SELECT DISTINCT r.paciente.Id FROM ResultadoExamen r WHERE r.examen.Id = :examenId)")
+    List<Long> findPacientesActivosSinExamen(@Param("examenId") Long examenId);
+
+    /**
+     * Pacientes activos cuyo conteo de exámenes distintos = k.
+     * Devuelve IDs de paciente.
+     */
+    @Query("SELECT r.paciente.Id FROM ResultadoExamen r " +
+           "WHERE r.paciente.activo = true " +
+           "GROUP BY r.paciente.Id " +
+           "HAVING COUNT(DISTINCT r.examen.Id) = :k")
+    List<Long> findPacientesConExactamenteKExamenes(@Param("k") long k);
+
+    /**
+     * Para un paciente, cuenta exámenes distintos cubiertos.
+     */
+    @Query("SELECT COUNT(DISTINCT r.examen.Id) FROM ResultadoExamen r WHERE r.paciente.Id = :pacienteId")
+    long countDistinctExamenByPacienteId(@Param("pacienteId") Long pacienteId);
+
+    /**
+     * Exámenes cubiertos (ids) para un paciente.
+     */
+    @Query("SELECT DISTINCT r.examen.Id FROM ResultadoExamen r WHERE r.paciente.Id = :pacienteId")
+    List<Long> findExamenesCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
 }
