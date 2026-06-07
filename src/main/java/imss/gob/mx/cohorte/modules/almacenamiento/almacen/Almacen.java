@@ -41,10 +41,25 @@ public class Almacen {
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
-    /** Usuario del sistema con rol ENCARGADO asignado a este almacén (opcional). */
+    /** Usuario del sistema con rol ENCARGADO asignado a esta institución (opcional). */
     @ManyToOne
     @JoinColumn(name = "id_encargado", nullable = true)
     private BeanUser encargado;
+
+    /**
+     * Tipo de institución externa (INMEGEN, INSP, HOSPITAL, LABORATORIO, OTRA).
+     * Nullable para compatibilidad con registros previos; default OTRA.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_institucion", length = 20)
+    private TipoInstitucion tipo = TipoInstitucion.OTRA;
+
+    /**
+     * Indica si la institución tiene su propio biobanco.
+     * Preparación para el modelo de sucursales.
+     */
+    @Column(name = "tiene_biobanco", nullable = false)
+    private Boolean tieneBiobanco = true;
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;

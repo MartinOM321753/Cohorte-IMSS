@@ -19,6 +19,9 @@ public class AlmacenMapper {
         a.setResponsable(dto.getResponsable());
         a.setTelefono(dto.getTelefono());
         a.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
+        a.setTipo(dto.getTipo() != null ? dto.getTipo()
+                : imss.gob.mx.cohorte.modules.almacenamiento.almacen.TipoInstitucion.OTRA);
+        a.setTieneBiobanco(dto.getTieneBiobanco() != null ? dto.getTieneBiobanco() : true);
         return a;
     }
 
@@ -32,6 +35,8 @@ public class AlmacenMapper {
                 .responsable(a.getResponsable())
                 .telefono(a.getTelefono())
                 .activo(a.getActivo())
+                .tipo(a.getTipo())
+                .tieneBiobanco(a.getTieneBiobanco())
                 .encargado(mapEncargado(a.getEncargado()))
                 .build();
     }

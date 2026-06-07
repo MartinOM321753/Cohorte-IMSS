@@ -86,6 +86,8 @@ public class AlmacenService {
         almacenBD.setResponsable(almacen.getResponsable());
         almacenBD.setTelefono(almacen.getTelefono());
         almacenBD.setActivo(almacen.getActivo() != null ? almacen.getActivo() : almacenBD.getActivo());
+        if (almacen.getTipo() != null) almacenBD.setTipo(almacen.getTipo());
+        if (almacen.getTieneBiobanco() != null) almacenBD.setTieneBiobanco(almacen.getTieneBiobanco());
 
         if (uuidEncargado != null && !uuidEncargado.isBlank()) {
             BeanUser encargado = resolverEncargado(uuidEncargado);

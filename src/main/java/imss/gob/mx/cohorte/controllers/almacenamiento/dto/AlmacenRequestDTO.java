@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.almacen.TipoInstitucion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -9,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AlmacenRequestDTO {
 
-    @NotBlank(message = "El nombre del almacén es obligatorio")
+    @NotBlank(message = "El nombre de la institución es obligatorio")
     @Size(max = 100, message = "El nombre no puede superar 100 caracteres")
     private String nombre;
 
@@ -32,7 +33,13 @@ public class AlmacenRequestDTO {
 
     private Boolean activo = true;
 
-    /** UUID del usuario con rol ENCARGADO asignado a este almacén (obligatorio). */
-    @NotBlank(message = "El encargado del almacén es obligatorio")
+    /** Tipo de institución (INMEGEN, INSP, HOSPITAL, LABORATORIO, OTRA). */
+    private TipoInstitucion tipo = TipoInstitucion.OTRA;
+
+    /** Indica si la institución tiene su propio biobanco. */
+    private Boolean tieneBiobanco = true;
+
+    /** UUID del usuario con rol ENCARGADO asignado a esta institución (obligatorio). */
+    @NotBlank(message = "El encargado de la institución es obligatorio")
     private String uuidEncargado;
 }

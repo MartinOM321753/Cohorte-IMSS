@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.almacen.TipoInstitucion;
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,6 +16,8 @@ public class AlmacenResponseDTO {
     private String responsable;
     private String telefono;
     private Boolean activo;
+    private TipoInstitucion tipo;
+    private Boolean tieneBiobanco;
     private EncargadoResumenDTO encargado;
 
     @Data
