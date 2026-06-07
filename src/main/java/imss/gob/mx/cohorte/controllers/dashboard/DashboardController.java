@@ -1,6 +1,10 @@
 package imss.gob.mx.cohorte.controllers.dashboard;
 
 import imss.gob.mx.cohorte.controllers.dashboard.dto.*;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenicaRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
@@ -54,6 +58,8 @@ public class DashboardController {
     private final PacienteDocumentoRepository pacienteDocumentoRepository;
     private final SomatometriaRepository      somatometriaRepository;
     private final RefrigeradorRepository      refrigeradorRepository;
+    private final CajaCriogenicaRepository    cajaCriogenicaRepository;
+    private final PosicionCajaRepository      posicionCajaRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/stats
@@ -283,29 +289,49 @@ public class DashboardController {
         List<RefrigeradorOcupacionDTO> result = new ArrayList<>();
 
         for (Refrigerador ref : refrigeradores) {
-            long total   = 0;
-            long ocupadas = 0;
+            long totalRef   = 0;
+            long ocupadasRef = 0;
+            List<RefrigeradorOcupacionDTO.PisoResumen> pisosDTO = new ArrayList<>();
 
             if (ref.getPisos() != null) {
                 for (PisoRefrigerador piso : ref.getPisos()) {
+                    long pisoTotal    = 0;
+                    long pisoOcupadas = 0;
+
                     if (piso.getPosiciones() != null) {
                         for (PosicionPiso pos : piso.getPosiciones()) {
-                            total++;
-                            if (Boolean.TRUE.equals(pos.getOcupada())) {
-                                ocupadas++;
-                            }
+                            pisoTotal++;
+                            if (Boolean.TRUE.equals(pos.getOcupada())) pisoOcupadas++;
                         }
                     }
+
+                    int pisoPct = pisoTotal > 0
+                            ? (int) Math.round(pisoOcupadas * 100.0 / pisoTotal) : 0;
+
+                    pisosDTO.add(new RefrigeradorOcupacionDTO.PisoResumen(
+                            piso.getId(),
+                            piso.getNumeroPiso(),
+                            pisoTotal,
+                            pisoOcupadas,
+                            pisoPct
+                    ));
+
+                    totalRef    += pisoTotal;
+                    ocupadasRef += pisoOcupadas;
                 }
             }
 
-            int pct = total > 0 ? (int) Math.round(ocupadas * 100.0 / total) : 0;
+            // Ordenar pisos por nombre/número ascendente
+            pisosDTO.sort(Comparator.comparing(RefrigeradorOcupacionDTO.PisoResumen::numeroPiso));
+
+            int pct = totalRef > 0 ? (int) Math.round(ocupadasRef * 100.0 / totalRef) : 0;
             result.add(new RefrigeradorOcupacionDTO(
                     ref.getId(),
                     ref.getNombre() != null ? ref.getNombre() : ref.getCodigo(),
-                    total,
-                    ocupadas,
-                    pct
+                    totalRef,
+                    ocupadasRef,
+                    pct,
+                    pisosDTO
             ));
         }
 
@@ -313,6 +339,44 @@ public class DashboardController {
 
         return ResponseEntity.ok(
             new APIResponse("Ocupación de biobanco obtenida", result, false, HttpStatus.OK)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/biobanco-cajas
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/biobanco-cajas")
+    @Operation(
+        summary     = "Ocupación de cajas criogénicas del biobanco",
+        description = "Devuelve el porcentaje de ocupación de cada caja, ordenado por % DESC."
+    )
+    public ResponseEntity<APIResponse> getBiobancoOcupacionCajas() {
+
+        // findAll() es consistente con CajasApplicationService.getAllCajas()
+        List<CajaCriogenica> cajas = cajaCriogenicaRepository.findAll();
+
+        List<CajaOcupacionDTO> result = cajas.stream().map(caja -> {
+            // Usar el conteo real de posiciones creadas en DB, no filas*columnas
+            List<?> todasPosiciones = posicionCajaRepository.findAllByCaja_Id(caja.getId());
+            long total    = todasPosiciones.size();
+            long ocupadas = posicionCajaRepository
+                    .findAllByCaja_IdAndOcupada(caja.getId(), true)
+                    .size();
+            int pct = total > 0 ? (int) Math.round(ocupadas * 100.0 / total) : 0;
+            return new CajaOcupacionDTO(
+                    caja.getId(),
+                    caja.getCodigoCaja(),
+                    caja.getTipoCaja(),
+                    total,
+                    ocupadas,
+                    pct
+            );
+        })
+        .sorted(Comparator.comparingInt(CajaOcupacionDTO::pct).reversed())
+        .collect(Collectors.toList());
+
+        return ResponseEntity.ok(
+            new APIResponse("Ocupación de cajas obtenida", result, false, HttpStatus.OK)
         );
     }
 

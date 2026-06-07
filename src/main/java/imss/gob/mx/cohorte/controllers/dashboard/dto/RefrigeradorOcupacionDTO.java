@@ -1,9 +1,21 @@
 package imss.gob.mx.cohorte.controllers.dashboard.dto;
 
+import java.util.List;
+
 public record RefrigeradorOcupacionDTO(
-    long   refrigeradorId,
-    String nombre,
-    long   totalPosiciones,  // suma de posiciones activas en todos los pisos del refrigerador
-    long   ocupadas,         // posiciones con ocupada = true
-    int    pct               // Math.round(ocupadas * 100.0 / totalPosiciones)
-) {}
+    long             refrigeradorId,
+    String           nombre,
+    long             totalPosiciones,
+    long             ocupadas,
+    int              pct,
+    List<PisoResumen> pisos
+) {
+    /** Ocupación por piso individual. */
+    public record PisoResumen(
+        Long   pisoId,
+        String numeroPiso,
+        long   total,
+        long   ocupadas,
+        int    pct
+    ) {}
+}
