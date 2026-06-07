@@ -34,4 +34,8 @@ public class MuestraRequestDTO {
     private String usuarioRecolectaUUID;
 
     private Long idPosicionCaja;
+
+    // Stream C — TipoMuestra (opcional, nullable)
+    private Long idTipoMuestra;
+    private Long idTuboMuestra;
 }

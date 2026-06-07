@@ -1,12 +1,17 @@
 package imss.gob.mx.cohorte.modules.almacenamiento.muestra;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Entity
@@ -53,6 +58,38 @@ public class Muestra {
     @JoinColumn(name = "id_usuario_recolecta", nullable = false)
     private BeanUser usuarioRecolecta;
 
+    // ── Campos Stream C — TipoMuestra (todos nullable para compat con registros previos) ──
 
+    /** Tipo de muestra configurado en el catálogo (nullable). */
+    @ManyToOne
+    @JoinColumn(name = "id_tipo_muestra")
+    private TipoMuestra tipoMuestra;
+
+    /** Tubo específico de este tipo de muestra (nullable). */
+    @ManyToOne
+    @JoinColumn(name = "id_tubo_muestra")
+    private TuboMuestra tuboMuestra;
+
+    /**
+     * Muestra padre: null = muestra primaria / tubo directo;
+     * not null = alícuota derivada de muestraPadre.
+     */
+    @ManyToOne
+    @JsonIgnore
+    @JoinColumn(name = "id_muestra_padre")
+    private Muestra muestraPadre;
+
+    /** Número de esta alícuota dentro del tubo (1-based). Null si es muestra primaria. */
+    @Column(name = "numero_alicuota")
+    private Integer numeroAlicuota;
+
+    /** Total de alícuotas del tubo al que pertenece. Null si es muestra primaria. */
+    @Column(name = "total_alicuotas")
+    private Integer totalAlicuotas;
+
+    /** Alícuotas derivadas de este tubo/muestra primaria. */
+    @OneToMany(mappedBy = "muestraPadre", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Muestra> alicuotas = new ArrayList<>();
 }
 

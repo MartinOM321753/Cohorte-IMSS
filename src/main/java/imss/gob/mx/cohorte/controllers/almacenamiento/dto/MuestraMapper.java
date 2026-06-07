@@ -67,6 +67,28 @@ public class MuestraMapper {
                 .build();
         }
 
+        // Stream C — TipoMuestra / TuboMuestra resumen
+        TipoMuestraResumenDTO tipoMuestraDTO = null;
+        if (m.getTipoMuestra() != null) {
+            var tm = m.getTipoMuestra();
+            tipoMuestraDTO = TipoMuestraResumenDTO.builder()
+                .id(tm.getId())
+                .nombre(tm.getNombre())
+                .temperaturaAlmacenamiento(tm.getTemperaturaAlmacenamiento())
+                .build();
+        }
+
+        TuboMuestraResumenDTO tuboMuestraDTO = null;
+        if (m.getTuboMuestra() != null) {
+            var tb = m.getTuboMuestra();
+            tuboMuestraDTO = TuboMuestraResumenDTO.builder()
+                .id(tb.getId())
+                .nombre(tb.getNombre())
+                .prefijoCodigo(tb.getPrefijoCodigo())
+                .numeroAlicuotas(tb.getNumeroAlicuotas())
+                .build();
+        }
+
         return MuestraResponseDTO.builder()
             .id(m.getId())
             .etiqueta(m.getEtiqueta())
@@ -77,6 +99,11 @@ public class MuestraMapper {
             .paciente(pacienteDTO)
             .usuarioRecolecta(usuarioDTO)
             .ubicacion(ubicacionDTO)
+            .tipoMuestra(tipoMuestraDTO)
+            .tuboMuestra(tuboMuestraDTO)
+            .idMuestraPadre(m.getMuestraPadre() != null ? m.getMuestraPadre().getId() : null)
+            .numeroAlicuota(m.getNumeroAlicuota())
+            .totalAlicuotas(m.getTotalAlicuotas())
             .build();
     }
 

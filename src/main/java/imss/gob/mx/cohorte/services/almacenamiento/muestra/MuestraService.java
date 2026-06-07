@@ -77,6 +77,21 @@ public class MuestraService {
         return muestraRepository.save(muestra);
     }
 
+    /**
+     * Persiste una alícuota hija sin validar posición de caja
+     * (posición es null → asignación diferida por el usuario).
+     * La unicidad de etiqueta sí se valida para evitar colisiones.
+     */
+    @Transactional
+    public Muestra createAlicuota(Muestra alicuota) {
+        if (muestraRepository.findByEtiquetaIgnoreCase(alicuota.getEtiqueta()).isPresent()) {
+            // Añadir sufijo extra si ya existe (caso borde)
+            alicuota.setEtiqueta(alicuota.getEtiqueta() + "-dup");
+        }
+        alicuota.setPosicionCaja(null);
+        return muestraRepository.save(alicuota);
+    }
+
     @Transactional
     public Muestra update(Muestra muestra) {
 
@@ -124,6 +139,10 @@ public class MuestraService {
         muestraBD.setFechaRecoleccion(muestra.getFechaRecoleccion());
         muestraBD.setObservaciones(muestra.getObservaciones());
         muestraBD.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
+
+        // Stream C — TipoMuestra / TuboMuestra (nullable)
+        muestraBD.setTipoMuestra(muestra.getTipoMuestra());
+        muestraBD.setTuboMuestra(muestra.getTuboMuestra());
 
         return muestraRepository.save(muestraBD);
     }

@@ -3,8 +3,11 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 import imss.gob.mx.cohorte.application.almacenamiento.MuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraRequestDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.utils.APIResponse;
@@ -132,9 +135,27 @@ public class  MuestraController {
         usuario.setUUID(dto.getUsuarioRecolectaUUID());
         entity.setUsuarioRecolecta(usuario);
 
+        if (dto.getIdTipoMuestra() != null) {
+            TipoMuestra tm = new TipoMuestra();
+            tm.setId(dto.getIdTipoMuestra());
+            entity.setTipoMuestra(tm);
+        }
+        if (dto.getIdTuboMuestra() != null) {
+            TuboMuestra tb = new TuboMuestra();
+            tb.setId(dto.getIdTuboMuestra());
+            entity.setTuboMuestra(tb);
+        }
+
         Muestra saved = muestraApplicationService.createMuestra(entity);
+        MuestraResponseDTO responseDTO = MuestraMapper.toResponseDTO(saved);
+        // Si el tubo generó alícuotas, indicarlo en la respuesta
+        if (saved.getTuboMuestra() != null
+                && saved.getTuboMuestra().getNumeroAlicuotas() != null
+                && saved.getTuboMuestra().getNumeroAlicuotas() > 0) {
+            responseDTO.setAlicuotasGeneradas(saved.getTuboMuestra().getNumeroAlicuotas());
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new APIResponse("Muestra registrada exitosamente", MuestraMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
+            .body(new APIResponse("Muestra registrada exitosamente", responseDTO, false, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}")
@@ -171,6 +192,16 @@ public class  MuestraController {
             BeanUser usuario = new BeanUser();
             usuario.setUUID(dto.getUsuarioRecolectaUUID());
             entity.setUsuarioRecolecta(usuario);
+        }
+        if (dto.getIdTipoMuestra() != null) {
+            TipoMuestra tm = new TipoMuestra();
+            tm.setId(dto.getIdTipoMuestra());
+            entity.setTipoMuestra(tm);
+        }
+        if (dto.getIdTuboMuestra() != null) {
+            TuboMuestra tb = new TuboMuestra();
+            tb.setId(dto.getIdTuboMuestra());
+            entity.setTuboMuestra(tb);
         }
         Muestra updated = muestraApplicationService.updateMuestra(id, entity);
         return ResponseEntity.ok(new APIResponse("Muestra actualizada", MuestraMapper.toResponseDTO(updated), false, HttpStatus.OK));
