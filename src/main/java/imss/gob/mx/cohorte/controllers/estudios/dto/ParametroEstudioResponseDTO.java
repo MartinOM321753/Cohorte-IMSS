@@ -3,6 +3,8 @@ package imss.gob.mx.cohorte.controllers.estudios.dto;
 import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import lombok.*;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,4 +20,7 @@ public class ParametroEstudioResponseDTO {
     private String tipoEstudio;
     private Double valorMinimo;
     private Double valorMaximo;
+
+    /** Valores predefinidos. Presente (no null) solo cuando tipo == TEXTO_OPCIONES. */
+    private List<String> opciones;
 }

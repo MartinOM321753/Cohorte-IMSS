@@ -4,7 +4,9 @@ import imss.gob.mx.cohorte.application.EstudiosApplicationService;
 import imss.gob.mx.cohorte.application.GestionEstudiosApplicationService;
 import imss.gob.mx.cohorte.controllers.estudios.dto.*;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
+import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametro;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import jakarta.validation.constraints.NotBlank;
 import imss.gob.mx.cohorte.utils.APIResponse;
@@ -147,7 +149,9 @@ public class EstudioMedicoController {
                 .nombre(t.getNombre())
                 .descripcion(t.getDescripcion())
                 .activo(t.getActivo())
-                .parametroEstudios(t.getParametros())
+                .parametroEstudios(t.getParametros() != null
+                    ? t.getParametros().stream().map(this::toParametroDTO).collect(Collectors.toList())
+                    : List.of())
                 .build())
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio obtenidos correctamente", HttpStatus.OK, false));
@@ -155,17 +159,6 @@ public class EstudioMedicoController {
 
     @GetMapping("/tipos")
     @Operation(summary = "Listar tipos de estudio activos", description = "Obtiene una lista de todos los tipos de estudio que se encuentran activos")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class)))
-    })
     public ResponseEntity<APIResponse> getTiposActivos() {
         List<TipoEstudio> tipos = gestionEstudiosApplicationService.getAllByEstatus();
         List<TipoEstudioResponseDTO> dtos = tipos.stream()
@@ -174,7 +167,9 @@ public class EstudioMedicoController {
                 .nombre(t.getNombre())
                 .descripcion(t.getDescripcion())
                 .activo(t.getActivo())
-                .parametroEstudios(t.getParametros())
+                .parametroEstudios(t.getParametros() != null
+                    ? t.getParametros().stream().map(this::toParametroDTO).collect(Collectors.toList())
+                    : List.of())
                 .build())
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio obtenidos correctamente", HttpStatus.OK, false));
@@ -284,15 +279,7 @@ public class EstudioMedicoController {
         @PathVariable Long id) {
         List<ParametroEstudio> parametros = gestionEstudiosApplicationService.getParametrosByTipo(id);
         List<ParametroEstudioResponseDTO> dtos = parametros.stream()
-            .map(p -> ParametroEstudioResponseDTO.builder()
-                .id(p.getId())
-                .nombre(p.getNombre())
-                .unidad(p.getUnidad())
-                .tipo(p.getTipo())
-                .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
-                .valorMinimo(p.getValorMinimo())
-                .valorMaximo(p.getValorMaximo())
-                .build())
+            .map(this::toParametroDTO)
             .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Parámetros obtenidos correctamente", HttpStatus.OK, false));
     }
@@ -319,18 +306,7 @@ public class EstudioMedicoController {
     }
 
     @PostMapping("/parametros")
-    @Operation(summary = "Crear parámetro de estudio", description = "Registra un nuevo parámetro asociado a un tipo de estudio específico")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Parámetro creado exitosamente",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Crear parámetro de estudio", description = "Registra un nuevo parámetro. Si el tipo es TEXTO_OPCIONES, incluir el campo 'opciones'.")
     public ResponseEntity<APIResponse> createParametro(@Valid @RequestBody ParametroEstudioRequestDTO dto) {
         ParametroEstudio parametro = new ParametroEstudio();
         TipoEstudio tipoEstudio = new TipoEstudio();
@@ -341,36 +317,13 @@ public class EstudioMedicoController {
         parametro.setTipo(dto.getTipo());
         parametro.setValorMinimo(dto.getValorMinimo());
         parametro.setValorMaximo(dto.getValorMaximo());
-        ParametroEstudio creado = gestionEstudiosApplicationService.createParametro(parametro);
-        ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
-            .id(creado.getId())
-            .nombre(creado.getNombre())
-            .unidad(creado.getUnidad())
-            .tipo(creado.getTipo())
-            .tipoEstudio(creado.getTipoEstudio() != null ? creado.getTipoEstudio().getNombre() : null)
-            .valorMinimo(creado.getValorMinimo())
-            .valorMaximo(creado.getValorMaximo())
-            .build();
+        ParametroEstudio creado = gestionEstudiosApplicationService.createParametro(parametro, dto.getOpciones());
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new APIResponse(responseDTO, "Parámetro creado correctamente", HttpStatus.CREATED, false));
+            .body(new APIResponse(toParametroDTO(creado), "Parámetro creado correctamente", HttpStatus.CREATED, false));
     }
 
     @PutMapping("/parametros/{id}")
-    @Operation(summary = "Actualizar parámetro de estudio", description = "Actualiza la información de un parámetro de estudio existente identificado por su ID")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Actualizar parámetro de estudio", description = "Actualiza el parámetro. Si el tipo es TEXTO_OPCIONES, el campo 'opciones' reemplaza las existentes.")
     public ResponseEntity<APIResponse> updateParametro(
         @Parameter(description = "Identificador único del parámetro de estudio a actualizar", required = true)
         @PathVariable Long id,
@@ -385,39 +338,53 @@ public class EstudioMedicoController {
         parametro.setTipo(dto.getTipo());
         parametro.setValorMinimo(dto.getValorMinimo());
         parametro.setValorMaximo(dto.getValorMaximo());
-        ParametroEstudio actualizado = gestionEstudiosApplicationService.updateParametro(parametro);
-        ParametroEstudioResponseDTO responseDTO = ParametroEstudioResponseDTO.builder()
-            .id(actualizado.getId())
-            .nombre(actualizado.getNombre())
-            .unidad(actualizado.getUnidad())
-            .tipo(actualizado.getTipo())
-            .tipoEstudio(actualizado.getTipoEstudio() != null ? actualizado.getTipoEstudio().getNombre() : null)
-            .valorMinimo(actualizado.getValorMinimo())
-            .valorMaximo(actualizado.getValorMaximo())
-            .build();
-        return ResponseEntity.ok(new APIResponse(responseDTO, "Parámetro actualizado correctamente", HttpStatus.OK, false));
+        ParametroEstudio actualizado = gestionEstudiosApplicationService.updateParametro(parametro, dto.getOpciones());
+        return ResponseEntity.ok(new APIResponse(toParametroDTO(actualizado), "Parámetro actualizado correctamente", HttpStatus.OK, false));
     }
 
     @DeleteMapping("/parametros/{id}")
-    @Operation(summary = "Eliminar parámetro de estudio", description = "Elimina un parámetro de estudio existente identificado por su ID")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitud inválida",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Eliminar parámetro de estudio")
     public ResponseEntity<APIResponse> deleteParametro(
         @Parameter(description = "Identificador único del parámetro de estudio a eliminar", required = true)
         @PathVariable Long id) {
         gestionEstudiosApplicationService.deleteParametro(id);
         return ResponseEntity.ok(new APIResponse("Parámetro eliminado correctamente", HttpStatus.OK, false));
+    }
+
+    // ─── Opciones para TEXTO_OPCIONES ────────────────────────────────────────
+
+    @PostMapping("/parametros/{id}/opciones")
+    @Operation(summary = "Agregar opción a parámetro TEXTO_OPCIONES")
+    public ResponseEntity<APIResponse> addOpcion(
+        @PathVariable Long id,
+        @Valid @RequestBody OpcionParametroRequestDTO dto) {
+        OpcionParametro opcion = gestionEstudiosApplicationService.addOpcion(id, dto.getValor());
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(new APIResponse(opcion.getValor(), "Opción agregada correctamente", HttpStatus.CREATED, false));
+    }
+
+    @DeleteMapping("/parametros/opciones/{opcionId}")
+    @Operation(summary = "Eliminar opción de parámetro TEXTO_OPCIONES")
+    public ResponseEntity<APIResponse> deleteOpcion(@PathVariable Long opcionId) {
+        gestionEstudiosApplicationService.deleteOpcion(opcionId);
+        return ResponseEntity.ok(new APIResponse("Opción eliminada correctamente", HttpStatus.OK, false));
+    }
+
+    // ─── Helper: entidad → DTO ────────────────────────────────────────────────
+
+    private ParametroEstudioResponseDTO toParametroDTO(ParametroEstudio p) {
+        List<String> opciones = (p.getTipo() == TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null)
+            ? p.getOpciones().stream().map(op -> op.getValor()).collect(Collectors.toList())
+            : null;
+        return ParametroEstudioResponseDTO.builder()
+            .id(p.getId())
+            .nombre(p.getNombre())
+            .unidad(p.getUnidad())
+            .tipo(p.getTipo())
+            .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
+            .valorMinimo(p.getValorMinimo())
+            .valorMaximo(p.getValorMaximo())
+            .opciones(opciones)
+            .build();
     }
 }

@@ -1,9 +1,12 @@
 package imss.gob.mx.cohorte.application;
 
+import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametro;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudioRepository;
+import imss.gob.mx.cohorte.services.estudios.OpcionParametroService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.ResultadoService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
@@ -22,6 +25,7 @@ public class GestionEstudiosApplicationService {
     private final ParametroEstudioService parametroService;
     private final ResultadoService resultadoService;
     private final TipoEstudioRepository tipoEstudioRepository;
+    private final OpcionParametroService opcionService;
 
     @Transactional(readOnly = true)
     public List<TipoEstudio> getAllByEstatus() {
@@ -66,19 +70,32 @@ public class GestionEstudiosApplicationService {
     }
 
     @Transactional
-    public ParametroEstudio createParametro(ParametroEstudio parametroEstudio) {
+    public ParametroEstudio createParametro(ParametroEstudio parametroEstudio, List<String> opciones) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
         if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
-        return parametroService.create(parametroEstudio);
+        ParametroEstudio creado = parametroService.create(parametroEstudio);
+        if (creado.getTipo() == TipoParametro.TEXTO_OPCIONES && opciones != null && !opciones.isEmpty()) {
+            opcionService.replaceAll(creado, opciones);
+            // Reload to return updated opciones
+            creado = parametroService.getOne(creado.getId());
+        }
+        return creado;
     }
+
     @Transactional
-    public ParametroEstudio updateParametro(ParametroEstudio parametroEstudio) {
+    public ParametroEstudio updateParametro(ParametroEstudio parametroEstudio, List<String> opciones) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
         if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
-        return parametroService.update(parametroEstudio);
+        ParametroEstudio actualizado = parametroService.update(parametroEstudio);
+        if (actualizado.getTipo() == TipoParametro.TEXTO_OPCIONES) {
+            opcionService.replaceAll(actualizado, opciones != null ? opciones : List.of());
+            actualizado = parametroService.getOne(actualizado.getId());
+        }
+        return actualizado;
     }
+
     @Transactional
     public ParametroEstudio deleteParametro(Long id) {
         ResultadoEstudio resultadoEstudio = resultadoService.findResultadoByParametroId(id);
@@ -86,7 +103,19 @@ public class GestionEstudiosApplicationService {
         return parametroService.delete(id);
     }
 
+    // ─── Opciones individuales ───────────────────────────────────────────────
 
+    @Transactional
+    public OpcionParametro addOpcion(Long parametroId, String valor) {
+        ParametroEstudio parametro = parametroService.getOne(parametroId);
+        if (parametro.getTipo() != TipoParametro.TEXTO_OPCIONES) {
+            throw new IllegalArgumentException("Solo se pueden agregar opciones a parámetros de tipo TEXTO_OPCIONES");
+        }
+        return opcionService.addOpcion(parametro, valor);
+    }
 
-
+    @Transactional
+    public void deleteOpcion(Long opcionId) {
+        opcionService.deleteOpcion(opcionId);
+    }
 }

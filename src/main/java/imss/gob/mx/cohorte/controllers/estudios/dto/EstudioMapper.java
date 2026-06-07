@@ -73,7 +73,21 @@ public class EstudioMapper {
                     .nombre(e.getTipoEstudio().getNombre())
                     .descripcion(e.getTipoEstudio().getDescripcion())
                     .activo(e.getTipoEstudio().getActivo())
-                    .parametroEstudios(e.getTipoEstudio().getParametros())
+                    .parametroEstudios(e.getTipoEstudio().getParametros() != null
+                        ? e.getTipoEstudio().getParametros().stream()
+                            .map(p -> ParametroEstudioResponseDTO.builder()
+                                .id(p.getId())
+                                .nombre(p.getNombre())
+                                .unidad(p.getUnidad())
+                                .tipo(p.getTipo())
+                                .valorMinimo(p.getValorMinimo())
+                                .valorMaximo(p.getValorMaximo())
+                                .opciones(p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null
+                                    ? p.getOpciones().stream().map(op -> op.getValor()).collect(java.util.stream.Collectors.toList())
+                                    : null)
+                                .build())
+                            .collect(java.util.stream.Collectors.toList())
+                        : java.util.List.of())
                     .build();
         }
 
