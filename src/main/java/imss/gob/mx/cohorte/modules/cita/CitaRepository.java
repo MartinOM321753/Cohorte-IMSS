@@ -66,7 +66,6 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
            "LEFT JOIN FETCH c.paciente pac " +
            "LEFT JOIN FETCH pac.persona " +
            "WHERE c.startAtUtc >= :start AND c.startAtUtc < :end " +
-           "AND c.estadoCita <> 'Cancelada' " +
            "ORDER BY c.startAtUtc ASC")
     List<Cita> findCitasHoy(@Param("start") Instant start,
                              @Param("end")   Instant end);
