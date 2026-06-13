@@ -103,6 +103,28 @@ public class PosicionCajaService {
         }
     }
 
+    /** Marca una posición como libre (ocupada = false). */
+    @Transactional
+    public void liberarPosicion(Long idPosicion) {
+        PosicionCaja pos = posicionCajaRepository.findById(idPosicion)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la posición de caja con id: " + idPosicion));
+        pos.setOcupada(false);
+        posicionCajaRepository.save(pos);
+    }
+
+    /** Marca una posición como ocupada (ocupada = true). */
+    @Transactional
+    public void ocuparPosicion(Long idPosicion) {
+        PosicionCaja pos = posicionCajaRepository.findById(idPosicion)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la posición de caja con id: " + idPosicion));
+        if (pos.getOcupada()) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException(
+                    "La posición de caja ya está ocupada.");
+        }
+        pos.setOcupada(true);
+        posicionCajaRepository.save(pos);
+    }
+
     /**
      * Genera automáticamente todas las posiciones de una caja criogénica una vez creada,
      * según sus dimensiones (filas y columnas).

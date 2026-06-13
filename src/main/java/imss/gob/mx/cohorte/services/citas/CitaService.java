@@ -5,6 +5,7 @@ import imss.gob.mx.cohorte.controllers.citas.dto.CitaPatchDTO;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.modules.cita.EstadoCita;
 import imss.gob.mx.cohorte.modules.cita.CitaRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -27,32 +28,38 @@ import java.util.List;
 public class CitaService {
 
     private final CitaRepository citaRepository;
+    private final InstitucionContextService institucionContextService;
 
     public List<Cita> getAll() {
-        return citaRepository.findAll();
+        return citaRepository.findAllByInstitucion_Id(institucionContextService.getIdInstitucionActual());
     }
 
     public List<Cita> getByRange(Instant start, Instant end) {
-        return citaRepository.findByStartAtUtcBetween(start, end);
+        return citaRepository.findByStartAtUtcBetweenAndInstitucion_Id(start, end, institucionContextService.getIdInstitucionActual());
     }
 
     public Cita getByUuid(String uuid) {
-        return citaRepository.findByUuid(uuid)
+        return citaRepository.findByUuidAndInstitucion_Id(uuid, institucionContextService.getIdInstitucionActual())
                 .orElseThrow(() -> new ObjNotFoundException("La cita no existe con UUID: " + uuid));
     }
 
     public Cita findPatientFolio(String folio){
-        return citaRepository.findByPaciente_Folio(folio)
+        Cita cita = citaRepository.findByPaciente_Folio(folio)
                 .orElseThrow(() -> new ObjNotFoundException("El folio no cuenta con una cita asignada"));
+        institucionContextService.verificarPertenece(cita.getInstitucion());
+        return cita;
     }
 
     public Cita findPatientUuid(String uuid){
-        return citaRepository.findByPaciente_Uuid(uuid)
-                .orElseThrow(() -> new ObjNotFoundException("El paciente no cuenta con una cita asignada"));
+        Cita cita = citaRepository.findByPaciente_Uuid(uuid)
+                .orElseThrow(() -> new ObjNotFoundException("El participante no cuenta con una cita asignada"));
+        institucionContextService.verificarPertenece(cita.getInstitucion());
+        return cita;
     }
 
     public List<Cita> findAllByPacienteUuid(String uuid) {
-        return citaRepository.findAllByPaciente_UuidOrderByStartAtUtcDesc(uuid);
+        return citaRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(
+                uuid, institucionContextService.getIdInstitucionActual());
     }
 
     @Transactional
@@ -60,6 +67,7 @@ public class CitaService {
         validateFutureDate(cita.getStartAtUtc());
         validateNoCollision(cita);
         cita.setEstadoCita(EstadoCita.Programada);
+        cita.setInstitucion(institucionContextService.getInstitucionActual());
         return citaRepository.save(cita);
     }
 

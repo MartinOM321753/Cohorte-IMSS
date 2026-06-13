@@ -9,6 +9,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -19,11 +20,21 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class DocumentoService {
+
+    private static final long TAMANIO_MAXIMO_BYTES = 20L * 1024 * 1024; // 20 MB
+
+    private static final Set<String> MIME_TYPES_PERMITIDOS = Set.of(
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+    );
 
     private final MinioStorageService minioService;
     private final DocumentoRepository documentoRepository;
@@ -119,7 +130,7 @@ public class DocumentoService {
             String usuarioUUID
     ) {
         Paciente paciente = pacienteRepository.findByUuid(pacienteUUID)
-                .orElseThrow(() -> new ObjNotFoundException("Paciente no encontrado con UUID: " + pacienteUUID));
+                .orElseThrow(() -> new ObjNotFoundException("Participante no encontrado con UUID: " + pacienteUUID));
 
         String objectKey = buildKey("pacientes/" + pacienteUUID + "/" + tipoDoc.name().toLowerCase(),
                 file.getOriginalFilename());
@@ -231,7 +242,28 @@ public class DocumentoService {
 
     // ─── Helpers privados ────────────────────────────────────────────────────────
 
+    /**
+     * Valida mimeType y tamaño en el servidor antes de subir a MinIO.
+     * El frontend ya filtra, pero esa validación es trivialmente evadible
+     * (petición directa a la API), así que se repite aquí como última línea de defensa.
+     */
+    private void validarArchivo(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ValidationException("El archivo está vacío o no fue proporcionado");
+        }
+        if (file.getSize() > TAMANIO_MAXIMO_BYTES) {
+            throw new ValidationException("El archivo excede el tamaño máximo permitido de "
+                    + (TAMANIO_MAXIMO_BYTES / (1024 * 1024)) + " MB");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !MIME_TYPES_PERMITIDOS.contains(contentType.toLowerCase())) {
+            throw new ValidationException("Tipo de archivo no permitido: "
+                    + (contentType != null ? contentType : "desconocido"));
+        }
+    }
+
     private void uploadToMinio(MultipartFile file, String objectKey) {
+        validarArchivo(file);
         try {
             minioService.upload(file.getInputStream(), objectKey, file.getContentType(), file.getSize());
         } catch (Exception e) {

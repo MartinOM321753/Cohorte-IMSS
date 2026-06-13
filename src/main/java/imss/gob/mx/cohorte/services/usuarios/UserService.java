@@ -25,6 +25,14 @@ public class UserService {
         return userRepository.findAll();
     }
 
+    public List<BeanUser> getAllByInstitucion(Long idInstitucion) {
+        return userRepository.findAllByInstitucion_Id(idInstitucion);
+    }
+
+    public List<BeanUser> getAllActiveByInstitucion(Long idInstitucion) {
+        return userRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
+    }
+
     public BeanUser getUser(Long idUser) {
         return userRepository.findById(idUser)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el usuario"));
@@ -53,6 +61,27 @@ public class UserService {
 
     public List<BeanUser> getUsersByRole(String roleName) {
         return userRepository.findAllByRol_RoleAndActivoTrue(roleName);
+    }
+
+    public List<BeanUser> getUsersByRoleAndInstitucion(String roleName, Long idInstitucion) {
+        return userRepository.findAllByRol_RoleAndActivoTrueAndInstitucion_Id(roleName, idInstitucion);
+    }
+
+    /**
+     * Administradores activos sin asignación de encargado en ninguna institución.
+     * Para crear una institución nueva: muestra quiénes están disponibles.
+     */
+    public List<BeanUser> getAdministradoresDisponibles() {
+        return userRepository.findAdministradoresActivosSinAsignacion();
+    }
+
+    /**
+     * Administradores activos disponibles para ser asignados a una institución concreta.
+     * Incluye los que no tienen asignación + el que ya esté asignado a ESA institución
+     * (para que el selector en modo edición no pierda al encargado actual).
+     */
+    public List<BeanUser> getAdministradoresDisponiblesParaInstitucion(String uuidInstitucion) {
+        return userRepository.findAdministradoresDisponiblesParaInstitucion(uuidInstitucion);
     }
 
     @Transactional
@@ -87,6 +116,7 @@ public class UserService {
         }
         beanUserBD.setPersona(beanUser.getPersona());
         beanUserBD.setRol(beanUser.getRol());
+        beanUserBD.setInstitucion(beanUser.getInstitucion());
         if (beanUser.getActivo() != null) {
             beanUserBD.setActivo(beanUser.getActivo());
         }

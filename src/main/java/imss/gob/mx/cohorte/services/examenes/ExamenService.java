@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.services.examenes;
 
 import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.modules.examenes.ExamenRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,22 +17,26 @@ import java.util.List;
 public class ExamenService {
 
     private final ExamenRepository examenRepository;
+    private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public List<Examen> getAllExamenes() {
-        return examenRepository.findAllByActivo(true);
+        return examenRepository.findAllByActivoAndInstitucion_Id(true, institucionContextService.getIdInstitucionActual());
     }
 
 
     @Transactional(readOnly = true)
     public Examen getExamen(Long id) {
-        return examenRepository.findById(id)
+        Examen examen = examenRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + id));
+        institucionContextService.verificarPertenece(examen.getInstitucion());
+        return examen;
     }
 
     @Transactional
     public Examen createExamen(Examen examen) {
         examen.setFechaCreacion(Timestamp.from(Instant.now()));
+        examen.setInstitucion(institucionContextService.getInstitucionActual());
         return examenRepository.save(examen);
     }
 
@@ -39,6 +44,7 @@ public class ExamenService {
     public Examen updateExamen(Examen examen) {
         Examen examenBD = examenRepository.findById(examen.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + examen.getId()));
+        institucionContextService.verificarPertenece(examenBD.getInstitucion());
 
         examenBD.setParametro(examen.getParametro());
         examenBD.setDescripcion(examen.getDescripcion());

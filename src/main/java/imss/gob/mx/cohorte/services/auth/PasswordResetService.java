@@ -35,7 +35,7 @@ public class PasswordResetService {
     private static final int TOKEN_EXPIRY_MINUTES = 15;
 
     /** Ventana de rate-limit: solo 1 solicitud cada 60 minutos por usuario. */
-    private static final int RATE_LIMIT_MINUTES = 0;
+    private static final int RATE_LIMIT_MINUTES = 60;
 
     // ── Solicitar reseteo ──────────────────────────────────────────────────────
 

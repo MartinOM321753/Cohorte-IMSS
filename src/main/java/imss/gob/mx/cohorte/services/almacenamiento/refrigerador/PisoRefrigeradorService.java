@@ -40,10 +40,26 @@ public class PisoRefrigeradorService {
         return pisoRefrigeradorRepository.findByNumeroPiso(numero);
     }
 
+    public String generarCodigoAutomatico(Long idRefrigerador) {
+        String prefix = "P-";
+        Optional<String> maxCodigo = pisoRefrigeradorRepository.findMaxNumeroPisoByPrefixAndRefrigerador(prefix, idRefrigerador);
+        int siguiente = 1;
+        if (maxCodigo.isPresent()) {
+            String numPart = maxCodigo.get().substring(prefix.length());
+            try { siguiente = Integer.parseInt(numPart) + 1; } catch (NumberFormatException ignored) { }
+        }
+        return String.format("%s%04d", prefix, siguiente);
+    }
+
     @Transactional
     public PisoRefrigerador createPiso(PisoRefrigerador piso) {
-       Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPiso(piso.getNumeroPiso());
-       if (findPiso.isPresent()) {throw new ObjNotFoundException("El piso de refrigerador ya existe");}
+        Long idRef = piso.getRefrigerador().getId();
+        if (piso.getNumeroPiso() == null || piso.getNumeroPiso().isBlank()) {
+            piso.setNumeroPiso(generarCodigoAutomatico(idRef));
+        } else {
+            Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPisoAndRefrigerador_Id(piso.getNumeroPiso(), idRef);
+            if (findPiso.isPresent()) { throw new ObjNotFoundException("El piso de refrigerador ya existe"); }
+        }
         piso.setFechaRegistro(Timestamp.from(Instant.now()));
         piso.setActivo(true);
         return pisoRefrigeradorRepository.save(piso);
@@ -55,10 +71,10 @@ public class PisoRefrigeradorService {
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el piso de refrigerador con id: " + piso.getId()));
 
         if (!pisoBD.getNumeroPiso().equals(piso.getNumeroPiso())) {
-            Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPiso(piso.getNumeroPiso());
+            Long idRef = pisoBD.getRefrigerador().getId();
+            Optional<PisoRefrigerador> findPiso = pisoRefrigeradorRepository.findByNumeroPisoAndRefrigerador_Id(piso.getNumeroPiso(), idRef);
             if (findPiso.isPresent()) {throw new ObjNotFoundException("El piso de refrigerador ya existe");}
             pisoBD.setNumeroPiso(piso.getNumeroPiso());
-
         }
 
         pisoBD.setFilas(piso.getFilas());
