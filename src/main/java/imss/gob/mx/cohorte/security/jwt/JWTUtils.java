@@ -72,6 +72,13 @@ public class JWTUtils {
 
     /**
      * Extrae el claim "role" del token.
+     *
+     * <p><b>No usar para autorización.</b> Es solo informativo (frontend/logging):
+     * si el rol del usuario cambia en BD, este claim queda obsoleto hasta que se
+     * emita un token nuevo. Las decisiones de autorización (hasRole/@PreAuthorize)
+     * usan UDService#loadUserByUsername, que consulta el rol vigente en BD
+     * en cada request — por eso un cambio de rol surte efecto de inmediato sin
+     * esperar a que expire el token.
      */
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
@@ -98,6 +105,14 @@ public class JWTUtils {
         claims.put("role", beanUser.getRol().getRole());
         // Indica al frontend si debe forzar cambio de contraseña en el primer login
         claims.put("mustChangePassword", Boolean.TRUE.equals(beanUser.getDebeResetear()));
+        // Contexto de institución — usado para aislar datos por sede/sucursal.
+        // Sólo informativo en el token (igual que "role"): la autorización real
+        // de acceso a módulos se resuelve en cada request contra BD vigente.
+        if (beanUser.getInstitucion() != null) {
+            claims.put("institucionId", beanUser.getInstitucion().getId());
+            claims.put("institucionUuid", beanUser.getInstitucion().getUuid());
+            claims.put("institucionNombre", beanUser.getInstitucion().getNombre());
+        }
         return createToken(claims, beanUser.getUUID());
     }
 }

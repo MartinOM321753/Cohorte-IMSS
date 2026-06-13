@@ -55,6 +55,13 @@ public class MainSecurity {
         AuthenticationEntryPoint restEntryPoint = (req, res, ex) ->
                 res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
 
+        // CSRF: la API es 100% stateless (sin sesión de servidor) y la cookie de
+        // sesión se emite con SameSite=Lax/Strict + HttpOnly + Secure (ver
+        // AuthController/application.properties). SameSite ya impide que un sitio
+        // de terceros provoque que el navegador envíe la cookie en peticiones
+        // cross-site, que es precisamente el vector que CSRF explota — por eso se
+        // mantiene deshabilitado el mecanismo de token CSRF (evita complejidad
+        // adicional sin aportar protección extra en este escenario).
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(c -> c.configurationSource(corsRegistry()))
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(restEntryPoint))
@@ -164,7 +171,9 @@ public class MainSecurity {
                 "Content-Type",
                 "Content-Length"
         ));
-        configuration.setAllowCredentials(false);
+        // Necesario para que el navegador envíe/reciba la cookie httpOnly de sesión
+        // en peticiones cross-origin (frontend y backend en distinto puerto/dominio).
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

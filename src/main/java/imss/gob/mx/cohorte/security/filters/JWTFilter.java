@@ -1,9 +1,11 @@
 package imss.gob.mx.cohorte.security.filters;
 
+import imss.gob.mx.cohorte.controllers.auth.AuthController;
 import imss.gob.mx.cohorte.security.jwt.JWTUtils;
 import imss.gob.mx.cohorte.security.jwt.UDService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
@@ -29,26 +31,21 @@ public class JWTFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        final String AUTHORIZATION_HEADER = request.getHeader("Authorization");
-
         String userUuid = null;
-        String token = null;
-        System.out.println("HEADER: [" + AUTHORIZATION_HEADER + "]");
-        if (AUTHORIZATION_HEADER != null && AUTHORIZATION_HEADER.startsWith("Bearer ")) {
+        String token = extractTokenFromCookie(request);
 
-            token = AUTHORIZATION_HEADER.substring(7).trim();
-
-            if (!token.isEmpty()) {
-                try {
-                    userUuid = jwtUtils.extractUserUuid(token);
-                } catch (Exception e) {
-                    System.out.println("JWT inválido: " + e.getMessage());
-                }
+        if (token != null && !token.isEmpty()) {
+            try {
+                userUuid = jwtUtils.extractUserUuid(token);
+            } catch (Exception e) {
+                System.out.println("JWT inválido: " + e.getMessage());
             }
         }
 
         if (userUuid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
+            // Carga el rol/autoridades desde BD en cada request (no del claim "role" del JWT),
+            // así un cambio de rol en BD aplica de inmediato sin esperar a que expire el token.
             UserDetails userDetails = udService.loadUserByUsername(userUuid);
 
             if (jwtUtils.validateToken(token, userDetails)) {
@@ -67,6 +64,18 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /** Extrae el JWT de la cookie httpOnly establecida en el login (ver {@link AuthController}). */
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (AuthController.AUTH_COOKIE_NAME.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                return c.getValue();
+            }
+        }
+        return null;
     }
 
 //    protected  void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
