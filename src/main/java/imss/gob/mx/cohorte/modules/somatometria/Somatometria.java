@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.modules.somatometria;
 
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
@@ -68,6 +69,11 @@ public class Somatometria {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_registra")
     private BeanUser usuarioRegistra;
+
+    /** Institución responsable de la medición — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
     @Column(name = "fecha_registro", nullable = false)
     private LocalDateTime fechaRegistro;

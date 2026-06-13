@@ -25,4 +25,12 @@ public interface SomatometriaRepository extends JpaRepository<Somatometria, Long
         LIMIT 1
     """)
     Optional<Somatometria> findLatestByPacienteUuid(@Param("uuid") String uuid);
+
+    /** Datos globales para gráficas, acotados a la institución actual (aislamiento de datos). */
+    @Query("""
+        SELECT s FROM Somatometria s
+        WHERE s.institucion.id = :idInstitucion
+        ORDER BY s.fechaMedicion ASC
+    """)
+    List<Somatometria> findAllByInstitucionOrderByFechaMedicionAsc(@Param("idInstitucion") Long idInstitucion);
 }

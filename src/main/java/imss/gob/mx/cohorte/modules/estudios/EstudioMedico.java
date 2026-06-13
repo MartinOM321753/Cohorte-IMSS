@@ -4,10 +4,12 @@ package imss.gob.mx.cohorte.modules.estudios;
 import imss.gob.mx.cohorte.modules.estudios.adjuntos.EstudioAdjunto;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,16 +43,23 @@ public class EstudioMedico {
     @JoinColumn(name = "id_tipo_estudio", nullable = false)
     private TipoEstudio tipoEstudio;
 
-    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    /** Institución responsable del estudio — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
+
+    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("grupoCodigo ASC, ordenResultado ASC, id ASC")
+    @BatchSize(size = 30)
     private List<ResultadoEstudio> resultadoEstudio;
 
     @ManyToOne
     @JoinColumn(name = "id_usuario_realiza", nullable = false)
     private BeanUser usuarioRealiza;
 
-    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "estudio", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("orden ASC")
+    @BatchSize(size = 30)
     private List<EstudioAdjunto> adjuntos;
 
 }

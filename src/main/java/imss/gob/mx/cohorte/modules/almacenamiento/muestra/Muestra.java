@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
@@ -13,9 +14,16 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+// ─── NOTE ──────────────────────────────────────────────────────────────────────
+// institucion       = propietaria original (quién la registró, inmutable)
+// institucionActual = tenedor actual       (cambia en cada préstamo/devolución)
+// estadoMuestra     = estado físico desde la perspectiva de institucionActual
+// ───────────────────────────────────────────────────────────────────────────────
+
 
 @Entity
-@Table(name = "Muestra")
+@Table(name = "Muestra",
+        uniqueConstraints = @UniqueConstraint(name = "uk_muestra_etiqueta_institucion", columnNames = {"etiqueta", "id_institucion"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +33,7 @@ public class Muestra {
     @Column(name = "id_muestra")
     private Long Id;
 
-    @Column(name = "etiqueta", nullable = false, unique = true, length = 50)
+    @Column(name = "etiqueta", nullable = false, length = 100)
     private String etiqueta;
 
     @Column(name = "valor")
@@ -48,26 +56,44 @@ public class Muestra {
 
     @OneToOne
     @JoinColumn(name = "id_posicion_caja", unique = true)
+    @JsonIgnore
     private PosicionCaja posicionCaja;
-    @ManyToOne
 
+    @ManyToOne
     @JoinColumn(name = "id_paciente", nullable = false)
+    @JsonIgnore
     private Paciente paciente;
 
     @ManyToOne
     @JoinColumn(name = "id_usuario_recolecta", nullable = false)
+    @JsonIgnore
     private BeanUser usuarioRecolecta;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    @JsonIgnore
+    private Institucion institucion;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion_actual", nullable = false)
+    @JsonIgnore
+    private Institucion institucionActual;
+
+    /** Estado físico de la muestra desde la perspectiva de {@code institucionActual}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_muestra", nullable = false, length = 20)
+    private EstadoMuestra estadoMuestra = EstadoMuestra.SIN_POSICION;
 
     // ── Campos Stream C — TipoMuestra (todos nullable para compat con registros previos) ──
 
-    /** Tipo de muestra configurado en el catálogo (nullable). */
     @ManyToOne
     @JoinColumn(name = "id_tipo_muestra")
+    @JsonIgnore
     private TipoMuestra tipoMuestra;
 
-    /** Tubo específico de este tipo de muestra (nullable). */
     @ManyToOne
     @JoinColumn(name = "id_tubo_muestra")
+    @JsonIgnore
     private TuboMuestra tuboMuestra;
 
     /**

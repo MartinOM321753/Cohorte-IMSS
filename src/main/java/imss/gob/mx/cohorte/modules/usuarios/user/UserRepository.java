@@ -12,6 +12,10 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<BeanUser, Long> {
 
     List<BeanUser> findAllByActivo(Boolean activo);
+
+    List<BeanUser> findAllByInstitucion_Id(Long idInstitucion);
+
+    List<BeanUser> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
     Optional<BeanUser> findByUsername(String username);
     Optional<BeanUser> findByUUID(String username);
     boolean existsByUUID(String uuid);
@@ -24,4 +28,24 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
     Optional<BeanUser> findActiveUserByPersonaEmail(@Param("email") String email);
 
     List<BeanUser> findAllByRol_RoleAndActivoTrue(String roleName);
+
+    List<BeanUser> findAllByRol_RoleAndActivoTrueAndInstitucion_Id(String roleName, Long idInstitucion);
+
+    /**
+     * Administradores activos que NO están asignados como encargado de ninguna institución.
+     * Usado para poblar el selector de encargado en el formulario de creación de institución.
+     */
+    @Query("SELECT u FROM BeanUser u WHERE u.rol.role = 'ADMINISTRADOR' AND u.activo = true " +
+           "AND NOT EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u)")
+    List<BeanUser> findAdministradoresActivosSinAsignacion();
+
+    /**
+     * Administradores activos disponibles para una institución concreta.
+     * Devuelve los que no tienen asignación PLUS el que ya está asignado a esa institución
+     * (necesario para que el selector en modo edición incluya al encargado actual).
+     */
+    @Query("SELECT u FROM BeanUser u WHERE u.rol.role = 'ADMINISTRADOR' AND u.activo = true " +
+           "AND (NOT EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u) " +
+           "     OR EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u AND i.uuid = :uuidInstitucion))")
+    List<BeanUser> findAdministradoresDisponiblesParaInstitucion(@Param("uuidInstitucion") String uuidInstitucion);
 }

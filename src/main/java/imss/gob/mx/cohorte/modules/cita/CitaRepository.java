@@ -14,9 +14,17 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     Optional<Cita> findByUuid(String uuid);
 
+    Optional<Cita> findByUuidAndInstitucion_Id(String uuid, Long idInstitucion);
+
     Optional<Cita> findByPaciente_Folio(String pacienteFolio);
 
     Optional<Cita> findByPaciente_Uuid(String pacienteUUID);
+
+    List<Cita> findAllByInstitucion_Id(Long idInstitucion);
+
+    List<Cita> findByStartAtUtcBetweenAndInstitucion_Id(Instant start, Instant end, Long idInstitucion);
+
+    List<Cita> findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(String pacienteUuid, Long idInstitucion);
 
     @Query("SELECT c FROM Cita c WHERE c.usuarioAgenda.UUID = :usuarioUuid " +
            "AND c.estadoCita <> 'Cancelada' " +
@@ -48,6 +56,15 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     long countCitasMes(@Param("start") Instant start,
                        @Param("end")   Instant end);
 
+    /** Variante de countCitasMes acotada a la institución dada (aislamiento de datos). */
+    @Query("SELECT COUNT(c) FROM Cita c " +
+           "WHERE c.estadoCita <> 'Cancelada' " +
+           "AND c.startAtUtc >= :start AND c.startAtUtc <= :end " +
+           "AND c.institucion.id = :idInstitucion")
+    long countCitasMes(@Param("start") Instant start,
+                       @Param("end")   Instant end,
+                       @Param("idInstitucion") Long idInstitucion);
+
     /**
      * Cuenta citas cuya hora de fin ya pasó pero aún están en estado Programada o Confirmada.
      * Estas son citas que el usuario olvidó actualizar ("sin actualizar").
@@ -56,6 +73,12 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
            "WHERE c.estadoCita IN ('Programada', 'Confirmada') " +
            "AND c.endAtUtc < :now")
     long countCitasSinActualizar(@Param("now") Instant now);
+
+    /** Variante de countCitasSinActualizar acotada a la institución dada (aislamiento de datos). */
+    @Query("SELECT COUNT(c) FROM Cita c " +
+           "WHERE c.estadoCita IN ('Programada', 'Confirmada') " +
+           "AND c.endAtUtc < :now AND c.institucion.id = :idInstitucion")
+    long countCitasSinActualizar(@Param("now") Instant now, @Param("idInstitucion") Long idInstitucion);
 
     /**
      * Devuelve todas las citas no canceladas cuyo inicio esté en el rango [start, end),
@@ -69,4 +92,15 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
            "ORDER BY c.startAtUtc ASC")
     List<Cita> findCitasHoy(@Param("start") Instant start,
                              @Param("end")   Instant end);
+
+    /** Variante de findCitasHoy acotada a la institución dada (aislamiento de datos). */
+    @Query("SELECT c FROM Cita c " +
+           "LEFT JOIN FETCH c.paciente pac " +
+           "LEFT JOIN FETCH pac.persona " +
+           "WHERE c.startAtUtc >= :start AND c.startAtUtc < :end " +
+           "AND c.institucion.id = :idInstitucion " +
+           "ORDER BY c.startAtUtc ASC")
+    List<Cita> findCitasHoy(@Param("start") Instant start,
+                             @Param("end")   Instant end,
+                             @Param("idInstitucion") Long idInstitucion);
 }

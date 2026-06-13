@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.almacenamiento.caja;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,6 +20,7 @@ public class PosicionCaja {
 
     @ManyToOne
     @JoinColumn(name = "id_caja", nullable = false)
+    @JsonIgnore
     private CajaCriogenica caja;
 
     @Column(name = "fila", nullable = false)

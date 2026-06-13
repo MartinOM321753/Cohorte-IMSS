@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;
@@ -35,8 +36,23 @@ public class HistorialCambioMuestra {
     @JoinColumn(name = "id_usuario", nullable = false)
     private BeanUser usuario;
 
-    /** Nombre del campo que cambió: "valor", "unidad", "observaciones", "posicionCaja", "tipoMuestra", "tuboMuestra" */
-    @Column(name = "campo", nullable = false, length = 50)
+    /** Tipo de evento que generó esta entrada de historial. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_evento", nullable = false, length = 30)
+    private TipoEventoMuestra tipoEvento = TipoEventoMuestra.ACTUALIZACION_CAMPO;
+
+    /**
+     * Traslado asociado a este evento (solo para PRESTAMO_ENVIADO,
+     * PRESTAMO_RECIBIDO, PRESTAMO_DEVUELTO). Null para el resto.
+     */
+    @ManyToOne
+    @JsonIgnore
+    @JoinColumn(name = "id_traslado")
+    private TrasladoMuestra traslado;
+
+    /** Nombre del campo que cambió: "valor", "unidad", "observaciones", "posicionCaja", "tipoMuestra", "tuboMuestra".
+     *  Null para eventos de ciclo de vida (préstamo, posición, etc.). */
+    @Column(name = "campo", length = 50)
     private String campo;
 
     /** Representación string del valor anterior (puede ser null si no había valor). */
