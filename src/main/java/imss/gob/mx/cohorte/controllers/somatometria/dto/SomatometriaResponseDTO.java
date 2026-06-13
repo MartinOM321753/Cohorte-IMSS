@@ -32,4 +32,6 @@ public class SomatometriaResponseDTO {
     private String observaciones;
     private String usuarioRegistraNombre;
     private LocalDateTime fechaRegistro;
+    private String institucionUuid;
+    private String institucionNombre;
 }

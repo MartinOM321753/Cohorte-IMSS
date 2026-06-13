@@ -10,6 +10,7 @@ import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -21,12 +22,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @RestController
 @RequestMapping("/api/dashboard/cobertura")
 @AllArgsConstructor
 @Tag(name = "Cobertura", description = "Completitud de la cohorte por examen y tipo de estudio")
 @SecurityRequirement(name = "bearerAuth")
+@RequireModulo(ModuloSistema.COBERTURA)
 public class CoberturaController {
 
     private final PacienteRepository         pacienteRepository;
@@ -34,6 +38,7 @@ public class CoberturaController {
     private final TipoEstudioRepository      tipoEstudioRepository;
     private final ResultadoExamenRepository  resultadoExamenRepository;
     private final EstudioMedicoRepository    estudioMedicoRepository;
+    private final InstitucionContextService  institucionContextService;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/cobertura/examenes
@@ -43,12 +48,14 @@ public class CoberturaController {
                description = "Para cada examen activo: cuántos pacientes activos lo tienen registrado.")
     public ResponseEntity<APIResponse> getCoberturaExamenes() {
 
-        long total = pacienteRepository.countByActivo(true);
-        List<Examen> examenes = examenRepository.findAllByActivo(true);
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
+        long total = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
+        List<Examen> examenes = examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
 
         List<CoberturaItemDTO> result = examenes.stream()
                 .map(e -> {
-                    long con = resultadoExamenRepository.countDistinctPacienteByExamenId(e.getId());
+                    long con = resultadoExamenRepository.countDistinctPacienteByExamenId(e.getId(), idInstitucion);
                     long sin = total - con;
                     int  pct = total > 0 ? (int) Math.round(con * 100.0 / total) : 0;
                     return new CoberturaItemDTO(e.getId(), e.getParametro(), total, con, 0L, sin, pct);
@@ -67,12 +74,14 @@ public class CoberturaController {
                description = "Para cada tipo de estudio activo: cuántos pacientes activos lo tienen registrado.")
     public ResponseEntity<APIResponse> getCoberturaEstudios() {
 
-        long total = pacienteRepository.countByActivo(true);
-        List<TipoEstudio> tipos = tipoEstudioRepository.findAllByActivo(true);
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
+        long total = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
+        List<TipoEstudio> tipos = tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
 
         List<CoberturaItemDTO> result = tipos.stream()
                 .map(t -> {
-                    long con = estudioMedicoRepository.countDistinctPacienteByTipoEstudioId(t.getId());
+                    long con = estudioMedicoRepository.countDistinctPacienteByTipoEstudioId(t.getId(), idInstitucion);
                     long sin = total - con;
                     int  pct = total > 0 ? (int) Math.round(con * 100.0 / total) : 0;
                     return new CoberturaItemDTO(t.getId(), t.getNombre(), total, con, 0L, sin, pct);
@@ -91,18 +100,20 @@ public class CoberturaController {
                description = "Cuántos pacientes tienen exactamente k tipos cubiertos (k = 0…N).")
     public ResponseEntity<APIResponse> getDistribucion(@RequestParam String tipo) {
 
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
         boolean esExamen = "EXAMEN".equalsIgnoreCase(tipo);
 
         int totalTipos = esExamen
-                ? examenRepository.findAllByActivo(true).size()
-                : tipoEstudioRepository.findAllByActivo(true).size();
+                ? examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size()
+                : tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size();
 
-        long totalPacientes = pacienteRepository.countByActivo(true);
+        long totalPacientes = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
 
         // Obtener el mapa pacienteId → conteo para quienes tienen ≥ 1
         List<Object[]> rows = esExamen
-                ? resultadoExamenRepository.countDistinctExamenByPacienteActivo()
-                : estudioMedicoRepository.countDistinctTipoByPacienteActivo();
+                ? resultadoExamenRepository.countDistinctExamenByPacienteActivo(idInstitucion)
+                : estudioMedicoRepository.countDistinctTipoByPacienteActivo(idInstitucion);
 
         Map<Long, Long> conteoMap = new HashMap<>();
         for (Object[] row : rows) {
@@ -112,7 +123,7 @@ public class CoberturaController {
         }
 
         // Todos los pacientes activos
-        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivo(true);
+        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
 
         // Frecuencia de cada k
         Map<Integer, Long> freq = new TreeMap<>();
@@ -143,17 +154,19 @@ public class CoberturaController {
             @RequestParam Long tipoId,
             @RequestParam String catalogoTipo) {
 
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
         int totalTipos = esExamen
-                ? examenRepository.findAllByActivo(true).size()
-                : tipoEstudioRepository.findAllByActivo(true).size();
+                ? examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size()
+                : tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size();
 
         List<Long> ids = esExamen
-                ? resultadoExamenRepository.findPacientesActivosSinExamen(tipoId)
-                : estudioMedicoRepository.findPacientesActivosSinTipoEstudio(tipoId);
+                ? resultadoExamenRepository.findPacientesActivosSinExamen(tipoId, idInstitucion)
+                : estudioMedicoRepository.findPacientesActivosSinTipoEstudio(tipoId, idInstitucion);
 
         List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos);
-        return ResponseEntity.ok(new APIResponse("Pacientes pendientes", result, false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Participantes pendientes", result, false, HttpStatus.OK));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -166,32 +179,34 @@ public class CoberturaController {
             @RequestParam int cantidadTipos,
             @RequestParam String catalogoTipo) {
 
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
         int totalTipos = esExamen
-                ? examenRepository.findAllByActivo(true).size()
-                : tipoEstudioRepository.findAllByActivo(true).size();
+                ? examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size()
+                : tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).size();
 
         List<Long> ids;
         if (cantidadTipos == 0) {
             // pacientes activos sin ningún resultado
             List<Long> conAlguno = esExamen
-                    ? resultadoExamenRepository.countDistinctExamenByPacienteActivo()
+                    ? resultadoExamenRepository.countDistinctExamenByPacienteActivo(idInstitucion)
                               .stream().map(r -> ((Number) r[0]).longValue()).collect(Collectors.toList())
-                    : estudioMedicoRepository.countDistinctTipoByPacienteActivo()
+                    : estudioMedicoRepository.countDistinctTipoByPacienteActivo(idInstitucion)
                               .stream().map(r -> ((Number) r[0]).longValue()).collect(Collectors.toList());
             Set<Long> conAlgunoSet = new HashSet<>(conAlguno);
-            ids = pacienteRepository.findAllByActivo(true).stream()
+            ids = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
                     .map(Paciente::getId)
                     .filter(pid -> !conAlgunoSet.contains(pid))
                     .collect(Collectors.toList());
         } else {
             ids = esExamen
-                    ? resultadoExamenRepository.findPacientesConExactamenteKExamenes(cantidadTipos)
-                    : estudioMedicoRepository.findPacientesConExactamenteKEstudios(cantidadTipos);
+                    ? resultadoExamenRepository.findPacientesConExactamenteKExamenes(cantidadTipos, idInstitucion)
+                    : estudioMedicoRepository.findPacientesConExactamenteKEstudios(cantidadTipos, idInstitucion);
         }
 
         List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos);
-        return ResponseEntity.ok(new APIResponse("Pacientes del grupo", result, false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Participantes del grupo", result, false, HttpStatus.OK));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -204,17 +219,19 @@ public class CoberturaController {
             @RequestParam String catalogoTipo,
             @RequestParam(defaultValue = "100") int limit) {
 
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
 
         // IDs de tipos activos ordenados alfabéticamente
         List<Long> tipoIds;
         if (esExamen) {
-            tipoIds = examenRepository.findAllByActivo(true).stream()
+            tipoIds = examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
                     .sorted(Comparator.comparing(Examen::getParametro))
                     .map(Examen::getId)
                     .collect(Collectors.toList());
         } else {
-            tipoIds = tipoEstudioRepository.findAllByActivo(true).stream()
+            tipoIds = tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
                     .sorted(Comparator.comparing(TipoEstudio::getNombre))
                     .map(TipoEstudio::getId)
                     .collect(Collectors.toList());
@@ -223,15 +240,15 @@ public class CoberturaController {
 
         // Mapa pacienteId → conteo de tipos cubiertos
         List<Object[]> rows = esExamen
-                ? resultadoExamenRepository.countDistinctExamenByPacienteActivo()
-                : estudioMedicoRepository.countDistinctTipoByPacienteActivo();
+                ? resultadoExamenRepository.countDistinctExamenByPacienteActivo(idInstitucion)
+                : estudioMedicoRepository.countDistinctTipoByPacienteActivo(idInstitucion);
         Map<Long, Long> conteoMap = new HashMap<>();
         for (Object[] r : rows) {
             conteoMap.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
         }
 
         // Tomar los primeros `limit` pacientes activos ordenados por menor cobertura
-        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivo(true).stream()
+        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
                 .sorted(Comparator.comparingLong(p -> conteoMap.getOrDefault(p.getId(), 0L)))
                 .limit(limit)
                 .collect(Collectors.toList());

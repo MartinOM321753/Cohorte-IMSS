@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
@@ -116,6 +117,8 @@ public class EstudioMapper {
                 .usuarioRealiza(usuarioDTO)
                 .tipoEstudio(tipoDTO)
                 .resultados(resultadosDTO)
+                .institucionUuid(e.getInstitucion() != null ? e.getInstitucion().getUuid() : null)
+                .institucionNombre(e.getInstitucion() != null ? e.getInstitucion().getNombre() : null)
                 .build();
     }
 
@@ -134,6 +137,22 @@ public class EstudioMapper {
                 .cantidadResultados(numResultados)
                 .cantidadAdjuntos(numAdjuntos)
                 .build();
+    }
+
+    public static ParametroEstudioResponseDTO toParametroDTO(ParametroEstudio p) {
+        List<String> opciones = (p.getTipo() == TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null)
+            ? p.getOpciones().stream().map(op -> op.getValor()).collect(Collectors.toList())
+            : null;
+        return ParametroEstudioResponseDTO.builder()
+            .id(p.getId())
+            .nombre(p.getNombre())
+            .unidad(p.getUnidad())
+            .tipo(p.getTipo())
+            .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
+            .valorMinimo(p.getValorMinimo())
+            .valorMaximo(p.getValorMaximo())
+            .opciones(opciones)
+            .build();
     }
 
     public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {

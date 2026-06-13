@@ -203,12 +203,7 @@ public class EstudioMuestraController {
                 "Estudio de muestra actualizado", HttpStatus.OK, false));
     }
 
-    @DeleteMapping("/estudios/{id}")
-    @Operation(summary = "Eliminar estudio de muestra")
-    public ResponseEntity<APIResponse> deleteEstudio(@PathVariable Long id) {
-        estudioAppService.delete(id);
-        return ResponseEntity.ok(new APIResponse("Estudio de muestra eliminado", HttpStatus.OK, false));
-    }
+    // Estudios de muestra NO se pueden eliminar — solo editar sus resultados y consumo.
 
     // ═══════════════════════════════════════════════════════════════════════════
     //  HISTORIAL DE CAMBIOS

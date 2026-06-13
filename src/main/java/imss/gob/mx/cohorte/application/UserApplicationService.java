@@ -1,6 +1,9 @@
 package imss.gob.mx.cohorte.application;
 
 import imss.gob.mx.cohorte.infrastructure.email.EmailService;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
+import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
@@ -27,12 +30,26 @@ public class UserApplicationService {
     private final UserService userService;
     private final PersonaService personaService;
     private final RoleRepository roleRepository;
+    private final InstitucionRepository institucionRepository;
     private final EmailService emailService;
+    private final InstitucionContextService institucionContextService;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
     // ── Consultas ──────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<BeanUser> findAllByInstitucion() {
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        return userService.getAllByInstitucion(idInstitucion);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BeanUser> findAllActiveByInstitucion() {
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        return userService.getAllActiveByInstitucion(idInstitucion);
+    }
 
     @Transactional
     public List<BeanUser> findAllUser() {
@@ -61,7 +78,20 @@ public class UserApplicationService {
 
     @Transactional(readOnly = true)
     public List<BeanUser> findByRoleName(String roleName) {
-        return userService.getUsersByRole(roleName);
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        return userService.getUsersByRoleAndInstitucion(roleName, idInstitucion);
+    }
+
+    /** Administradores activos sin encargado asignado — para selector al crear institución. */
+    @Transactional(readOnly = true)
+    public List<BeanUser> getAdministradoresDisponibles() {
+        return userService.getAdministradoresDisponibles();
+    }
+
+    /** Administradores disponibles para una institución específica (incluye el ya asignado). */
+    @Transactional(readOnly = true)
+    public List<BeanUser> getAdministradoresDisponiblesParaInstitucion(String uuidInstitucion) {
+        return userService.getAdministradoresDisponiblesParaInstitucion(uuidInstitucion);
     }
 
     // ── Creación ───────────────────────────────────────────────────────────────
@@ -77,6 +107,7 @@ public class UserApplicationService {
         Persona savePersona = personaService.createPerson(persona);
         Role findRole = roleRepository.findByUuid(beanUser.getRol().getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el rol solicitado"));
+        Institucion institucion = resolverInstitucion(beanUser.getInstitucion());
 
         // Generar username a partir de nombre + apellidoPaterno (sin acentos, sin espacios)
         String username = generarUsername(persona.getNombre(), persona.getApellidoPaterno());
@@ -86,6 +117,7 @@ public class UserApplicationService {
 
         beanUser.setUsername(username);
         beanUser.setRol(findRole);
+        beanUser.setInstitucion(institucion);
         beanUser.setPersona(savePersona);
         beanUser.setPassword(rawPassword);   // UserService.save() la encriptará
         beanUser.setDebeResetear(true);       // Forzar cambio en primer login
@@ -107,9 +139,11 @@ public class UserApplicationService {
         Persona updatePersona = personaService.update(beanUser.getPersona());
         Role updatedRole = roleRepository.findByUuid(beanUser.getRol().getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el rol solicitado"));
+        Institucion updatedInstitucion = resolverInstitucion(beanUser.getInstitucion());
 
         beanUser.setPersona(updatePersona);
         beanUser.setRol(updatedRole);
+        beanUser.setInstitucion(updatedInstitucion);
         beanUser.setActivo(existing.getActivo());
         return userService.updateUser(beanUser);
     }
@@ -137,6 +171,19 @@ public class UserApplicationService {
     }
 
     // ── Helpers privados ───────────────────────────────────────────────────────
+
+    /**
+     * Resuelve la institución (recibida sólo con UUID desde el DTO/mapper) a la
+     * entidad gestionada vigente en BD. Lanza {@link ObjNotFoundException} si no
+     * existe — la institución es obligatoria para todo usuario del sistema.
+     */
+    private Institucion resolverInstitucion(Institucion referencia) {
+        if (referencia == null || referencia.getUuid() == null || referencia.getUuid().isBlank()) {
+            throw new ObjNotFoundException("La institución es obligatoria para crear o actualizar un usuario");
+        }
+        return institucionRepository.findByUuid(referencia.getUuid())
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la institución solicitada"));
+    }
 
     private void enviarEmailBienvenida(BeanUser user, String rawPassword) {
         String email = user.getPersona().getEmail();

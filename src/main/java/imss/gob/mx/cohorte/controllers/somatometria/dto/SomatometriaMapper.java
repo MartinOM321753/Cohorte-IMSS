@@ -36,6 +36,8 @@ public class SomatometriaMapper {
                 .observaciones(s.getObservaciones())
                 .usuarioRegistraNombre(nombreUsuario)
                 .fechaRegistro(s.getFechaRegistro())
+                .institucionUuid(s.getInstitucion() != null ? s.getInstitucion().getUuid() : null)
+                .institucionNombre(s.getInstitucion() != null ? s.getInstitucion().getNombre() : null)
                 .build();
     }
 

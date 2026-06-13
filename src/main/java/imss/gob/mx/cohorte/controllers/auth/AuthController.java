@@ -4,6 +4,8 @@ import imss.gob.mx.cohorte.application.AuthApplicationService;
 import imss.gob.mx.cohorte.controllers.auth.dto.ForgotPasswordRequestDTO;
 import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
 import imss.gob.mx.cohorte.controllers.auth.dto.ResetPasswordRequestDTO;
+import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
+import imss.gob.mx.cohorte.controllers.users.dto.UserResponseDTO;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.security.jwt.JWTUtils;
@@ -14,26 +16,47 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Tag(name = "Controlador de Autenticación", description = "Operaciones relacionadas con autenticación y registro de usuarios")
 public class AuthController {
+
+    /** Nombre de la cookie httpOnly que transporta el JWT. */
+    public static final String AUTH_COOKIE_NAME = "auth_token";
+
+    /** Duración de la cookie en segundos — debe coincidir con la expiración del JWT (10 horas). */
+    private static final long AUTH_COOKIE_MAX_AGE_SECONDS = 60L * 60 * 10;
 
     private final AuthApplicationService authService;
     private final PasswordResetService   passwordResetService;
     private final JWTUtils               jwtUtils;
     private final UserRepository         userRepository;
+
+    @Value("${app.cookie-secure:false}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie-samesite:Lax}")
+    private String cookieSameSite;
 
     // ── Login ─────────────────────────────────────────────────────────────────
 
@@ -56,23 +79,48 @@ public class AuthController {
 
         String token = authService.login(payload, ip, userAgent);
 
-        return ResponseEntity.ok(new APIResponse(
-                "Inicio de sesión exitoso", token, false, HttpStatus.OK));
+        ResponseCookie cookie = buildAuthCookie(token, AUTH_COOKIE_MAX_AGE_SECONDS);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(new APIResponse("Inicio de sesión exitoso", null, false, HttpStatus.OK));
+    }
+
+    // ── Sesión actual ─────────────────────────────────────────────────────────
+
+    @GetMapping("/me")
+    @Operation(summary = "Obtener sesión actual",
+               description = "Devuelve los datos del usuario autenticado a partir de la cookie de sesión vigente.")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<APIResponse> me(@AuthenticationPrincipal UserDetails userDetails,
+                                          HttpServletRequest request) {
+        String uuid = userDetails.getUsername(); // El subject del JWT/UserDetails es el UUID
+        BeanUser user = userRepository.findByUUID(uuid)
+                .orElseThrow(() -> new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                        "No se encontró el usuario de la sesión actual"));
+
+        UserResponseDTO userDTO = UserMapper.toResponseDTO(user);
+
+        boolean mustChangePassword = readMustChangePasswordFromCookie(request);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("user", userDTO);
+        body.put("mustChangePassword", mustChangePassword);
+
+        return ResponseEntity.ok(new APIResponse("Sesión vigente", body, false, HttpStatus.OK));
     }
 
     // ── Logout ────────────────────────────────────────────────────────────────
 
     @PostMapping("/logout")
     @Operation(summary = "Cerrar sesión",
-               description = "Registra el evento de cierre de sesión en la bitácora. "
-                           + "El cliente debe eliminar el token localmente.")
+               description = "Registra el evento de cierre de sesión en la bitácora y elimina la cookie de sesión.")
     public ResponseEntity<APIResponse> logout(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
+        String token      = extractTokenFromCookie(request);
         String ip         = extractIp(request);
         String userAgent  = request.getHeader("User-Agent");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
+        if (token != null) {
             try {
                 String uuid           = jwtUtils.extractUserUuid(token);
                 Date   issuedAt       = jwtUtils.extractIssuedAt(token);
@@ -86,8 +134,45 @@ public class AuthController {
             }
         }
 
-        return ResponseEntity.ok(new APIResponse(
-                "Sesión cerrada correctamente", null, false, HttpStatus.OK));
+        // Eliminar la cookie: mismo nombre/path/atributos, Max-Age=0
+        ResponseCookie expiredCookie = buildAuthCookie("", 0);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                .body(new APIResponse("Sesión cerrada correctamente", null, false, HttpStatus.OK));
+    }
+
+    // ── Helpers de cookie ─────────────────────────────────────────────────────
+
+    private ResponseCookie buildAuthCookie(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(AUTH_COOKIE_NAME, token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (AUTH_COOKIE_NAME.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    private boolean readMustChangePasswordFromCookie(HttpServletRequest request) {
+        String token = extractTokenFromCookie(request);
+        if (token == null) return false;
+        try {
+            return Boolean.TRUE.equals(jwtUtils.extractAllClaims(token).get("mustChangePassword", Boolean.class));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // ── Recuperación de contraseña ─────────────────────────────────────────────

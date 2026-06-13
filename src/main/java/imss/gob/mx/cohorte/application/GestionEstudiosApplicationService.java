@@ -5,7 +5,8 @@ import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
-import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudioRepository;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.services.estudios.OpcionParametroService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.ResultadoService;
@@ -16,15 +17,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Service
 @AllArgsConstructor
+@RequireModulo(ModuloSistema.ESTUDIOS_MEDICOS)
 public class GestionEstudiosApplicationService {
 
     private final TipoService tipoService;
     private final ParametroEstudioService parametroService;
     private final ResultadoService resultadoService;
-    private final TipoEstudioRepository tipoEstudioRepository;
     private final OpcionParametroService opcionService;
 
     @Transactional(readOnly = true)
@@ -32,9 +35,10 @@ public class GestionEstudiosApplicationService {
         return tipoService.getAllByStatus(true);
     }
 
+    /** Todos los tipos de la institución actual (activos e inactivos) para gestión de catálogo. */
     @Transactional(readOnly = true)
     public List<TipoEstudio> getAllTipos() {
-        return tipoEstudioRepository.findAll();
+        return tipoService.getAllByInstitucion();
     }
     @Transactional
     public TipoEstudio getByName(String nombre) {
@@ -61,11 +65,8 @@ public class GestionEstudiosApplicationService {
     //PARAMETROS
     @Transactional(readOnly = true)
     public List<ParametroEstudio> getParametrosByTipo(Long tipoEstudioId) {
-        // No se valida el estado activo: los parámetros de un tipo deshabilitado
-        // deben seguir siendo accesibles para editar estudios ya registrados.
-        if (!tipoEstudioRepository.existsById(tipoEstudioId)) {
-            throw new ObjNotFoundException("No se encontró el tipo de estudio");
-        }
+        // getOne verifica que el tipo pertenezca a la institución del usuario.
+        getOne(tipoEstudioId);
         return parametroService.getByTipoEstudio(tipoEstudioId);
     }
 

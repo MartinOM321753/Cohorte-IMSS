@@ -3,6 +3,8 @@ package imss.gob.mx.cohorte.audit.controller;
 import imss.gob.mx.cohorte.audit.dto.BitacoraAccesoResponseDTO;
 import imss.gob.mx.cohorte.audit.dto.BitacoraAccionResponseDTO;
 import imss.gob.mx.cohorte.audit.service.BitacoraQueryService;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +28,7 @@ public class BitacoraController {
     // ── Accesos ──────────────────────────────────────────────────────────────
 
     @GetMapping("/accesos")
+    @RequireModulo(ModuloSistema.BITACORA_ACCESOS)
     @Operation(summary = "Listar bitácora de accesos",
                description = "Devuelve eventos de login, logout y login fallido. Filtrable por fecha, usuario y tipo.")
     public ResponseEntity<APIResponse> getAccesos(
@@ -46,6 +49,7 @@ public class BitacoraController {
     // ── Acciones ─────────────────────────────────────────────────────────────
 
     @GetMapping("/acciones")
+    @RequireModulo(ModuloSistema.BITACORA_ACCIONES)
     @Operation(summary = "Listar bitácora de acciones",
                description = "Devuelve acciones de escritura (CREAR, ACTUALIZAR, ELIMINAR). Filtrable por fecha, usuario, tipo y entidad.")
     public ResponseEntity<APIResponse> getAcciones(

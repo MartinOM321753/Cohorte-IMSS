@@ -64,7 +64,7 @@ public class EstudioMuestraMapper {
 
         TipoEstudioMuestraResponseDTO tipoDTO = null;
         if (e.getTipoEstudioMuestra() != null) {
-            tipoDTO = toTipoResponseDTO(e.getTipoEstudioMuestra(), false);
+            tipoDTO = toTipoResponseDTO(e.getTipoEstudioMuestra(), true);
         }
 
         List<ResultadoEstudioMuestraResponseDTO> resultadosDTO = null;

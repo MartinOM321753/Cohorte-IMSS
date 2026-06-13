@@ -1,7 +1,6 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -13,7 +12,6 @@ import lombok.*;
 @Setter
 public class CajaRequestDTO {
 
-    @NotBlank(message = "El código de caja es obligatorio")
     @Size(max = 50, message = "Código de caja máximo 50 caracteres")
     private String codigoCaja;
 

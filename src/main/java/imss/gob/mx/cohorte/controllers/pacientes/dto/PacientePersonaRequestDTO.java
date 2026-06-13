@@ -23,7 +23,7 @@ public class PacientePersonaRequestDTO {
     private String apellidoMaterno;
 
     @NotNull(message = "La fecha de nacimiento es obligatoria")
-    @MayorDeEdad(message = "El paciente debe ser mayor de 18 años (tolerancia de 3 meses)")
+    @MayorDeEdad(message = "El participante debe ser mayor de 18 años (tolerancia de 3 meses)")
     private LocalDate fechaNacimiento;
 
     @NotNull(message = "El sexo es obligatorio")

@@ -14,8 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Service
+@RequireModulo(ModuloSistema.BIOBANCO)
 public class CajasApplicationService {
 
     private final CajaCriojenicaService cajaCriojenicaService;

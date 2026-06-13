@@ -26,10 +26,10 @@ public class EstudioMuestraRequestDTO {
     @Size(max = 500)
     private String observaciones;
 
-    /** Volumen/masa consumida de la muestra (opcional). */
+    @NotNull(message = "La cantidad consumida es requerida")
     private Double cantidadConsumida;
 
-    /** Unidad del consumo: "mL", "µL", "mg", "g" (opcional). */
+    @NotBlank(message = "La unidad consumida es requerida")
     @Size(max = 20)
     private String unidadConsumida;
 

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Setter
 public class ResultadoExamenRequestDTO {
 
-    @NotBlank(message = "El UUID del paciente es obligatorio")
+    @NotBlank(message = "El UUID del participante es obligatorio")
     private String pacienteUUID;
 
     @NotBlank(message = "El UUID del usuario de registro es obligatorio")

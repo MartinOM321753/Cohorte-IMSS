@@ -104,6 +104,7 @@ public class MuestraMapper {
             .idMuestraPadre(m.getMuestraPadre() != null ? m.getMuestraPadre().getId() : null)
             .numeroAlicuota(m.getNumeroAlicuota())
             .totalAlicuotas(m.getTotalAlicuotas())
+            .estadoMuestra(m.getEstadoMuestra())
             .build();
     }
 

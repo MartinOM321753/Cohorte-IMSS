@@ -1,6 +1,9 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.services.almacenamiento.traslado.TrasladoMuestraService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -11,9 +14,11 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@RequireModulo(ModuloSistema.BIOBANCO)
 public class TrasladoMuestraApplicationService {
 
     private final TrasladoMuestraService trasladoService;
+    private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public List<TrasladoMuestra> getAllTraslados() {
@@ -30,34 +35,63 @@ public class TrasladoMuestraApplicationService {
         return trasladoService.getHistorialByMuestra(idMuestra);
     }
 
+    /** Préstamos activos (no DEVUELTA) donde mi institución es origen O destino. */
     @Transactional(readOnly = true)
-    public List<TrasladoMuestra> getTrasladosByAlmacen(Long idAlmacen) {
-        return trasladoService.getTrasladosByAlmacen(idAlmacen);
+    public List<TrasladoMuestra> getActivosByMiInstitucion() {
+        return trasladoService.getActivosByInstitucion(institucionContextService.getIdInstitucionActual());
+    }
+
+    /** Todos los préstamos (histórico) de mi institución. */
+    @Transactional(readOnly = true)
+    public List<TrasladoMuestra> getAllByMiInstitucion() {
+        return trasladoService.getAllByInstitucion(institucionContextService.getIdInstitucionActual());
     }
 
     @Transactional(readOnly = true)
-    public Page<TrasladoMuestra> getTrasladosByAlmacenPaginated(Long idAlmacen, int page, int size) {
-        return trasladoService.getTrasladosByAlmacenPaginated(idAlmacen, page, size);
+    public Page<TrasladoMuestra> getAllByMiInstitucionPaginado(int page, int size) {
+        return trasladoService.getAllByInstitucionPaginado(
+                institucionContextService.getIdInstitucionActual(), page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TrasladoMuestra> getByGrupo(String grupoTraslado) {
+        return trasladoService.getByGrupo(grupoTraslado);
+    }
+
+    /**
+     * Inicia un préstamo de una o varias muestras hacia otra institución.
+     * La institución origen es la del usuario logueado (tenedor actual).
+     */
+    @Transactional
+    public List<TrasladoMuestra> iniciarPrestamo(List<Long> idsMuestras,
+                                                  Long idInstitucionDestino,
+                                                  String uuidAutoriza,
+                                                  String motivo,
+                                                  String observaciones) {
+        return trasladoService.iniciarPrestamo(
+                idsMuestras,
+                institucionContextService.getIdInstitucionActual(),
+                idInstitucionDestino,
+                uuidAutoriza, motivo, observaciones);
     }
 
     @Transactional
-    public TrasladoMuestra registrarTraslado(Long idMuestra, Long idAlmacen, String uuidAutoriza,
-                                              String motivo, String observaciones) {
-        return trasladoService.registrarTraslado(idMuestra, idAlmacen, uuidAutoriza, motivo, observaciones);
+    public TrasladoMuestra confirmarRecepcion(Long idTraslado, String uuidConfirma) {
+        return trasladoService.confirmarRecepcion(idTraslado, uuidConfirma);
     }
 
     @Transactional
-    public TrasladoMuestra confirmarRecepcion(Long idTraslado, String uuidEncargado) {
-        return trasladoService.confirmarRecepcion(idTraslado, uuidEncargado);
+    public TrasladoMuestra iniciarDevolucion(Long idTraslado, String uuidInicia, String observaciones) {
+        return trasladoService.iniciarDevolucion(idTraslado, uuidInicia, observaciones);
     }
 
     @Transactional
-    public TrasladoMuestra iniciarDevolucion(Long idTraslado, String uuidEncargado, String observaciones) {
-        return trasladoService.iniciarDevolucion(idTraslado, uuidEncargado, observaciones);
+    public TrasladoMuestra confirmarDevolucion(Long idTraslado, String uuidConfirma, String observaciones) {
+        return trasladoService.confirmarDevolucion(idTraslado, uuidConfirma, observaciones);
     }
 
     @Transactional
-    public TrasladoMuestra confirmarDevolucion(Long idTraslado, String observaciones) {
-        return trasladoService.confirmarDevolucion(idTraslado, observaciones);
+    public TrasladoMuestra cancelarPrestamo(Long idTraslado, String uuidUsuario, String motivo) {
+        return trasladoService.cancelarPrestamo(idTraslado, uuidUsuario, motivo);
     }
 }

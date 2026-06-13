@@ -24,4 +24,5 @@ public class ExamenRequestDTO {
     private Double valorMaxMujeres;
     private Double valorMinHombres;
     private Double valorMaxHombres;
+
 }

@@ -10,7 +10,7 @@ import java.time.LocalDate;
 @Data
 public class SomatometriaRequestDTO {
 
-    @NotBlank(message = "El UUID del paciente es requerido")
+    @NotBlank(message = "El UUID del participante es requerido")
     private String pacienteUUID;
 
     @NotBlank(message = "El UUID del usuario que registra es requerido")

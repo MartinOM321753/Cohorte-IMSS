@@ -19,4 +19,6 @@ public class ExamenResponseDTO {
     private Double valorMinHombres;
     private Double valorMaxHombres;
     private Boolean activo;
+    private String institucionUuid;
+    private String institucionNombre;
 }

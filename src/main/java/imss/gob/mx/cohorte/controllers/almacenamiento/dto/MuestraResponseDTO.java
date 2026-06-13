@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
 import imss.gob.mx.cohorte.controllers.DTO.PacienteResumenDTO;
 import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,4 +38,6 @@ public class MuestraResponseDTO {
      * Solo se popula en la respuesta de creación; null en lecturas normales.
      */
     private Integer alicuotasGeneradas;
+    /** Estado actual en el biobanco (SIN_POSICION, EN_BIOBANCO, PRESTADA, BAJA). */
+    private EstadoMuestra estadoMuestra;
 }

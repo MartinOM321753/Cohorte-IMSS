@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.examenes;
 
 import imss.gob.mx.cohorte.application.ExamenApplicationService;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.controllers.examenes.dto.ExamenMapper;
 import imss.gob.mx.cohorte.controllers.examenes.dto.ExamenRequestDTO;
 import imss.gob.mx.cohorte.controllers.examenes.dto.ExamenResponseDTO;
@@ -19,12 +20,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/examenes")
@@ -34,6 +38,7 @@ import java.util.List;
 public class ExamenController {
 
     private final ExamenApplicationService examenApplicationService;
+    private final InstitucionContextService institucionContextService;
 
     @GetMapping
     @Operation(summary = "Listar todos los exámenes activos", description = "Obtiene una lista completa de todos los exámenes activos registrados en el sistema")
@@ -91,6 +96,7 @@ public class ExamenController {
     })
     public ResponseEntity<APIResponse> create(@Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
+        examen.setInstitucion(institucionContextService.getInstitucionActual());
         Examen saved = examenApplicationService.create(examen);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Examen registrado exitosamente", ExamenMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
@@ -150,6 +156,31 @@ public class ExamenController {
         @PathVariable String uuid) {
         List<ResultadoExamen> resultados = examenApplicationService.findAllResultadoByUUID(uuid);
         return ResponseEntity.ok(new APIResponse("Resultados encontrados", ResultadoExamenMapper.toResponseDTOList(resultados), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/resultados/paciente/uuid/{uuid}/paginado")
+    @Operation(summary = "Obtener resultados de examen paginados por UUID del paciente", description = "Versión paginada (parámetros estándar de Spring: page, size, sort) para evitar cargar el historial completo en una sola respuesta")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getResultadosByPacienteUUIDPaginado(
+        @Parameter(description = "UUID único del paciente", required = true)
+        @PathVariable String uuid,
+        Pageable pageable) {
+        Page<ResultadoExamen> page = examenApplicationService.findAllResultadoByUUIDPaginado(uuid, pageable);
+        Map<String, Object> body = Map.of(
+            "content", ResultadoExamenMapper.toResponseDTOList(page.getContent()),
+            "page", page.getNumber(),
+            "size", page.getSize(),
+            "totalElements", page.getTotalElements(),
+            "totalPages", page.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Resultados encontrados", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/resultados/paciente/folio/{folio}")

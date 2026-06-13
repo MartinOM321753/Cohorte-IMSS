@@ -10,12 +10,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 
 
 @Service
 @AllArgsConstructor
-public class RefrieradorApplicationService {
+@RequireModulo(ModuloSistema.BIOBANCO)
+public class RefrigeradorApplicationService {
 
     private final RefrigeradorService refrigeradorService;
 
@@ -33,9 +36,8 @@ public class RefrieradorApplicationService {
 
     @Transactional
     public Refrigerador createRefrigerador(Refrigerador refrigerador) {
-        ensureCodigoUnicoOrThrow(refrigerador.getCodigo());
-        if (refrigerador.getCodigo() == null || refrigerador.getCodigo().trim().isEmpty()) {
-            throw new ObjConflictException("El código del refrigerador es obligatorio");
+        if (refrigerador.getCodigo() != null && !refrigerador.getCodigo().isBlank()) {
+            ensureCodigoUnicoOrThrow(refrigerador.getCodigo());
         }
         return refrigeradorService.createRefrigerador(refrigerador);
     }

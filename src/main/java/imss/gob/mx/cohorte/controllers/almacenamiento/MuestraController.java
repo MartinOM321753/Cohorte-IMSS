@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.MuestraApplicationService;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.AsignarPosicionRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraResponseDTO;
@@ -20,12 +21,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/almacenamiento/muestras")
@@ -52,6 +56,28 @@ public class  MuestraController {
     public ResponseEntity<APIResponse> getAll() {
         List<Muestra> list = muestraApplicationService.getAllMuestras();
         return ResponseEntity.ok(new APIResponse("Muestras encontradas", MuestraMapper.toResponseDTOList(list), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/paginado")
+    @Operation(summary = "Listar muestras paginadas", description = "Obtiene las muestras en páginas (parámetros estándar de Spring: page, size, sort) para evitar cargar toda la tabla en una sola respuesta")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
+        Page<Muestra> page = muestraApplicationService.getAllMuestrasPaginado(pageable);
+        Map<String, Object> body = Map.of(
+            "content", MuestraMapper.toResponseDTOList(page.getContent()),
+            "page", page.getNumber(),
+            "size", page.getSize(),
+            "totalElements", page.getTotalElements(),
+            "totalPages", page.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Muestras encontradas", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -104,7 +130,7 @@ public class  MuestraController {
         @Parameter(description = "UUID único del paciente", required = true)
         @PathVariable String uuid) {
         List<Muestra> list = muestraApplicationService.getMuestrasByPacienteUUID(uuid);
-        return ResponseEntity.ok(new APIResponse("Muestras del paciente encontradas", MuestraMapper.toResponseDTOList(list), false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Muestras del participante encontradas", MuestraMapper.toResponseDTOList(list), false, HttpStatus.OK));
     }
 
     @PostMapping
@@ -121,6 +147,18 @@ public class  MuestraController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> create(@Validated @RequestBody MuestraRequestDTO dto) {
+        if (dto.getPacienteUUID() == null || dto.getPacienteUUID().isBlank()) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException("El UUID del participante es obligatorio");
+        }
+        if (dto.getUsuarioRecolectaUUID() == null || dto.getUsuarioRecolectaUUID().isBlank()) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException("El UUID del usuario que recolecta es obligatorio");
+        }
+        if (dto.getIdTipoMuestra() == null) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException("El tipo de muestra es obligatorio");
+        }
+        if (dto.getIdTuboMuestra() == null) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException("El tubo de muestra es obligatorio");
+        }
         Muestra entity = MuestraMapper.toEntity(dto);
         if (dto.getIdPosicionCaja() != null) {
             PosicionCaja pos = new PosicionCaja();
@@ -158,6 +196,70 @@ public class  MuestraController {
             .body(new APIResponse("Muestra registrada exitosamente", responseDTO, false, HttpStatus.CREATED));
     }
 
+    @GetMapping("/biobanco")
+    @Operation(summary = "Muestras en el biobanco de mi institución",
+               description = "Muestras cuyo tenedor actual es la institución del usuario logueado (incluye SIN_POSICION, EN_BIOBANCO y PRESTADAS recibidas).")
+    public ResponseEntity<APIResponse> getMuestrasEnBiobanco(Pageable pageable) {
+        Page<Muestra> page = muestraApplicationService.getMuestrasEnBiobancoPage(pageable);
+        Map<String, Object> body = Map.of(
+            "content", MuestraMapper.toResponseDTOList(page.getContent()),
+            "page", page.getNumber(),
+            "size", page.getSize(),
+            "totalElements", page.getTotalElements(),
+            "totalPages", page.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Muestras en biobanco", body, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas")
+    @Operation(summary = "Alícuotas de una muestra padre",
+               description = "Retorna las alícuotas derivadas de una muestra primaria, con su estado y posición actuales.")
+    public ResponseEntity<APIResponse> getAlicuotas(@PathVariable Long id) {
+        List<Muestra> alicuotas = muestraApplicationService.getAlicuotas(id);
+        return ResponseEntity.ok(new APIResponse("Alícuotas encontradas",
+            MuestraMapper.toResponseDTOList(alicuotas), false, HttpStatus.OK));
+    }
+
+    @PutMapping("/{id}/posicion")
+    @Operation(summary = "Asignar / mover posición en biobanco",
+               description = "Asigna o cambia la PosicionCaja de la muestra dentro del biobanco de su institución actual. Libera la posición anterior automáticamente.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Posición asignada",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Posición ocupada o muestra prestada",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> asignarPosicion(
+            @PathVariable Long id,
+            @Validated @RequestBody AsignarPosicionRequestDTO dto) {
+        Muestra updated = muestraApplicationService.asignarPosicion(id, dto.getIdPosicionCaja(), dto.getMotivo());
+        return ResponseEntity.ok(new APIResponse("Posición asignada",
+            MuestraMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
+    @DeleteMapping("/{id}/posicion")
+    @Operation(summary = "Liberar posición en biobanco",
+               description = "Libera la PosicionCaja actual de la muestra sin asignarla a otra. La muestra pasa a SIN_POSICION.")
+    public ResponseEntity<APIResponse> liberarPosicion(
+            @PathVariable Long id,
+            @RequestParam(required = false) String motivo) {
+        Muestra updated = muestraApplicationService.liberarPosicion(id, motivo);
+        return ResponseEntity.ok(new APIResponse("Posición liberada",
+            MuestraMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar muestra",
+               description = "Elimina una muestra y sus alícuotas. Requiere que ninguna alícuota tenga posición asignada y que la muestra no esté en préstamo.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Muestra eliminada"),
+        @ApiResponse(responseCode = "409", description = "No se puede eliminar (alícuota con posición o muestra prestada)")
+    })
+    public ResponseEntity<APIResponse> delete(@PathVariable Long id) {
+        muestraApplicationService.deleteMuestra(id);
+        return ResponseEntity.ok(new APIResponse("Muestra eliminada exitosamente", null, false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar muestra / reubicar", description = "Actualiza la información de una muestra biológica existente o la reubica en una nueva posición de almacenamiento")
     @ApiResponses(value = {
@@ -177,33 +279,7 @@ public class  MuestraController {
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "ID numérico de la muestra biológica", required = true)
         @PathVariable Long id, @Validated @RequestBody MuestraRequestDTO dto) {
-        Muestra entity = MuestraMapper.toEntity(dto);
-        if (dto.getIdPosicionCaja() != null) {
-            PosicionCaja pos = new PosicionCaja();
-            pos.setId(dto.getIdPosicionCaja());
-            entity.setPosicionCaja(pos);
-        }
-        if (dto.getPacienteUUID() != null) {
-            Paciente paciente = new Paciente();
-            paciente.setUuid(dto.getPacienteUUID());
-            entity.setPaciente(paciente);
-        }
-        if (dto.getUsuarioRecolectaUUID() != null) {
-            BeanUser usuario = new BeanUser();
-            usuario.setUUID(dto.getUsuarioRecolectaUUID());
-            entity.setUsuarioRecolecta(usuario);
-        }
-        if (dto.getIdTipoMuestra() != null) {
-            TipoMuestra tm = new TipoMuestra();
-            tm.setId(dto.getIdTipoMuestra());
-            entity.setTipoMuestra(tm);
-        }
-        if (dto.getIdTuboMuestra() != null) {
-            TuboMuestra tb = new TuboMuestra();
-            tb.setId(dto.getIdTuboMuestra());
-            entity.setTuboMuestra(tb);
-        }
-        Muestra updated = muestraApplicationService.updateMuestra(id, entity);
+        Muestra updated = muestraApplicationService.updateMuestra(id, dto);
         return ResponseEntity.ok(new APIResponse("Muestra actualizada", MuestraMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 }

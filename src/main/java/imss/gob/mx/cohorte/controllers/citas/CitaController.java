@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.citas;
 
 import imss.gob.mx.cohorte.application.CitaApplicationService;
 import imss.gob.mx.cohorte.controllers.citas.dto.*;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.modules.cita.Cita;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ import java.util.List;
 public class CitaController {
 
     private final CitaApplicationService citaApplicationService;
+    private final InstitucionContextService institucionContextService;
 
     @GetMapping
     @Operation(summary = "Listar citas", description = "Obtiene una lista de citas, opcionalmente filtrada por rango de fechas (ISO-8601 UTC)")
@@ -65,6 +67,7 @@ public class CitaController {
     @Operation(summary = "Registrar nueva cita")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody CitaRequestDTO dto) {
         Cita cita = CitaMapper.toEntity(dto);
+        cita.setInstitucion(institucionContextService.getInstitucionActual());
         Cita saved = citaApplicationService.save(cita);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Cita registrada exitosamente", CitaMapper.toResponseDTO(saved), false, HttpStatus.CREATED));

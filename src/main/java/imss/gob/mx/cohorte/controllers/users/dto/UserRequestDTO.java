@@ -17,6 +17,9 @@ public class UserRequestDTO {
     @NotBlank(message = "El rol es obligatorio")
     private String rolUuid;
 
+    @NotBlank(message = "La institución es obligatoria")
+    private String institucionUuid;
+
     @NotNull(message = "Los datos de persona son obligatorios")
     @Valid
     private PersonaRequestDTO persona;

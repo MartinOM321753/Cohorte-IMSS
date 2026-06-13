@@ -19,13 +19,13 @@ import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.modules.somatometria.SomatometriaRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,6 +60,7 @@ public class DashboardController {
     private final RefrigeradorRepository      refrigeradorRepository;
     private final CajaCriogenicaRepository    cajaCriogenicaRepository;
     private final PosicionCajaRepository      posicionCajaRepository;
+    private final InstitucionContextService   institucionContextService;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/stats
@@ -72,6 +73,8 @@ public class DashboardController {
     )
     public ResponseEntity<APIResponse> getStats() {
 
+        long idInstitucion = institucionContextService.getIdInstitucionActual();
+
         // Rango mes actual (UTC → instants)
         YearMonth   mesActual  = YearMonth.now(ZONA);
         LocalDate   primero    = mesActual.atDay(1);
@@ -81,29 +84,29 @@ public class DashboardController {
         Instant     ahora      = Instant.now();
 
         // 1. Pacientes activos
-        long pacientesActivos = pacienteRepository.countByActivo(true);
+        long pacientesActivos = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
 
         // 2. Citas del mes (no canceladas)
-        long citasMes = citaRepository.countCitasMes(inicioMes, finMes);
+        long citasMes = citaRepository.countCitasMes(inicioMes, finMes, idInstitucion);
 
         // 3. Citas sin actualizar (ya terminaron y siguen en Programada/Confirmada)
-        long citasSinActualizar = citaRepository.countCitasSinActualizar(ahora);
+        long citasSinActualizar = citaRepository.countCitasSinActualizar(ahora, idInstitucion);
 
         // 4. Estudios con resultado este mes
         long estudiosConResultadosMes = estudioMedicoRepository
-                .countEstudiosConResultadosEnMes(primero, ultimo);
+                .countEstudiosConResultadosEnMes(primero, ultimo, idInstitucion);
 
         // 5. Exámenes de laboratorio este mes
         LocalDateTime inicioMesLdt = primero.atStartOfDay();
         LocalDateTime finMesLdt    = ultimo.atTime(23, 59, 59);
         long examenesLabMes = resultadoExamenRepository
-                .countByFechaResultadoBetween(inicioMesLdt, finMesLdt);
+                .countByFechaResultadoBetween(inicioMesLdt, finMesLdt, idInstitucion);
 
         // 6. Muestras biobanco
-        long muestrasBiobanco = muestraRepository.count();
+        long muestrasBiobanco = muestraRepository.countByInstitucion_Id(idInstitucion);
 
         // 7. Documentos generales de paciente
-        long documentosGenerales = pacienteDocumentoRepository.count();
+        long documentosGenerales = pacienteDocumentoRepository.countByPaciente_Institucion_Id(idInstitucion);
 
         // 8. Delta pacientes: activos ahora vs. activos hace 7 días
         //    Se aproxima usando la diferencia de registros en los últimos 7 días.
@@ -141,7 +144,7 @@ public class DashboardController {
         Instant   finDia    = hoy.plusDays(1).atStartOfDay(ZONA).toInstant();
 
         List<AgendaHoyItemDTO> agenda = citaRepository
-            .findCitasHoy(inicioDia, finDia)
+            .findCitasHoy(inicioDia, finDia, institucionContextService.getIdInstitucionActual())
             .stream()
             .map(this::toAgendaDTO)
             .collect(Collectors.toList());
@@ -162,7 +165,7 @@ public class DashboardController {
     public ResponseEntity<APIResponse> getSomatometriaGlobal() {
 
         List<SomatometriaGlobalDTO> data = somatometriaRepository
-                .findAll(Sort.by("fechaMedicion").ascending())
+                .findAllByInstitucionOrderByFechaMedicionAsc(institucionContextService.getIdInstitucionActual())
                 .stream()
                 .map(s -> new SomatometriaGlobalDTO(
                         s.getFechaMedicion() != null ? s.getFechaMedicion().toString() : null,
@@ -191,8 +194,10 @@ public class DashboardController {
     public ResponseEntity<APIResponse> getExamenesGlobal() {
 
         List<ExamenResultGlobalDTO> data = resultadoExamenRepository
-                .findAll(Sort.by("fechaResultado").ascending())
+                .findAllWithExamenAndPaciente(institucionContextService.getIdInstitucionActual())
                 .stream()
+                .sorted(Comparator.comparing(ResultadoExamen::getFechaResultado,
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
                 .filter(r -> r.getExamen() != null)
                 .map(r -> new ExamenResultGlobalDTO(
                         r.getFechaResultado() != null ? r.getFechaResultado().toString() : null,
@@ -221,7 +226,8 @@ public class DashboardController {
     )
     public ResponseEntity<APIResponse> getExamenesCalidad() {
 
-        List<ResultadoExamen> resultados = resultadoExamenRepository.findAllWithExamenAndPaciente();
+        List<ResultadoExamen> resultados = resultadoExamenRepository
+                .findAllWithExamenAndPaciente(institucionContextService.getIdInstitucionActual());
 
         long enRango       = 0;
         long fueraDeRango  = 0;
@@ -281,10 +287,8 @@ public class DashboardController {
     )
     public ResponseEntity<APIResponse> getBiobancoOcupacion() {
 
-        List<Refrigerador> refrigeradores = refrigeradorRepository.findAll()
-                .stream()
-                .filter(r -> Boolean.TRUE.equals(r.getActivo()))
-                .collect(Collectors.toList());
+        List<Refrigerador> refrigeradores = refrigeradorRepository
+                .findAllByActivoAndInstitucion_Id(true, institucionContextService.getIdInstitucionActual());
 
         List<RefrigeradorOcupacionDTO> result = new ArrayList<>();
 
@@ -352,8 +356,8 @@ public class DashboardController {
     )
     public ResponseEntity<APIResponse> getBiobancoOcupacionCajas() {
 
-        // findAll() es consistente con CajasApplicationService.getAllCajas()
-        List<CajaCriogenica> cajas = cajaCriogenicaRepository.findAll();
+        List<CajaCriogenica> cajas = cajaCriogenicaRepository
+                .findAllByInstitucion_Id(institucionContextService.getIdInstitucionActual());
 
         List<CajaOcupacionDTO> result = cajas.stream().map(caja -> {
             // Usar el conteo real de posiciones creadas en DB, no filas*columnas

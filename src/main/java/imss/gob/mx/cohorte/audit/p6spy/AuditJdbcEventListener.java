@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 /**
  * Listener de p6spy que captura sentencias SQL ejecutadas dentro del contexto
@@ -60,8 +61,21 @@ public class AuditJdbcEventListener extends JdbcEventListener {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    private static final Pattern STRING_LITERAL = Pattern.compile("'(?:[^'\\\\]|\\\\.)*'");
+
+    /**
+     * Enmascara los literales de cadena en la sentencia SQL capturada para evitar
+     * persistir datos personales (nombres, correos, folios, resultados clínicos en texto libre)
+     * en {@code BitacoraAcciones.sentenciaSql}, conservando la estructura de la sentencia
+     * (tablas, columnas, operación, valores numéricos) para fines de auditoría.
+     */
+    private String redactarValoresSensibles(String sql) {
+        if (sql == null) return null;
+        return STRING_LITERAL.matcher(sql).replaceAll("'***'");
+    }
+
     private void capturar(String sql) {
         if (sql == null || sql.isBlank()) return;
-        AuditContextHolder.addSql(sql.trim());
+        AuditContextHolder.addSql(redactarValoresSensibles(sql.trim()));
     }
 }

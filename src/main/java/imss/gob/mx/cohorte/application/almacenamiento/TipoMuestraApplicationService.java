@@ -8,9 +8,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Service
 @AllArgsConstructor
+@RequireModulo(ModuloSistema.BIOBANCO)
 public class TipoMuestraApplicationService {
 
     private final TipoMuestraService tipoMuestraService;

@@ -15,12 +15,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pacientes")
@@ -46,7 +51,29 @@ public class PacienteController {
     })
     public ResponseEntity<APIResponse> getAll() {
         List<Paciente> pacientes = pacienteApplicationService.getAll();
-        return ResponseEntity.ok(new APIResponse("Pacientes encontrados", PacienteMapper.toResponseDTOList(pacientes), false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Participantes encontrados", PacienteMapper.toResponseDTOList(pacientes), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/paginado")
+    @Operation(summary = "Listar pacientes paginados", description = "Obtiene los pacientes en páginas (parámetros estándar de Spring: page, size, sort) para evitar cargar toda la tabla en una sola respuesta")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
+        Page<Paciente> pacientes = pacienteApplicationService.getAllPaginado(pageable);
+        Map<String, Object> body = Map.of(
+            "content", PacienteMapper.toResponseDTOList(pacientes.getContent()),
+            "page", pacientes.getNumber(),
+            "size", pacientes.getSize(),
+            "totalElements", pacientes.getTotalElements(),
+            "totalPages", pacientes.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Participantes encontrados", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/activos")
@@ -64,7 +91,7 @@ public class PacienteController {
     })
     public ResponseEntity<APIResponse> getActivos() {
         List<Paciente> pacientes = pacienteApplicationService.getActivos();
-        return ResponseEntity.ok(new APIResponse("Pacientes activos encontrados", PacienteMapper.toResponseDTOList(pacientes), false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Participantes activos encontrados", PacienteMapper.toResponseDTOList(pacientes), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -87,7 +114,8 @@ public class PacienteController {
             @Parameter(description = "ID numérico del paciente", required = true)
             @PathVariable Long id) {
         Paciente paciente = pacienteApplicationService.findUser(id);
-        return ResponseEntity.ok(new APIResponse("Paciente encontrado", PacienteMapper.toResponseDTO(paciente), false, HttpStatus.OK));
+        var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
     }
 
     @GetMapping("/uuid/{uuid}")
@@ -110,7 +138,8 @@ public class PacienteController {
             @Parameter(description = "UUID del paciente", required = true)
             @PathVariable String uuid) {
         Paciente paciente = pacienteApplicationService.findByUUID(uuid);
-        return ResponseEntity.ok(new APIResponse("Paciente encontrado", PacienteMapper.toResponseDTO(paciente), false, HttpStatus.OK));
+        var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
     }
 
     @GetMapping("/folio/{folio}")
@@ -133,7 +162,8 @@ public class PacienteController {
             @Parameter(description = "Número de folio del paciente", required = true)
             @PathVariable String folio) {
         Paciente paciente = pacienteApplicationService.findByFolio(folio);
-        return ResponseEntity.ok(new APIResponse("Paciente encontrado", PacienteMapper.toResponseDTO(paciente), false, HttpStatus.OK));
+        var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
     }
 
     @PostMapping
@@ -149,11 +179,14 @@ public class PacienteController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> create(@Validated @RequestBody PacienteRequestDTO dto) {
+    public ResponseEntity<APIResponse> create(@Validated @RequestBody PacienteRequestDTO dto,
+                                              @AuthenticationPrincipal UserDetails userDetails) {
         Paciente paciente = PacienteMapper.toEntity(dto);
-        Paciente saved = pacienteApplicationService.saveUser(paciente);
+        String uuidUsuarioAutenticado = userDetails != null ? userDetails.getUsername() : null;
+        Paciente saved = pacienteApplicationService.saveUserConReclutamiento(paciente, dto.getReclutamiento(), uuidUsuarioAutenticado);
+        var reclutamiento = pacienteApplicationService.getReclutamiento(saved.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new APIResponse("Paciente registrado exitosamente", PacienteMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
+            .body(new APIResponse("Participante registrado exitosamente", PacienteMapper.toResponseDTO(saved, reclutamiento), false, HttpStatus.CREATED));
     }
 
     @PatchMapping("/uuid/{uuid}/toggle-activo")
@@ -161,9 +194,10 @@ public class PacienteController {
                description = "Alterna el campo activo del paciente (activo → inactivo o viceversa) sin eliminar el registro.")
     public ResponseEntity<APIResponse> toggleActivo(@PathVariable String uuid) {
         Paciente updated = pacienteApplicationService.toggleActivo(uuid);
+        var reclutamiento = pacienteApplicationService.getReclutamiento(updated.getId());
         return ResponseEntity.ok(new APIResponse(
-                updated.getActivo() ? "Paciente activado" : "Paciente desactivado",
-                PacienteMapper.toResponseDTO(updated), false, HttpStatus.OK));
+                updated.getActivo() ? "Participante activado" : "Participante desactivado",
+                PacienteMapper.toResponseDTO(updated, reclutamiento), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}")
@@ -189,6 +223,7 @@ public class PacienteController {
         Paciente paciente = PacienteMapper.toEntity(dto);
         paciente.setId(id);
         Paciente updated = pacienteApplicationService.updateUser(paciente);
-        return ResponseEntity.ok(new APIResponse("Paciente actualizado", PacienteMapper.toResponseDTO(updated), false, HttpStatus.OK));
+        var reclutamiento = pacienteApplicationService.getReclutamiento(updated.getId());
+        return ResponseEntity.ok(new APIResponse("Participante actualizado", PacienteMapper.toResponseDTO(updated, reclutamiento), false, HttpStatus.OK));
     }
 }

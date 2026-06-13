@@ -18,9 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 
 @Service
+@RequireModulo(ModuloSistema.BIOBANCO)
 public class PisoRefrigeradorApplicationService {
 
     private final PisoRefrigeradorService pisoService;
@@ -64,9 +67,11 @@ public class PisoRefrigeradorApplicationService {
         if (refBD == null) { throw new ObjNotFoundException("El refrigerador no existe");}
 
         for (PisoRefrigerador piso : pisosDTO.getPisos()) {
-            var existing = pisoService.findByNumber(piso.getNumeroPiso());
-            if (existing.isPresent()) {
-                throw new ObjConflictException("Ya existe un piso con el número: " + piso.getNumeroPiso());
+            if (piso.getNumeroPiso() != null && !piso.getNumeroPiso().isBlank()) {
+                var existing = pisoService.findByNumber(piso.getNumeroPiso());
+                if (existing.isPresent()) {
+                    throw new ObjConflictException("Ya existe un piso con el número: " + piso.getNumeroPiso());
+                }
             }
 
             piso.setRefrigerador(refBD);

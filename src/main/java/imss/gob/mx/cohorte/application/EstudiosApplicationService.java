@@ -4,8 +4,11 @@ import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
+import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.estudios.EstudioService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
@@ -15,6 +18,8 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +28,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Slf4j
 @Service
 @AllArgsConstructor
+@RequireModulo(ModuloSistema.ESTUDIOS_MEDICOS)
 public class EstudiosApplicationService {
 
     private static final String ROOT_GROUP_CODE = "ROOT";
@@ -37,6 +45,8 @@ public class EstudiosApplicationService {
     private final PacienteService pacienteService;
     private final UserService userService;
     private final ParametroEstudioService parametroService;
+    private final InstitucionRepository institucionRepository;
+    private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getAllEstudios() {
@@ -45,12 +55,24 @@ public class EstudiosApplicationService {
 
     @Transactional(readOnly = true)
     public EstudioMedico getEstudio(Long id) {
-        return estudioService.getOne(id);
+        EstudioMedico estudio = estudioService.getOne(id);
+        institucionContextService.verificarPertenece(estudio.getInstitucion());
+        return estudio;
     }
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getEstudiosByPaciente(String uuid) {
         return estudioService.getAllByPacienteUUID(uuid);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EstudioMedico> getAllEstudiosPaginado(Pageable pageable) {
+        return estudioService.getAllPaginado(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EstudioMedico> getEstudiosByPacientePaginado(String uuid, Pageable pageable) {
+        return estudioService.getAllByPacienteUUIDPaginado(uuid, pageable);
     }
 
     @Transactional
@@ -64,9 +86,11 @@ public class EstudiosApplicationService {
         resolveRelaciones(estudioMedico);
 
         EstudioMedico existente = estudioService.getOne(id);
+        institucionContextService.verificarPertenece(existente.getInstitucion());
         existente.setPaciente(estudioMedico.getPaciente());
         existente.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
         existente.setTipoEstudio(estudioMedico.getTipoEstudio());
+        existente.setInstitucion(estudioMedico.getInstitucion());
         existente.setFechaEstudio(estudioMedico.getFechaEstudio());
         existente.setObservaciones(estudioMedico.getObservaciones());
 
@@ -77,7 +101,7 @@ public class EstudiosApplicationService {
 
     private void resolveRelaciones(EstudioMedico estudioMedico) {
         if (estudioMedico.getPaciente() == null || estudioMedico.getPaciente().getUuid() == null) {
-            throw new ObjNotFoundException("Falta informacion de paciente");
+            throw new ObjNotFoundException("Falta informacion de participante");
         }
         if (estudioMedico.getUsuarioRealiza() == null || estudioMedico.getUsuarioRealiza().getUUID() == null) {
             throw new ObjNotFoundException("Falta informacion de usuario");
@@ -85,16 +109,24 @@ public class EstudiosApplicationService {
         if (estudioMedico.getTipoEstudio() == null || estudioMedico.getTipoEstudio().getId() == null) {
             throw new ObjNotFoundException("Falta informacion de tipo de estudio");
         }
+        if (estudioMedico.getInstitucion() == null || estudioMedico.getInstitucion().getId() == null) {
+            throw new ObjNotFoundException("Falta informacion de institucion responsable del estudio");
+        }
         System.out.println("USUARIO REALIZA= " + estudioMedico.getUsuarioRealiza().getUUID());
-        Paciente paciente = pacienteService.getByUUID(estudioMedico.getPaciente().getUuid());
+        Paciente paciente = pacienteService.getByUUID(estudioMedico.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
         BeanUser usuario = userService.getByUUID(estudioMedico.getUsuarioRealiza().getUUID());
         TipoEstudio tipoEstudio = tipoEstudioService.getOne(estudioMedico.getTipoEstudio().getId());
+        Institucion institucion = institucionRepository.findById(estudioMedico.getInstitucion().getId())
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la institución con id: " + estudioMedico.getInstitucion().getId()));
+        // Aislamiento por institución: no se permite registrar/editar estudios a nombre de otra institución
+        institucionContextService.verificarPertenece(institucion);
 
         resolveResultados(estudioMedico, tipoEstudio);
 
         estudioMedico.setPaciente(paciente);
         estudioMedico.setUsuarioRealiza(usuario);
         estudioMedico.setTipoEstudio(tipoEstudio);
+        estudioMedico.setInstitucion(institucion);
     }
 
     private void resolveResultados(EstudioMedico estudioMedico, TipoEstudio tipoEstudio) {

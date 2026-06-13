@@ -1,11 +1,14 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ResultadoEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.TipoEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.HistorialCambioMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.EstudioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
@@ -15,6 +18,7 @@ import imss.gob.mx.cohorte.services.almacenamiento.muestra.TipoEstudioMuestraSer
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +28,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Service
 @AllArgsConstructor
+@RequireModulo(ModuloSistema.BIOBANCO)
 public class EstudioMuestraApplicationService {
 
     private static final String ROOT_GROUP_CODE = "ROOT";
@@ -34,6 +41,7 @@ public class EstudioMuestraApplicationService {
 
     private final EstudioMuestraService estudioService;
     private final MuestraService muestraService;
+    private final MuestraRepository muestraRepository;
     private final TipoEstudioMuestraService tipoService;
     private final ParametroEstudioMuestraService parametroService;
     private final UserService userService;
@@ -55,16 +63,56 @@ public class EstudioMuestraApplicationService {
     @Transactional
     public EstudioMuestra create(Long idMuestra, EstudioMuestra estudio) {
         Muestra muestra = muestraService.getById(idMuestra);
+
+        if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+            throw new ObjConflictException(
+                    "No se puede registrar un estudio en una muestra en tránsito hacia otra institución.");
+        }
+
+        validarConsumo(muestra, estudio.getCantidadConsumida(), estudio.getUnidadConsumida());
+
         estudio.setMuestra(muestra);
         resolveRelaciones(estudio);
-        return estudioService.create(estudio);
+        EstudioMuestra saved = estudioService.create(estudio);
+
+        // Descontar cantidad consumida del valor de la muestra
+        Double valorAnterior = muestra.getValor();
+        muestra.setValor(valorAnterior - estudio.getCantidadConsumida());
+        muestraRepository.save(muestra);
+
+        historialService.registrarEvento(muestra, estudio.getUsuarioRealiza(),
+                TipoEventoMuestra.ESTUDIO_REALIZADO,
+                String.valueOf(valorAnterior), String.valueOf(muestra.getValor()),
+                "Estudio: " + estudio.getTipoEstudioMuestra().getNombre()
+                        + " — consumo: " + estudio.getCantidadConsumida() + " " + estudio.getUnidadConsumida(),
+                null);
+
+        return saved;
     }
 
     @Transactional
     public EstudioMuestra update(Long id, EstudioMuestra datos) {
         EstudioMuestra existente = estudioService.getById(id);
-        // No se cambia la muestra al actualizar
-        datos.setMuestra(existente.getMuestra());
+        Muestra muestra = existente.getMuestra();
+
+        if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+            throw new ObjConflictException(
+                    "No se puede editar un estudio de una muestra en tránsito hacia otra institución.");
+        }
+
+        Double consumoAnterior = existente.getCantidadConsumida() != null ? existente.getCantidadConsumida() : 0.0;
+        Double consumoNuevo = datos.getCantidadConsumida() != null ? datos.getCantidadConsumida() : 0.0;
+
+        // Recalcular: valor actual + consumo anterior = valor antes del estudio
+        // Luego: valor antes del estudio - consumo nuevo = nuevo valor
+        Double valorRecuperado = muestra.getValor() + consumoAnterior;
+        if (consumoNuevo > valorRecuperado) {
+            throw new ValidationException(
+                    "La cantidad consumida (" + consumoNuevo + ") excede el valor disponible de la muestra ("
+                            + valorRecuperado + " " + muestra.getUnidad() + ").");
+        }
+
+        datos.setMuestra(muestra);
         resolveRelaciones(datos);
 
         existente.setTipoEstudioMuestra(datos.getTipoEstudioMuestra());
@@ -74,12 +122,20 @@ public class EstudioMuestraApplicationService {
         existente.setCantidadConsumida(datos.getCantidadConsumida());
         existente.setUnidadConsumida(datos.getUnidadConsumida());
         replaceResultados(existente, datos.getResultados());
-        return estudioService.update(existente);
-    }
+        EstudioMuestra updated = estudioService.update(existente);
 
-    @Transactional
-    public void delete(Long id) {
-        estudioService.delete(id);
+        // Actualizar valor de la muestra si cambió la cantidad consumida
+        if (!Objects.equals(consumoAnterior, consumoNuevo)) {
+            Double valorAnterior = muestra.getValor();
+            muestra.setValor(valorRecuperado - consumoNuevo);
+            muestraRepository.save(muestra);
+
+            historialService.registrar(muestra, datos.getUsuarioRealiza(), "valor",
+                    String.valueOf(valorAnterior), String.valueOf(muestra.getValor()),
+                    "Edición de estudio: consumo ajustado de " + consumoAnterior + " a " + consumoNuevo);
+        }
+
+        return updated;
     }
 
     // ─── Historial ────────────────────────────────────────────────────────────
@@ -91,6 +147,21 @@ public class EstudioMuestraApplicationService {
     }
 
     // ─── Privados ─────────────────────────────────────────────────────────────
+
+    private void validarConsumo(Muestra muestra, Double cantidadConsumida, String unidadConsumida) {
+        if (cantidadConsumida == null || cantidadConsumida <= 0) {
+            throw new ValidationException("La cantidad consumida debe ser mayor a 0.");
+        }
+        if (unidadConsumida == null || !unidadConsumida.equals(muestra.getUnidad())) {
+            throw new ValidationException(
+                    "La unidad consumida debe coincidir con la unidad de la muestra (" + muestra.getUnidad() + ").");
+        }
+        if (cantidadConsumida > muestra.getValor()) {
+            throw new ValidationException(
+                    "La cantidad consumida (" + cantidadConsumida + ") excede el valor actual de la muestra ("
+                            + muestra.getValor() + " " + muestra.getUnidad() + ").");
+        }
+    }
 
     private void resolveRelaciones(EstudioMuestra estudio) {
         if (estudio.getUsuarioRealiza() == null || estudio.getUsuarioRealiza().getUUID() == null) {
@@ -147,12 +218,33 @@ public class EstudioMuestraApplicationService {
         if (estudio.getResultados() == null) {
             estudio.setResultados(new ArrayList<>());
         }
-        estudio.getResultados().clear();
-        if (nuevos == null) return;
-        for (ResultadoEstudioMuestra r : nuevos) {
-            r.setId(null);
-            r.setEstudio(estudio);
-            estudio.getResultados().add(r);
+        if (nuevos == null || nuevos.isEmpty()) return;
+
+        // Indexar existentes por idParametro para hacer merge
+        java.util.Map<Long, ResultadoEstudioMuestra> existentesPorParametro = new java.util.HashMap<>();
+        for (ResultadoEstudioMuestra r : estudio.getResultados()) {
+            if (r.getParametro() != null && r.getParametro().getId() != null) {
+                existentesPorParametro.put(r.getParametro().getId(), r);
+            }
+        }
+
+        for (ResultadoEstudioMuestra nuevo : nuevos) {
+            Long idParam = nuevo.getParametro() != null ? nuevo.getParametro().getId() : null;
+            ResultadoEstudioMuestra existente = idParam != null ? existentesPorParametro.get(idParam) : null;
+
+            if (existente != null) {
+                existente.setValorNumerico(nuevo.getValorNumerico());
+                existente.setValorTexto(nuevo.getValorTexto());
+                existente.setValorBooleano(nuevo.getValorBooleano());
+                existente.setGrupoCodigo(nuevo.getGrupoCodigo());
+                existente.setGrupoEtiqueta(nuevo.getGrupoEtiqueta());
+                existente.setOrdenResultado(nuevo.getOrdenResultado());
+                existente.setParametro(nuevo.getParametro());
+            } else {
+                nuevo.setId(null);
+                nuevo.setEstudio(estudio);
+                estudio.getResultados().add(nuevo);
+            }
         }
     }
 

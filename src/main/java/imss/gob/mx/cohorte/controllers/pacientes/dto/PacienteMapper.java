@@ -2,8 +2,10 @@ package imss.gob.mx.cohorte.controllers.pacientes.dto;
 
 import imss.gob.mx.cohorte.controllers.DTO.PacienteResumenDTO;
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
+import imss.gob.mx.cohorte.controllers.reclutamiento.dto.ReclutamientoParticipanteMapper;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.persona.Persona;
+import imss.gob.mx.cohorte.modules.reclutamiento.ReclutamientoParticipante;
 
 import java.util.List;
 
@@ -27,6 +29,11 @@ public class PacienteMapper {
     }
 
     public static PacienteResponseDTO toResponseDTO(Paciente p) {
+        return toResponseDTO(p, null);
+    }
+
+    /** Sobrecarga que incluye la clasificación de reclutamiento (1:1, se consulta aparte). */
+    public static PacienteResponseDTO toResponseDTO(Paciente p, ReclutamientoParticipante reclutamiento) {
         PersonaResponseDTO personaDTO = null;
         if (p.getPersona() != null) {
             Persona per = p.getPersona();
@@ -50,6 +57,7 @@ public class PacienteMapper {
             .fechaRegistro(p.getFechaRegistro())
             .fechaActualizacion(p.getFechaActualizacion())
             .persona(personaDTO)
+            .reclutamiento(ReclutamientoParticipanteMapper.toResponseDTO(reclutamiento))
             .build();
     }
 

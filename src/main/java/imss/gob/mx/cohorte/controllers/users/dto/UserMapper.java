@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.users.dto;
 
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
 import imss.gob.mx.cohorte.controllers.DTO.UsuarioResumenDTO;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
@@ -29,6 +30,11 @@ public class UserMapper {
         Role role = new Role();
         role.setUuid(dto.getRolUuid());
         user.setRol(role);
+
+        // El UUID de la institución también se resuelve a la entidad completa en UserApplicationService
+        Institucion institucion = new Institucion();
+        institucion.setUuid(dto.getInstitucionUuid());
+        user.setInstitucion(institucion);
 
         return user;
     }
@@ -58,6 +64,9 @@ public class UserMapper {
                         : null)
                 .fechaCreacion(user.getFechaCreacion())
                 .persona(personaDTO)
+                .institucion(user.getInstitucion() != null
+                        ? new UserResponseDTO.InstitucionResumenDTO(user.getInstitucion().getId(), user.getInstitucion().getUuid(), user.getInstitucion().getNombre())
+                        : null)
                 .build();
     }
 

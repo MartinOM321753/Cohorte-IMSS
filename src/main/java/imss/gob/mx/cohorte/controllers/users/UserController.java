@@ -45,7 +45,7 @@ public class UserController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> getAll() {
-        List<BeanUser> users = userApplicationService.findAllUser();
+        List<BeanUser> users = userApplicationService.findAllByInstitucion();
         return ResponseEntity.ok(new APIResponse("Usuarios encontrados", UserMapper.toResponseDTOList(users), false, HttpStatus.OK));
     }
 
@@ -63,7 +63,7 @@ public class UserController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> getActivos() {
-        List<BeanUser> users = userApplicationService.findAllByActive();
+        List<BeanUser> users = userApplicationService.findAllActiveByInstitucion();
         return ResponseEntity.ok(new APIResponse("Usuarios activos encontrados", UserMapper.toResponseDTOList(users), false, HttpStatus.OK));
     }
 
@@ -111,6 +111,20 @@ public class UserController {
             @PathVariable String uuid) {
         BeanUser user = userApplicationService.findByUUID(uuid);
         return ResponseEntity.ok(new APIResponse("Usuario encontrado", UserMapper.toResponseDTO(user), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/administradores-disponibles")
+    @Operation(summary = "Administradores disponibles para ser asignados como encargado",
+               description = "Devuelve los ADMINISTRADORES activos que no están asignados como encargado de ninguna institución. " +
+                             "Si se proporciona 'institucionUuid', también incluye el admin ya asignado a esa institución " +
+                             "(necesario para que el selector en modo edición no pierda al encargado actual).")
+    public ResponseEntity<APIResponse> getAdministradoresDisponibles(
+            @Parameter(description = "UUID de la institución que se está editando (opcional)")
+            @RequestParam(required = false) String institucionUuid) {
+        List<BeanUser> users = (institucionUuid != null && !institucionUuid.isBlank())
+                ? userApplicationService.getAdministradoresDisponiblesParaInstitucion(institucionUuid)
+                : userApplicationService.getAdministradoresDisponibles();
+        return ResponseEntity.ok(new APIResponse("Administradores disponibles", UserMapper.toResponseDTOList(users), false, HttpStatus.OK));
     }
 
     @GetMapping("/rol/{roleName}")
