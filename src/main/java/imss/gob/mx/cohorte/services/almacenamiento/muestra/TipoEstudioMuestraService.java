@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.TipoEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.TipoEstudioMuestraRepository;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -16,15 +18,20 @@ import java.util.List;
 public class TipoEstudioMuestraService {
 
     private final TipoEstudioMuestraRepository repository;
+    private final InstitucionContextService institucionContextService;
+
+    private Long myInstId() {
+        return institucionContextService.getIdInstitucionActual();
+    }
 
     @Transactional(readOnly = true)
     public List<TipoEstudioMuestra> getAllActivos() {
-        return repository.findAllByActivo(true);
+        return repository.findAllByInstitucion_IdAndActivoTrue(myInstId());
     }
 
     @Transactional(readOnly = true)
     public List<TipoEstudioMuestra> getAll() {
-        return repository.findAll();
+        return repository.findAllByInstitucion_IdOrderByNombreAsc(myInstId());
     }
 
     @Transactional(readOnly = true)
@@ -44,9 +51,12 @@ public class TipoEstudioMuestraService {
 
     @Transactional(rollbackFor = Exception.class)
     public TipoEstudioMuestra create(TipoEstudioMuestra tipo) {
-        repository.findByNombreIgnoreCase(tipo.getNombre()).ifPresent(t -> {
+        Long idInst = myInstId();
+        repository.findByNombreIgnoreCaseAndInstitucion_Id(tipo.getNombre(), idInst).ifPresent(t -> {
             throw new ObjConflictException("Ya existe un tipo de estudio de muestra con ese nombre");
         });
+        Institucion inst = institucionContextService.getInstitucionActual();
+        tipo.setInstitucion(inst);
         tipo.setFechaCreacion(LocalDateTime.now());
         tipo.setActivo(true);
         return repository.save(tipo);
@@ -55,8 +65,9 @@ public class TipoEstudioMuestraService {
     @Transactional(rollbackFor = Exception.class)
     public TipoEstudioMuestra update(Long id, TipoEstudioMuestra datos) {
         TipoEstudioMuestra tipoBD = getById(id);
+        Long idInst = myInstId();
         if (!datos.getNombre().equalsIgnoreCase(tipoBD.getNombre())) {
-            repository.findByNombreIgnoreCase(datos.getNombre()).ifPresent(t -> {
+            repository.findByNombreIgnoreCaseAndInstitucion_Id(datos.getNombre(), idInst).ifPresent(t -> {
                 throw new ObjConflictException("Ya existe un tipo de estudio de muestra con ese nombre");
             });
             tipoBD.setNombre(datos.getNombre());

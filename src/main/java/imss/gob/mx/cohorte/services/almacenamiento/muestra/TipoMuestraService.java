@@ -4,6 +4,8 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestraRepository;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -18,17 +20,22 @@ public class TipoMuestraService {
 
     private final TipoMuestraRepository tipoMuestraRepository;
     private final TuboMuestraRepository tuboMuestraRepository;
+    private final InstitucionContextService institucionContextService;
+
+    private Long myInstId() {
+        return institucionContextService.getIdInstitucionActual();
+    }
 
     // ── TipoMuestra ──────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<TipoMuestra> getAll() {
-        return tipoMuestraRepository.findAll();
+        return tipoMuestraRepository.findAllByInstitucion_IdOrderByNombreAsc(myInstId());
     }
 
     @Transactional(readOnly = true)
     public List<TipoMuestra> getAllActivos() {
-        return tipoMuestraRepository.findAllByActivoTrueOrderByNombreAsc();
+        return tipoMuestraRepository.findAllByInstitucion_IdAndActivoTrueOrderByNombreAsc(myInstId());
     }
 
     @Transactional(readOnly = true)
@@ -39,17 +46,21 @@ public class TipoMuestraService {
 
     @Transactional
     public TipoMuestra create(TipoMuestra tipoMuestra) {
-        tipoMuestraRepository.findByNombreIgnoreCase(tipoMuestra.getNombre()).ifPresent(t -> {
+        Long idInst = myInstId();
+        tipoMuestraRepository.findByNombreIgnoreCaseAndInstitucion_Id(tipoMuestra.getNombre(), idInst).ifPresent(t -> {
             throw new ObjConflictException("Ya existe un tipo de muestra con ese nombre");
         });
+        Institucion inst = institucionContextService.getInstitucionActual();
+        tipoMuestra.setInstitucion(inst);
         return tipoMuestraRepository.save(tipoMuestra);
     }
 
     @Transactional
     public TipoMuestra update(Long id, TipoMuestra datos) {
         TipoMuestra tipo = getById(id);
+        Long idInst = myInstId();
         if (!tipo.getNombre().equalsIgnoreCase(datos.getNombre())) {
-            tipoMuestraRepository.findByNombreIgnoreCase(datos.getNombre()).ifPresent(t -> {
+            tipoMuestraRepository.findByNombreIgnoreCaseAndInstitucion_Id(datos.getNombre(), idInst).ifPresent(t -> {
                 throw new ObjConflictException("Ya existe un tipo de muestra con ese nombre");
             });
             tipo.setNombre(datos.getNombre());
@@ -78,7 +89,6 @@ public class TipoMuestraService {
     public TuboMuestra addTubo(Long idTipoMuestra, TuboMuestra tubo) {
         TipoMuestra tipo = getById(idTipoMuestra);
         tubo.setTipoMuestra(tipo);
-        // Asignar orden al final de la lista si no se especificó
         if (tubo.getOrden() == null || tubo.getOrden() == 0) {
             int maxOrden = tipo.getTubos().stream()
                     .mapToInt(TuboMuestra::getOrden)

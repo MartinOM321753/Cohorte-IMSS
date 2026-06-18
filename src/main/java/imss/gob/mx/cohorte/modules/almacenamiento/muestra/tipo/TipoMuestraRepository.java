@@ -12,4 +12,10 @@ public interface TipoMuestraRepository extends JpaRepository<TipoMuestra, Long> 
     List<TipoMuestra> findAllByActivoTrueOrderByNombreAsc();
 
     Optional<TipoMuestra> findByNombreIgnoreCase(String nombre);
+
+    List<TipoMuestra> findAllByInstitucion_IdOrderByNombreAsc(Long idInstitucion);
+
+    List<TipoMuestra> findAllByInstitucion_IdAndActivoTrueOrderByNombreAsc(Long idInstitucion);
+
+    Optional<TipoMuestra> findByNombreIgnoreCaseAndInstitucion_Id(String nombre, Long idInstitucion);
 }

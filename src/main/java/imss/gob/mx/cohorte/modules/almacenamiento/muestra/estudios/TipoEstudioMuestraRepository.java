@@ -10,4 +10,10 @@ public interface TipoEstudioMuestraRepository extends JpaRepository<TipoEstudioM
     Optional<TipoEstudioMuestra> findByNombreIgnoreCase(String nombre);
 
     List<TipoEstudioMuestra> findAllByActivo(Boolean activo);
+
+    List<TipoEstudioMuestra> findAllByInstitucion_IdOrderByNombreAsc(Long idInstitucion);
+
+    List<TipoEstudioMuestra> findAllByInstitucion_IdAndActivoTrue(Long idInstitucion);
+
+    Optional<TipoEstudioMuestra> findByNombreIgnoreCaseAndInstitucion_Id(String nombre, Long idInstitucion);
 }
