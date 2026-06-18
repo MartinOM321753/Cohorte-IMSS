@@ -10,4 +10,6 @@ public class ConfirmarRecepcionRequestDTO {
 
     @NotBlank(message = "El UUID del usuario que confirma es obligatorio")
     private String uuidConfirma;
+
+    private Long idPosicionCaja;
 }

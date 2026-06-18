@@ -18,12 +18,11 @@ public interface TrasladoMuestraRepository extends JpaRepository<TrasladoMuestra
     /** Todos los préstamos de un lote (padre + alícuotas). */
     List<TrasladoMuestra> findAllByGrupoTrasladoOrderByFechaTrasladoDesc(String grupoTraslado);
 
-    /** Traslados activos (no DEVUELTA) donde la institución es origen O destino. */
+    /** Traslados donde la institución es origen O destino (incluye todos los estados). */
     @Query("""
             SELECT t FROM TrasladoMuestra t
-            WHERE (t.institucionOrigen.id = :idInstitucion
-                   OR t.institucionDestino.id = :idInstitucion)
-              AND t.estado <> imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.DEVUELTA
+            WHERE t.institucionOrigen.id = :idInstitucion
+               OR t.institucionDestino.id = :idInstitucion
             ORDER BY t.fechaTraslado DESC
             """)
     List<TrasladoMuestra> findActivosByInstitucion(@Param("idInstitucion") Long idInstitucion);
@@ -46,13 +45,17 @@ public interface TrasladoMuestraRepository extends JpaRepository<TrasladoMuestra
             """)
     Page<TrasladoMuestra> findAllByInstitucionPaginado(@Param("idInstitucion") Long idInstitucion, Pageable pageable);
 
-    /** ¿Tiene la muestra algún traslado activo (no DEVUELTA)? */
+    /** ¿Tiene la muestra algún traslado activo (no DEVUELTA ni CANCELADO)? */
     @Query("""
             SELECT COUNT(t) > 0 FROM TrasladoMuestra t
             WHERE t.muestra.id = :idMuestra
-              AND t.estado <> imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.DEVUELTA
+              AND t.estado NOT IN (
+                  imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.DEVUELTA,
+                  imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.CANCELADO)
             """)
     boolean existsTrasladoActivoByMuestra(@Param("idMuestra") Long idMuestra);
 
     List<TrasladoMuestra> findAllByOrderByFechaTrasladoDesc();
+
+    void deleteAllByMuestra_Id(Long idMuestra);
 }

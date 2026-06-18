@@ -30,6 +30,7 @@ public class TrasladoResponseDTO {
         private String unidad;
         private String estadoMuestra;
         private boolean esAlicuota;
+        private String posicionLabel;
     }
 
     @Data

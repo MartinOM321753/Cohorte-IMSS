@@ -118,25 +118,35 @@ public class TrasladoMuestraController {
 
     @PutMapping("/{id}/confirmar-recepcion")
     @Operation(summary = "Confirmar recepción",
-               description = "La institución destino confirma que recibió físicamente la muestra. Estado: ENVIADA → RECIBIDA.")
+               description = "La institución destino confirma que recibió físicamente la muestra. Opcionalmente asigna posición en caja. Estado: ENVIADA → RECIBIDA.")
     public ResponseEntity<APIResponse> confirmarRecepcion(
             @PathVariable Long id,
             @Validated @RequestBody ConfirmarRecepcionRequestDTO dto) {
-        TrasladoMuestra updated = trasladoApplicationService.confirmarRecepcion(id, dto.getUuidConfirma());
+        TrasladoMuestra updated = trasladoApplicationService.confirmarRecepcion(
+            id, dto.getUuidConfirma(), dto.getIdPosicionCaja());
         return ResponseEntity.ok(
             new APIResponse("Recepción confirmada", TrasladoMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
+    @GetMapping("/{id}/alicuotas-en-destino")
+    @Operation(summary = "Alícuotas en institución destino",
+               description = "Lista las alícuotas de la muestra padre del traslado que están actualmente en la institución destino.")
+    public ResponseEntity<APIResponse> getAlicuotasEnDestino(@PathVariable Long id) {
+        var alicuotas = trasladoApplicationService.getAlicuotasEnDestino(id);
+        return ResponseEntity.ok(
+            new APIResponse("Alícuotas en destino", MuestraMapper.toResponseDTOList(alicuotas), false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}/iniciar-devolucion")
     @Operation(summary = "Iniciar devolución",
-               description = "La institución destino inicia la devolución. Estado: RECIBIDA → EN_DEVOLUCION.")
+               description = "La institución destino inicia la devolución. Opcionalmente incluye alícuotas para devolver junto con la padre. Estado: RECIBIDA → EN_DEVOLUCION.")
     public ResponseEntity<APIResponse> iniciarDevolucion(
             @PathVariable Long id,
             @Validated @RequestBody IniciarDevolucionRequestDTO dto) {
-        TrasladoMuestra updated = trasladoApplicationService.iniciarDevolucion(
-            id, dto.getUuidInicia(), dto.getObservaciones());
+        List<TrasladoMuestra> traslados = trasladoApplicationService.iniciarDevolucion(
+            id, dto.getUuidInicia(), dto.getObservaciones(), dto.getIdsAlicuotasDevolver());
         return ResponseEntity.ok(
-            new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTO(updated), false, HttpStatus.OK));
+            new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTOList(traslados), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}/confirmar-devolucion")

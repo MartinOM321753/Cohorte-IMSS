@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 public class IniciarDevolucionRequestDTO {
@@ -14,4 +16,6 @@ public class IniciarDevolucionRequestDTO {
 
     @Size(max = 500, message = "Las observaciones no pueden superar 500 caracteres")
     private String observaciones;
+
+    private List<Long> idsAlicuotasDevolver;
 }

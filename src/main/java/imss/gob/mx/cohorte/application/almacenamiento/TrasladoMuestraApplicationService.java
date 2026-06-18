@@ -1,10 +1,13 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.services.almacenamiento.traslado.TrasladoMuestraService;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import java.util.List;
 public class TrasladoMuestraApplicationService {
 
     private final TrasladoMuestraService trasladoService;
+    private final MuestraRepository muestraRepository;
     private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
@@ -76,13 +80,22 @@ public class TrasladoMuestraApplicationService {
     }
 
     @Transactional
-    public TrasladoMuestra confirmarRecepcion(Long idTraslado, String uuidConfirma) {
-        return trasladoService.confirmarRecepcion(idTraslado, uuidConfirma);
+    public TrasladoMuestra confirmarRecepcion(Long idTraslado, String uuidConfirma, Long idPosicionCaja) {
+        return trasladoService.confirmarRecepcion(idTraslado, uuidConfirma, idPosicionCaja);
     }
 
     @Transactional
-    public TrasladoMuestra iniciarDevolucion(Long idTraslado, String uuidInicia, String observaciones) {
-        return trasladoService.iniciarDevolucion(idTraslado, uuidInicia, observaciones);
+    public List<TrasladoMuestra> iniciarDevolucion(Long idTraslado, String uuidInicia,
+                                                    String observaciones, List<Long> idsAlicuotasDevolver) {
+        return trasladoService.iniciarDevolucion(idTraslado, uuidInicia, observaciones, idsAlicuotasDevolver);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Muestra> getAlicuotasEnDestino(Long idTraslado) {
+        TrasladoMuestra traslado = trasladoService.getById(idTraslado);
+        Long idMuestraPadre = traslado.getMuestra().getId();
+        Long idInstDestino = traslado.getInstitucionDestino().getId();
+        return muestraRepository.findAllByMuestraPadre_IdAndInstitucionActual_Id(idMuestraPadre, idInstDestino);
     }
 
     @Transactional
