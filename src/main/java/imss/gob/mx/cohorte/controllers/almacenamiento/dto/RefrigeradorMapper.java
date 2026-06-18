@@ -23,6 +23,7 @@ public class RefrigeradorMapper {
             .marca(r.getMarca())
             .modelo(r.getModelo())
             .activo(r.getActivo())
+            .totalPisos(r.getPisos() != null ? r.getPisos().size() : 0)
             .build();
     }
 

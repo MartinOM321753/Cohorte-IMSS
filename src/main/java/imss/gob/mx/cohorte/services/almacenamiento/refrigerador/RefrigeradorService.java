@@ -20,7 +20,7 @@ public class RefrigeradorService {
     private final InstitucionContextService institucionContextService;
 
     public List<Refrigerador> getAllRefrigeradores() {
-        return refrigeradorRepository.findAllByInstitucion_Id(institucionContextService.getIdInstitucionActual());
+        return refrigeradorRepository.findAllWithPisosByInstitucion(institucionContextService.getIdInstitucionActual());
     }
 
     public Refrigerador getRefrigerador(Long id) {

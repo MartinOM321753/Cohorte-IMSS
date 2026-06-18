@@ -15,6 +15,9 @@ public interface RefrigeradorRepository extends JpaRepository<Refrigerador, Long
 
     List<Refrigerador> findAllByInstitucion_Id(Long idInstitucion);
 
+    @Query("SELECT DISTINCT r FROM Refrigerador r LEFT JOIN FETCH r.pisos WHERE r.institucion.id = :idInst")
+    List<Refrigerador> findAllWithPisosByInstitucion(@Param("idInst") Long idInstitucion);
+
     List<Refrigerador> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
 
     @Query("SELECT MAX(r.codigo) FROM Refrigerador r WHERE r.codigo LIKE CONCAT(:prefix, '%')")

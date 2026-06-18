@@ -16,4 +16,5 @@ public class RefrigeradorResponseDTO {
     private String marca;
     private String modelo;
     private Boolean activo;
+    private int totalPisos;
 }
