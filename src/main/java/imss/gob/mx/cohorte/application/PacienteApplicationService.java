@@ -81,7 +81,7 @@ public class PacienteApplicationService {
         // nunca se acepta del cliente, para evitar que se registre en otra institución.
         Institucion institucionActual = institucionContextService.getInstitucionActual();
         paciente.setInstitucion(institucionActual);
-        return pacienteService.cretePatient(paciente);
+        return pacienteService.cretePatient(paciente, institucionActual.getId());
     }
 
     /**

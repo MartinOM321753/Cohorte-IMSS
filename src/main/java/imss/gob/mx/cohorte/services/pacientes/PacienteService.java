@@ -72,13 +72,12 @@ public class PacienteService {
         return findPatient;
     }
 
-    public Paciente cretePatient(Paciente paciente) {
+    public Paciente cretePatient(Paciente paciente, Long idInstitucion) {
         String folioCapturado = paciente.getFolio();
         String folio;
 
         if (folioCapturado == null || folioCapturado.isBlank()) {
-            // Participante nuevo sin folio previo de seguimiento → se genera automáticamente
-            folio = folioGeneratorService.generarFolio();
+            folio = folioGeneratorService.generarFolio(idInstitucion);
         } else {
             // El usuario capturó un folio existente (participante con seguimiento previo):
             // se normaliza a MAYÚSCULAS/alfanumérico para evitar choques de formato
