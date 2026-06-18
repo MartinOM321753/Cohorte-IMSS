@@ -98,6 +98,8 @@ public class EstudioMuestraMapper {
                 .unidadConsumida(e.getUnidadConsumida())
                 .resultados(resultadosDTO)
                 .cantidadResultados(resultadosDTO != null ? resultadosDTO.size() : 0)
+                .idInstitucionCreadora(e.getUsuarioRealiza() != null && e.getUsuarioRealiza().getInstitucion() != null
+                        ? e.getUsuarioRealiza().getInstitucion().getId() : null)
                 .build();
     }
 

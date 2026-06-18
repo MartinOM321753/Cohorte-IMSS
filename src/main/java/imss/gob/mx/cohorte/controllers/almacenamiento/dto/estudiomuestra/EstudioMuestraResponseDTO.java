@@ -25,4 +25,5 @@ public class EstudioMuestraResponseDTO {
     private String unidadConsumida;
     private List<ResultadoEstudioMuestraResponseDTO> resultados;
     private Integer cantidadResultados;
+    private Long idInstitucionCreadora;
 }

@@ -40,4 +40,11 @@ public class MuestraResponseDTO {
     private Integer alicuotasGeneradas;
     /** Estado actual en el biobanco (SIN_POSICION, EN_BIOBANCO, PRESTADA, BAJA). */
     private EstadoMuestra estadoMuestra;
+
+    /** ID de la institución propietaria original (inmutable). */
+    private Long idInstitucion;
+    private String nombreInstitucion;
+    /** ID de la institución que actualmente tiene la muestra. */
+    private Long idInstitucionActual;
+    private String nombreInstitucionActual;
 }

@@ -105,6 +105,10 @@ public class MuestraMapper {
             .numeroAlicuota(m.getNumeroAlicuota())
             .totalAlicuotas(m.getTotalAlicuotas())
             .estadoMuestra(m.getEstadoMuestra())
+            .idInstitucion(m.getInstitucion() != null ? m.getInstitucion().getId() : null)
+            .nombreInstitucion(m.getInstitucion() != null ? m.getInstitucion().getNombre() : null)
+            .idInstitucionActual(m.getInstitucionActual() != null ? m.getInstitucionActual().getId() : null)
+            .nombreInstitucionActual(m.getInstitucionActual() != null ? m.getInstitucionActual().getNombre() : null)
             .build();
     }
 
