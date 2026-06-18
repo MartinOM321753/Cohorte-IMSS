@@ -1,10 +1,7 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.MuestraApplicationService;
-import imss.gob.mx.cohorte.controllers.almacenamiento.dto.AsignarPosicionRequestDTO;
-import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraMapper;
-import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraRequestDTO;
-import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraResponseDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
@@ -260,6 +257,46 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("Muestra eliminada exitosamente", null, false, HttpStatus.OK));
     }
 
+    @PostMapping("/{id}/generar-alicuotas")
+    @Operation(summary = "Generar alícuotas en institución receptora",
+               description = "Genera alícuotas de una muestra padre recibida usando un tipo+tubo seleccionado por la institución receptora.")
+    public ResponseEntity<APIResponse> generarAlicuotasEnReceptora(
+            @PathVariable Long id,
+            @Validated @RequestBody GenerarAlicuotasRequestDTO dto) {
+        List<Muestra> alicuotas = muestraApplicationService.generarAlicuotasEnReceptora(
+            id, dto.getIdTipoMuestra(), dto.getIdTuboMuestra());
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(new APIResponse("Alícuotas generadas",
+                MuestraMapper.toResponseDTOList(alicuotas), false, HttpStatus.CREATED));
+    }
+
+    @GetMapping("/{id}/tipo-institucion")
+    @Operation(summary = "Tipo/tubo asignado por mi institución a esta muestra",
+               description = "Obtiene el tipo y tubo que mi institución asignó a una muestra padre recibida.")
+    public ResponseEntity<APIResponse> getTipoInstitucion(@PathVariable Long id) {
+        var mapping = muestraApplicationService.getTipoInstitucion(id);
+        if (mapping.isEmpty()) {
+            return ResponseEntity.ok(new APIResponse("Sin tipo asignado por esta institución", null, false, HttpStatus.OK));
+        }
+        var mti = mapping.get();
+        MuestraTipoInstitucionResponseDTO dto = MuestraTipoInstitucionResponseDTO.builder()
+            .id(mti.getId())
+            .tipoMuestra(TipoMuestraResumenDTO.builder()
+                .id(mti.getTipoMuestra().getId())
+                .nombre(mti.getTipoMuestra().getNombre())
+                .temperaturaAlmacenamiento(mti.getTipoMuestra().getTemperaturaAlmacenamiento())
+                .build())
+            .tuboMuestra(TuboMuestraResumenDTO.builder()
+                .id(mti.getTuboMuestra().getId())
+                .nombre(mti.getTuboMuestra().getNombre())
+                .prefijoCodigo(mti.getTuboMuestra().getPrefijoCodigo())
+                .numeroAlicuotas(mti.getTuboMuestra().getNumeroAlicuotas())
+                .build())
+            .nombreInstitucion(mti.getInstitucion().getNombre())
+            .build();
+        return ResponseEntity.ok(new APIResponse("Tipo asignado encontrado", dto, false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar muestra / reubicar", description = "Actualiza la información de una muestra biológica existente o la reubica en una nueva posición de almacenamiento")
     @ApiResponses(value = {
@@ -281,5 +318,64 @@ public class  MuestraController {
         @PathVariable Long id, @Validated @RequestBody MuestraRequestDTO dto) {
         Muestra updated = muestraApplicationService.updateMuestra(id, dto);
         return ResponseEntity.ok(new APIResponse("Muestra actualizada", MuestraMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
+    // ── Impresión ZPL ────────────────────────────────────────────────────────
+
+    @GetMapping("/{id}/etiqueta/zpl")
+    @Operation(summary = "Generar ZPL para etiqueta de muestra")
+    public ResponseEntity<APIResponse> getZplEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        String zpl = muestraApplicationService.generarZplEtiqueta(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("ZPL generado", zpl, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas/etiquetas/zpl")
+    @Operation(summary = "Generar ZPL para etiquetas de alícuotas")
+    public ResponseEntity<APIResponse> getZplAlicuotas(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        List<String> zpls = muestraApplicationService.generarZplAlicuotas(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("ZPL generado para alícuotas", zpls, false, HttpStatus.OK));
+    }
+
+    // ── Impresión directa ───────────────────────────────────────────────────
+
+    @GetMapping("/impresoras")
+    @Operation(summary = "Listar impresoras disponibles en el servidor")
+    public ResponseEntity<APIResponse> listarImpresoras() {
+        List<String> impresoras = muestraApplicationService.listarImpresoras();
+        return ResponseEntity.ok(new APIResponse("Impresoras disponibles", impresoras, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/{id}/etiqueta/imprimir")
+    @Operation(summary = "Imprimir etiqueta directamente en impresora")
+    public ResponseEntity<APIResponse> imprimirEtiqueta(
+            @PathVariable Long id,
+            @RequestParam String impresora,
+            @RequestParam(required = false) Long configuracionId) {
+        muestraApplicationService.imprimirEtiqueta(id, impresora, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Etiqueta enviada a impresora", null, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/{id}/alicuotas/etiquetas/imprimir")
+    @Operation(summary = "Imprimir etiquetas de alícuotas directamente en impresora")
+    public ResponseEntity<APIResponse> imprimirAlicuotas(
+            @PathVariable Long id,
+            @RequestParam String impresora,
+            @RequestParam(required = false) Long configuracionId) {
+        int total = muestraApplicationService.imprimirAlicuotas(id, impresora, configuracionId);
+        return ResponseEntity.ok(new APIResponse(total + " etiqueta(s) enviada(s) a impresora", total, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/{id}/lote-completo/imprimir")
+    @Operation(summary = "Imprimir etiqueta padre + todas las alícuotas")
+    public ResponseEntity<APIResponse> imprimirLoteCompleto(
+            @PathVariable Long id,
+            @RequestParam String impresora,
+            @RequestParam(required = false) Long configuracionId) {
+        int total = muestraApplicationService.imprimirLoteCompleto(id, impresora, configuracionId);
+        return ResponseEntity.ok(new APIResponse(total + " etiqueta(s) enviada(s) a impresora", total, false, HttpStatus.OK));
     }
 }

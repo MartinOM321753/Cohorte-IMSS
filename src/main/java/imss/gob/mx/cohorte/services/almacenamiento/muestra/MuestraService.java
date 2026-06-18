@@ -4,6 +4,11 @@ import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.HistorialCambioMuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.MuestraTipoInstitucionRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestraRepository;
+import imss.gob.mx.cohorte.modules.documentos.MuestraDocumentoRepository;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
@@ -33,6 +38,11 @@ public class MuestraService {
     private final UserRepository userRepository;
     private final PosicionCajaRepository posicionCajaRepository;
     private final InstitucionContextService institucionContextService;
+    private final HistorialCambioMuestraRepository historialCambioMuestraRepository;
+    private final EstudioMuestraRepository estudioMuestraRepository;
+    private final MuestraDocumentoRepository muestraDocumentoRepository;
+    private final MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
+    private final TrasladoMuestraRepository trasladoMuestraRepository;
 
     // ── Consultas ────────────────────────────────────────────────────────────
 
@@ -63,10 +73,46 @@ public class MuestraService {
     }
 
     @Transactional(readOnly = true)
+    public List<Muestra> getAllVisibles() {
+        return muestraRepository.findAllVisiblesPorInstitucion(institucionContextService.getIdInstitucionActual());
+    }
+
+    @Transactional(readOnly = true)
     public Muestra getById(Long id) {
         Muestra muestra = muestraRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
         institucionContextService.verificarPertenece(muestra.getInstitucion());
+        return muestra;
+    }
+
+    /**
+     * Obtiene una muestra validando que el tenedor actual (institucionActual) sea
+     * la institución del usuario. Usar para operaciones donde la institución receptora
+     * necesita manipular muestras que no le pertenecen originalmente (asignar posición,
+     * generar alícuotas, etc.).
+     */
+    @Transactional(readOnly = true)
+    public Muestra getByIdComoTenedor(Long id) {
+        Muestra muestra = muestraRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+        institucionContextService.verificarPertenece(muestra.getInstitucionActual());
+        return muestra;
+    }
+
+    /**
+     * Obtiene una muestra si la institución del usuario es propietaria O tenedora actual.
+     * Usar para lectura de datos compartidos (historial, estudios) en contexto de préstamos.
+     */
+    @Transactional(readOnly = true)
+    public Muestra getByIdConAcceso(Long id) {
+        Muestra muestra = muestraRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        boolean esPropietaria = muestra.getInstitucion().getId().equals(idInst);
+        boolean esTenedora = muestra.getInstitucionActual().getId().equals(idInst);
+        if (!esPropietaria && !esTenedora) {
+            throw new ObjConflictException("No tiene acceso a esta muestra.");
+        }
         return muestra;
     }
 
@@ -199,10 +245,35 @@ public class MuestraService {
             throw new ObjConflictException("No se puede eliminar una muestra en tránsito hacia otra institución.");
         }
 
-        // Verificar que ninguna alícuota tenga posición asignada
+        // Verificar que no haya traslados activos (ENVIADA, RECIBIDA, EN_DEVOLUCION)
+        if (trasladoMuestraRepository.existsTrasladoActivoByMuestra(id)) {
+            throw new ObjConflictException(
+                    "No se puede eliminar la muestra porque tiene préstamos activos (enviados, recibidos o en devolución).");
+        }
+
+        Long idInst = institucionContextService.getIdInstitucionActual();
         List<Muestra> alicuotas = muestra.getAlicuotas();
         if (alicuotas != null) {
             for (Muestra alicuota : alicuotas) {
+                // No permitir eliminar si alguna alícuota está prestada
+                if (alicuota.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+                    throw new ObjConflictException(
+                            "No se puede eliminar la muestra porque la alícuota '"
+                                    + alicuota.getEtiqueta() + "' está en préstamo activo.");
+                }
+                // No permitir eliminar si alguna alícuota tiene traslados activos
+                if (trasladoMuestraRepository.existsTrasladoActivoByMuestra(alicuota.getId())) {
+                    throw new ObjConflictException(
+                            "No se puede eliminar la muestra porque la alícuota '"
+                                    + alicuota.getEtiqueta() + "' tiene préstamos activos.");
+                }
+                // No permitir eliminar si alguna alícuota pertenece a otra institución
+                if (!alicuota.getInstitucion().getId().equals(idInst)) {
+                    throw new ObjConflictException(
+                            "No se puede eliminar la muestra porque la alícuota '"
+                                    + alicuota.getEtiqueta() + "' pertenece a la institución '"
+                                    + alicuota.getInstitucion().getNombre() + "'.");
+                }
                 if (alicuota.getPosicionCaja() != null) {
                     throw new ObjConflictException(
                             "No se puede eliminar la muestra porque la alícuota '"
@@ -211,6 +282,17 @@ public class MuestraService {
                 }
             }
         }
+
+        // Eliminar dependencias de cada alícuota y luego las alícuotas mismas
+        if (alicuotas != null && !alicuotas.isEmpty()) {
+            for (Muestra alicuota : alicuotas) {
+                eliminarDependencias(alicuota.getId());
+            }
+            muestraRepository.deleteAll(alicuotas);
+        }
+
+        // Eliminar dependencias de la muestra padre
+        eliminarDependencias(muestra.getId());
 
         // Liberar posición de la muestra padre si la tiene
         if (muestra.getPosicionCaja() != null) {
@@ -222,6 +304,14 @@ public class MuestraService {
         }
 
         muestraRepository.delete(muestra);
+    }
+
+    private void eliminarDependencias(Long idMuestra) {
+        historialCambioMuestraRepository.deleteAllByMuestra_Id(idMuestra);
+        estudioMuestraRepository.deleteAllByMuestra_Id(idMuestra);
+        muestraDocumentoRepository.deleteAllByMuestra_Id(idMuestra);
+        muestraTipoInstitucionRepository.deleteAllByMuestra_Id(idMuestra);
+        trasladoMuestraRepository.deleteAllByMuestra_Id(idMuestra);
     }
 
     /**

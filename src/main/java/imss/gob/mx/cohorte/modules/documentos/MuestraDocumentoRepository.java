@@ -11,4 +11,6 @@ public interface MuestraDocumentoRepository extends JpaRepository<MuestraDocumen
     List<MuestraDocumento> findByMuestra_IdOrderByDocumento_FechaSubidaDesc(Long muestraId);
 
     void deleteByDocumento_Id(Long documentoId);
+
+    void deleteAllByMuestra_Id(Long muestraId);
 }

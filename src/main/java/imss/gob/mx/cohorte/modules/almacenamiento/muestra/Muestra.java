@@ -113,6 +113,9 @@ public class Muestra {
     @Column(name = "total_alicuotas")
     private Integer totalAlicuotas;
 
+    @Column(name = "numero_lote")
+    private Integer numeroLote;
+
     /** Alícuotas derivadas de este tubo/muestra primaria. */
     @OneToMany(mappedBy = "muestraPadre", fetch = FetchType.LAZY)
     @JsonIgnore

@@ -46,12 +46,13 @@ public class EstudioMuestraApplicationService {
     private final ParametroEstudioMuestraService parametroService;
     private final UserService userService;
     private final HistorialCambioMuestraService historialService;
+    private final imss.gob.mx.cohorte.security.institucion.InstitucionContextService institucionContextService;
 
     // ─── Estudios por muestra ─────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<EstudioMuestra> getByMuestra(Long idMuestra) {
-        muestraService.getById(idMuestra); // valida que existe
+        muestraService.getByIdConAcceso(idMuestra);
         return estudioService.getByMuestra(idMuestra);
     }
 
@@ -62,7 +63,7 @@ public class EstudioMuestraApplicationService {
 
     @Transactional
     public EstudioMuestra create(Long idMuestra, EstudioMuestra estudio) {
-        Muestra muestra = muestraService.getById(idMuestra);
+        Muestra muestra = muestraService.getByIdComoTenedor(idMuestra);
 
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException(
@@ -94,6 +95,12 @@ public class EstudioMuestraApplicationService {
     public EstudioMuestra update(Long id, EstudioMuestra datos) {
         EstudioMuestra existente = estudioService.getById(id);
         Muestra muestra = existente.getMuestra();
+
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        if (!existente.getUsuarioRealiza().getInstitucion().getId().equals(idInst)) {
+            throw new ObjConflictException(
+                    "Solo la institución que creó este estudio puede editarlo.");
+        }
 
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException(
@@ -142,7 +149,7 @@ public class EstudioMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<HistorialCambioMuestra> getHistorial(Long idMuestra) {
-        muestraService.getById(idMuestra); // valida que existe
+        muestraService.getByIdConAcceso(idMuestra);
         return historialService.getByMuestra(idMuestra);
     }
 

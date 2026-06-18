@@ -7,4 +7,6 @@ import java.util.List;
 public interface HistorialCambioMuestraRepository extends JpaRepository<HistorialCambioMuestra, Long> {
 
     List<HistorialCambioMuestra> findAllByMuestra_IdOrderByFechaCambioDesc(Long idMuestra);
+
+    void deleteAllByMuestra_Id(Long idMuestra);
 }
