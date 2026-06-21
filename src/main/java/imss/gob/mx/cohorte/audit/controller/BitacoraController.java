@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.audit.controller;
 
 import imss.gob.mx.cohorte.audit.dto.BitacoraAccesoResponseDTO;
 import imss.gob.mx.cohorte.audit.dto.BitacoraAccionResponseDTO;
+import imss.gob.mx.cohorte.audit.dto.UsuarioBitacoraDTO;
 import imss.gob.mx.cohorte.audit.service.BitacoraQueryService;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bitacora")
@@ -24,6 +26,28 @@ import java.time.LocalDate;
 public class BitacoraController {
 
     private final BitacoraQueryService queryService;
+
+    // ── Usuarios con registros ─────────────────────────────────────────────
+
+    @GetMapping("/accesos/usuarios")
+    @RequireModulo(ModuloSistema.BITACORA_ACCESOS)
+    @Operation(summary = "Usuarios con registros en bitácora de accesos",
+               description = "Devuelve los usuarios de la institución actual que tienen al menos un registro en la bitácora de accesos.")
+    public ResponseEntity<APIResponse> getUsuariosConAccesos() {
+        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAccesos();
+        return ResponseEntity.ok(new APIResponse(
+                "Usuarios con accesos", usuarios, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/acciones/usuarios")
+    @RequireModulo(ModuloSistema.BITACORA_ACCIONES)
+    @Operation(summary = "Usuarios con registros en bitácora de acciones",
+               description = "Devuelve los usuarios de la institución actual que tienen al menos un registro en la bitácora de acciones.")
+    public ResponseEntity<APIResponse> getUsuariosConAcciones() {
+        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAcciones();
+        return ResponseEntity.ok(new APIResponse(
+                "Usuarios con acciones", usuarios, false, HttpStatus.OK));
+    }
 
     // ── Accesos ──────────────────────────────────────────────────────────────
 

@@ -48,4 +48,18 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
            "AND (NOT EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u) " +
            "     OR EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u AND i.uuid = :uuidInstitucion))")
     List<BeanUser> findAdministradoresDisponiblesParaInstitucion(@Param("uuidInstitucion") String uuidInstitucion);
+
+    @Query("SELECT DISTINCT u FROM BeanUser u " +
+           "JOIN FETCH u.persona JOIN FETCH u.rol " +
+           "WHERE u.institucion.id = :idInstitucion " +
+           "AND u.UUID IN (SELECT DISTINCT ba.usuarioUuid FROM BitacoraAcceso ba WHERE ba.usuarioUuid IS NOT NULL) " +
+           "ORDER BY u.persona.nombre")
+    List<BeanUser> findUsuariosConAccesos(@Param("idInstitucion") Long idInstitucion);
+
+    @Query("SELECT DISTINCT u FROM BeanUser u " +
+           "JOIN FETCH u.persona JOIN FETCH u.rol " +
+           "WHERE u.institucion.id = :idInstitucion " +
+           "AND u.UUID IN (SELECT DISTINCT bac.usuarioUuid FROM BitacoraAcciones bac WHERE bac.usuarioUuid IS NOT NULL) " +
+           "ORDER BY u.persona.nombre")
+    List<BeanUser> findUsuariosConAcciones(@Param("idInstitucion") Long idInstitucion);
 }
