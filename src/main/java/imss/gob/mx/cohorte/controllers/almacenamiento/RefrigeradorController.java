@@ -50,8 +50,8 @@ public class RefrigeradorController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> getAll() {
-        List<Refrigerador> list = refrigeradorApplicationService.getAllRefrigeradores();
-        return ResponseEntity.ok(new APIResponse("Refrigeradores encontrados", RefrigeradorMapper.toResponseDTOList(list), false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Refrigeradores encontrados",
+            refrigeradorApplicationService.getAllRefrigeradoresConEstadisticas(), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")

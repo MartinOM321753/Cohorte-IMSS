@@ -1,6 +1,9 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
 
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoResumenDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorMapper;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.RefrigeradorService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
@@ -27,6 +31,13 @@ public class RefrigeradorApplicationService {
     @Transactional(readOnly = true)
     public List<Refrigerador> getAllRefrigeradores() {
         return refrigeradorService.getAllRefrigeradores();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RefrigeradorResponseDTO> getAllRefrigeradoresConEstadisticas() {
+        List<Refrigerador> refs = refrigeradorService.getAllRefrigeradores();
+        Map<Long, List<PisoResumenDTO>> pisosMap = refrigeradorService.getPisosConOcupacion();
+        return RefrigeradorMapper.toResponseDTOList(refs, pisosMap);
     }
 
     @Transactional(readOnly = true)
