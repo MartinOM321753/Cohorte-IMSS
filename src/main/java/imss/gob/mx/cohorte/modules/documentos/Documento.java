@@ -54,4 +54,10 @@ public class Documento {
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_entidad", length = 30, nullable = false)
     private TipoEntidadDocumento tipoEntidad;
+
+    @Column(name = "etiqueta", length = 40, unique = true)
+    private String etiqueta;
+
+    @Column(name = "id_institucion")
+    private Long idInstitucion;
 }

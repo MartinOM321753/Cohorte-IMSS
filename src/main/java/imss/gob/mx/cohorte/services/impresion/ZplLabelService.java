@@ -1,10 +1,12 @@
 package imss.gob.mx.cohorte.services.impresion;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
+import imss.gob.mx.cohorte.modules.documentos.Documento;
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
 import imss.gob.mx.cohorte.modules.impresion.DisposicionEtiqueta;
 import imss.gob.mx.cohorte.modules.impresion.TipoCodigo;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -13,6 +15,9 @@ import java.util.List;
 
 @Service
 public class ZplLabelService {
+
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
 
     public String generarZplMuestra(Muestra muestra, ConfiguracionEtiqueta config) {
         return generarZplLote(List.of(muestra), config);
@@ -33,6 +38,106 @@ public class ZplLabelService {
             zpl.append(generarZplFila(muestras.subList(i, end), config));
         }
         return zpl.toString();
+    }
+
+    public String generarZplDocumento(Documento documento, ConfiguracionEtiqueta config) {
+        String etiqueta = sanitizar(documento.getEtiqueta());
+        String nombre = truncar(sanitizar(documento.getNombreOriginal()), 24);
+        String codigoData = frontendUrl + "/documento/" + documento.getEtiqueta();
+        return generarZplGenericoConUrl(etiqueta, nombre, codigoData, config);
+    }
+
+    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config) {
+        int perRow = config.getEtiquetasPorFila();
+        StringBuilder zpl = new StringBuilder();
+        for (int i = 0; i < documentos.size(); i += perRow) {
+            int end = Math.min(i + perRow, documentos.size());
+            List<Documento> fila = documentos.subList(i, end);
+
+            int labelW = config.getAnchoDots();
+            int labelH = config.getAltoDots();
+            int topMargin = config.getMargenSuperiorDots();
+            int totalW = perRow * labelW;
+
+            zpl.append("^XA\n^CI28\n");
+            zpl.append("^PW").append(totalW).append("^LL").append(labelH).append("\n");
+
+            for (int j = 0; j < fila.size(); j++) {
+                int xBase = j * labelW;
+                String etiqueta = sanitizar(fila.get(j).getEtiqueta());
+                String nombre = truncar(sanitizar(fila.get(j).getNombreOriginal()), 24);
+                String codigoData = frontendUrl + "/documento/" + fila.get(j).getEtiqueta();
+                appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, xBase, labelW, topMargin, config);
+            }
+
+            zpl.append("^XZ\n");
+        }
+        return zpl.toString();
+    }
+
+    private String generarZplGenericoConUrl(String etiqueta, String nombre, String codigoData,
+                                             ConfiguracionEtiqueta config) {
+        int labelW = config.getAnchoDots();
+        int labelH = config.getAltoDots();
+        int topMargin = config.getMargenSuperiorDots();
+        int perRow = config.getEtiquetasPorFila();
+        int totalW = perRow * labelW;
+
+        StringBuilder zpl = new StringBuilder();
+        zpl.append("^XA\n^CI28\n");
+        zpl.append("^PW").append(totalW).append("^LL").append(labelH).append("\n");
+        appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, 0, labelW, topMargin, config);
+        zpl.append("^XZ\n");
+        return zpl.toString();
+    }
+
+    private void appendGenericLabelContent(StringBuilder zpl, String etiqueta, String nombre,
+                                            String codigoData,
+                                            int xBase, int labelW, int topMargin,
+                                            ConfiguracionEtiqueta config) {
+        int mx = config.getMargenIzquierdoDots();
+        int usableW = labelW - mx * 2;
+
+        int fontNombre = config.getTamanoFuenteNombre();
+        int fontEtiqueta = config.getTamanoFuenteEtiqueta();
+        TipoCodigo tipoCodigo = config.getTipoCodigo();
+        int moduloCodigo = config.getModuloCodigo();
+        DisposicionEtiqueta disposicion = config.getDisposicion();
+        boolean showNombre = Boolean.TRUE.equals(config.getMostrarNombre());
+        boolean showCodigo = Boolean.TRUE.equals(config.getMostrarCodigo());
+        boolean showEtiqueta = Boolean.TRUE.equals(config.getMostrarEtiqueta());
+        int gapNombre = config.getEspaciadoNombre() != null ? config.getEspaciadoNombre() : 4;
+        int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
+        int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
+
+        String dataParaCodigo = (codigoData != null && !codigoData.isEmpty()) ? codigoData : etiqueta;
+        int dmDots = estimarTamanoCodigo(tipoCodigo, moduloCodigo, dataParaCodigo.length());
+
+        int y = topMargin;
+        List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
+
+        for (ElementoEtiqueta elem : elementos) {
+            switch (elem) {
+                case NOMBRE:
+                    if (showNombre) {
+                        appendTexto(zpl, xBase + mx, y, fontNombre, usableW, nombre);
+                        y += fontNombre + gapNombre;
+                    }
+                    break;
+                case CODIGO:
+                    if (showCodigo) {
+                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, dataParaCodigo, labelW, mx, dmDots);
+                        y += dmDots + gapCodigo;
+                    }
+                    break;
+                case ETIQUETA:
+                    if (showEtiqueta) {
+                        appendTexto(zpl, xBase + mx, y, fontEtiqueta, usableW, etiqueta);
+                        y += fontEtiqueta + gapEtiqueta;
+                    }
+                    break;
+            }
+        }
     }
 
     private String generarZplFila(List<Muestra> fila, ConfiguracionEtiqueta config) {

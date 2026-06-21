@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.security.institucion;
 
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
+import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Service;
 public class InstitucionContextService {
 
     private final UserRepository userRepository;
+    private final InstitucionRepository institucionRepository;
 
     /**
      * Obtiene el {@link BeanUser} autenticado actual a partir del
@@ -94,5 +96,41 @@ public class InstitucionContextService {
             throw new AccessDeniedException("El recurso no tiene institución asociada");
         }
         verificarPertenece(institucionRecurso.getId());
+    }
+
+    /**
+     * Verifica que la institución del usuario puede acceder a un recurso de
+     * {@code idInstitucionRecurso}: misma institución O la del usuario es
+     * ancestra (padre, abuelo, etc.) en la jerarquía.
+     *
+     * @throws AccessDeniedException si la institución del usuario no es la misma
+     *                               ni ancestra de la institución del recurso
+     */
+    public void verificarPerteneceOAncestra(Long idInstitucionRecurso) {
+        Long idInstUsuario = getIdInstitucionActual();
+        if (idInstUsuario.equals(idInstitucionRecurso)) {
+            return;
+        }
+        if (esAncestra(idInstUsuario, idInstitucionRecurso)) {
+            return;
+        }
+        throw new AccessDeniedException("El recurso solicitado pertenece a otra institución");
+    }
+
+    /**
+     * Recorre la cadena de padres de {@code idInstitucionHija} buscando a
+     * {@code idInstitucionPosibleAncestra}.
+     */
+    public boolean esAncestra(Long idInstitucionPosibleAncestra, Long idInstitucionHija) {
+        Institucion cursor = institucionRepository.findById(idInstitucionHija).orElse(null);
+        if (cursor == null) return false;
+        cursor = cursor.getInstitucionPadre();
+        while (cursor != null) {
+            if (cursor.getId().equals(idInstitucionPosibleAncestra)) {
+                return true;
+            }
+            cursor = cursor.getInstitucionPadre();
+        }
+        return false;
     }
 }

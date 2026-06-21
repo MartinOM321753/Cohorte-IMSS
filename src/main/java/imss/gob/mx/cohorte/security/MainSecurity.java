@@ -64,6 +64,7 @@ public class MainSecurity {
         // adicional sin aportar protección extra en este escenario).
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(c -> c.configurationSource(corsRegistry()))
+                .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()))
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(restEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         // Los dispatches ASYNC (StreamingResponseBody) no deben re-evaluarse
@@ -87,6 +88,13 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/pacientes/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PATCH, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/pacientes/**").hasRole("ADMINISTRADOR")
+
+                        // Configuración de horario de citas: escritura solo ADMINISTRADOR
+                        .requestMatchers(HttpMethod.GET, "/api/citas/configuracion-horario/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.POST, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
 
                         // Citas: lectura y creación para RECEPCIONISTA y ADMINISTRADOR
                         .requestMatchers(HttpMethod.GET, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
@@ -132,6 +140,9 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.PUT, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/somatometria/**").hasRole("ADMINISTRADOR")
+
+                        // Visualización por token temporal (escaneo QR) — público porque el token ES la autenticación
+                        .requestMatchers(HttpMethod.GET, "/api/documentos/ver/**").permitAll()
 
                         // Documentos (archivos en MinIO): lectura y subida para RECEPCIONISTA y ADMINISTRADOR, borrado solo ADMINISTRADOR
                         .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")

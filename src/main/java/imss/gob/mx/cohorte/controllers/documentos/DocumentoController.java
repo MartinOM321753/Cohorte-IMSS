@@ -3,9 +3,16 @@ package imss.gob.mx.cohorte.controllers.documentos;
 import imss.gob.mx.cohorte.controllers.documentos.dto.DocumentoResponseDTO;
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.documentos.Documento;
+import imss.gob.mx.cohorte.modules.documentos.DocumentoAccessToken;
 import imss.gob.mx.cohorte.modules.documentos.TipoDocumentoPaciente;
 import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
+import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.documentos.DocumentoAccessTokenService;
 import imss.gob.mx.cohorte.services.documentos.DocumentoService;
+import imss.gob.mx.cohorte.services.impresion.ConfiguracionEtiquetaService;
+import imss.gob.mx.cohorte.services.impresion.DirectPrintService;
+import imss.gob.mx.cohorte.services.impresion.ZplLabelService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.MinioUnavailableException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -24,6 +31,7 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST controller para gestión de documentos almacenados en MinIO.
@@ -50,10 +58,26 @@ public class DocumentoController {
 
     private final DocumentoService documentoService;
     private final MinioStorageService minioStorageService;
+    private final ZplLabelService zplLabelService;
+    private final DirectPrintService directPrintService;
+    private final ConfiguracionEtiquetaService configuracionEtiquetaService;
+    private final InstitucionContextService institucionCtx;
+    private final DocumentoAccessTokenService accessTokenService;
 
-    public DocumentoController(DocumentoService documentoService, MinioStorageService minioStorageService) {
+    public DocumentoController(DocumentoService documentoService,
+                                MinioStorageService minioStorageService,
+                                ZplLabelService zplLabelService,
+                                DirectPrintService directPrintService,
+                                ConfiguracionEtiquetaService configuracionEtiquetaService,
+                                InstitucionContextService institucionCtx,
+                                DocumentoAccessTokenService accessTokenService) {
         this.documentoService = documentoService;
         this.minioStorageService = minioStorageService;
+        this.zplLabelService = zplLabelService;
+        this.directPrintService = directPrintService;
+        this.configuracionEtiquetaService = configuracionEtiquetaService;
+        this.institucionCtx = institucionCtx;
+        this.accessTokenService = accessTokenService;
     }
 
     // ─── Helper: extrae el rol del SecurityContext ────────────────────────────────
@@ -230,6 +254,114 @@ public class DocumentoController {
                 .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate")
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .body(stream);
+    }
+
+    // ─── Impresión de etiquetas ────────────────────────────────────────────────
+
+    @GetMapping("/{id}/etiqueta/zpl")
+    public ResponseEntity<String> getZplEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+    ) {
+        Documento doc = documentoService.getDocumentoById(id);
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        String zpl = zplLabelService.generarZplDocumento(doc, config);
+        return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).body(zpl);
+    }
+
+    @PostMapping("/{id}/etiqueta/imprimir")
+    public ResponseEntity<APIResponse> imprimirEtiqueta(
+            @PathVariable Long id,
+            @RequestParam("impresora") String impresora,
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+    ) {
+        Documento doc = documentoService.getDocumentoById(id);
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        String zpl = zplLabelService.generarZplDocumento(doc, config);
+        directPrintService.imprimir(zpl, impresora);
+        return ResponseEntity.ok(new APIResponse("Etiqueta enviada a impresora", null, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/impresoras")
+    public ResponseEntity<APIResponse> listarImpresoras() {
+        List<String> impresoras = directPrintService.listarImpresoras();
+        return ResponseEntity.ok(new APIResponse("Impresoras disponibles", impresoras, false, HttpStatus.OK));
+    }
+
+    private ConfiguracionEtiqueta resolverConfig(Long configuracionId) {
+        Long idInst = institucionCtx.getIdInstitucionActual();
+        if (configuracionId != null) {
+            return configuracionEtiquetaService.obtenerPorId(configuracionId, idInst);
+        }
+        return configuracionEtiquetaService.obtenerPredeterminada(idInst);
+    }
+
+    // ─── Visualización por etiqueta (escaneo QR/barcode) ─────────────────────────
+
+    @PostMapping("/etiqueta/{etiqueta}/token")
+    public ResponseEntity<APIResponse> generarTokenAcceso(@PathVariable String etiqueta) {
+        String role = getCurrentRole();
+        if (!"ADMINISTRADOR".equals(role)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Solo el rol ADMINISTRADOR puede generar tokens de visualización de documentos");
+        }
+        DocumentoAccessToken token = accessTokenService.generarToken(etiqueta);
+        Map<String, Object> response = Map.of(
+                "token", token.getToken(),
+                "expiresAt", token.getFechaExpiracion().toString(),
+                "idDocumento", token.getIdDocumento()
+        );
+        return ResponseEntity.ok(new APIResponse("Token generado", response, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/ver/{token}")
+    public ResponseEntity<StreamingResponseBody> verConToken(@PathVariable String token) {
+        if (!minioStorageService.isAvailable()) {
+            throw new MinioUnavailableException();
+        }
+
+        Documento doc = accessTokenService.validarTokenYObtenerDocumento(token);
+
+        if (!minioStorageService.objectExists(doc.getObjectKey())) {
+            throw new ObjNotFoundException(
+                    "El archivo no se encontró en el almacenamiento: " + doc.getNombreOriginal());
+        }
+
+        String mimeType = (doc.getMimeType() != null && !doc.getMimeType().isBlank())
+                ? doc.getMimeType()
+                : "application/octet-stream";
+
+        String rfc5987Name = URLEncoder.encode(doc.getNombreOriginal(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        String asciiFallback = doc.getNombreOriginal().replaceAll("[^\\x20-\\x7E]", "_");
+        String disposition = "inline; filename=\"" + asciiFallback + "\"; filename*=UTF-8''" + rfc5987Name;
+
+        StreamingResponseBody stream = outputStream -> {
+            try (InputStream is = minioStorageService.getObjectStream(doc.getObjectKey())) {
+                is.transferTo(outputStream);
+            }
+        };
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(mimeType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(stream);
+    }
+
+    @GetMapping("/etiqueta/{etiqueta}/info")
+    public ResponseEntity<APIResponse> getInfoPorEtiqueta(@PathVariable String etiqueta) {
+        Documento doc = documentoService.getDocumentoPorEtiqueta(etiqueta);
+        Map<String, Object> info = Map.of(
+                "id", doc.getId(),
+                "nombreOriginal", doc.getNombreOriginal(),
+                "mimeType", doc.getMimeType() != null ? doc.getMimeType() : "",
+                "etiqueta", doc.getEtiqueta(),
+                "tipoEntidad", doc.getTipoEntidad().name(),
+                "fechaSubida", doc.getFechaSubida().toString()
+        );
+        return ResponseEntity.ok(new APIResponse("Información del documento", info, false, HttpStatus.OK));
     }
 
     // ─── Eliminación ─────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import org.springframework.security.access.AccessDeniedException;
@@ -45,6 +46,8 @@ public class DocumentoService {
     private final PacienteRepository pacienteRepository;
     private final MuestraRepository muestraRepository;
     private final DocumentoPermisosConfig permisosConfig;
+    private final DocumentoEtiquetaService etiquetaService;
+    private final InstitucionContextService institucionCtx;
 
     public DocumentoService(
             MinioStorageService minioService,
@@ -55,7 +58,9 @@ public class DocumentoService {
             EstudioMedicoRepository estudioMedicoRepository,
             PacienteRepository pacienteRepository,
             MuestraRepository muestraRepository,
-            DocumentoPermisosConfig permisosConfig
+            DocumentoPermisosConfig permisosConfig,
+            DocumentoEtiquetaService etiquetaService,
+            InstitucionContextService institucionCtx
     ) {
         this.minioService = minioService;
         this.documentoRepository = documentoRepository;
@@ -66,6 +71,8 @@ public class DocumentoService {
         this.pacienteRepository = pacienteRepository;
         this.muestraRepository = muestraRepository;
         this.permisosConfig = permisosConfig;
+        this.etiquetaService = etiquetaService;
+        this.institucionCtx = institucionCtx;
     }
 
     // ─── Validación de permisos ───────────────────────────────────────────────────
@@ -208,6 +215,12 @@ public class DocumentoService {
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con id: " + documentoId));
     }
 
+    @Transactional(readOnly = true)
+    public Documento getDocumentoPorEtiqueta(String etiqueta) {
+        return documentoRepository.findByEtiqueta(etiqueta)
+                .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con etiqueta: " + etiqueta));
+    }
+
     /**
      * @deprecated Usar el endpoint /download en su lugar para garantizar autenticación.
      *             Mantenido solo para compatibilidad interna.
@@ -274,7 +287,8 @@ public class DocumentoService {
     private Documento crearDocumento(MultipartFile file, String objectKey, String descripcion,
                                      String usuarioUUID, TipoEntidadDocumento tipo) {
         Documento doc = new Documento();
-        doc.setNombreOriginal(file.getOriginalFilename() != null ? file.getOriginalFilename() : "archivo");
+        String nombreOriginal = file.getOriginalFilename() != null ? file.getOriginalFilename() : "archivo";
+        doc.setNombreOriginal(nombreOriginal);
         doc.setObjectKey(objectKey);
         doc.setMimeType(file.getContentType());
         doc.setTamanioBytes(file.getSize());
@@ -282,6 +296,12 @@ public class DocumentoService {
         doc.setFechaSubida(LocalDateTime.now());
         doc.setSubidoPorUUID(usuarioUUID);
         doc.setTipoEntidad(tipo);
+
+        Long idInstitucion = institucionCtx.getIdInstitucionActual();
+        doc.setIdInstitucion(idInstitucion);
+        String etiqueta = etiquetaService.generarEtiqueta(idInstitucion, tipo, file.getContentType(), nombreOriginal);
+        doc.setEtiqueta(etiqueta);
+
         return documentoRepository.save(doc);
     }
 
@@ -326,8 +346,9 @@ public class DocumentoService {
                 .fechaSubida(doc.getFechaSubida())
                 .subidoPorUUID(doc.getSubidoPorUUID())
                 .tipoEntidad(doc.getTipoEntidad() != null ? doc.getTipoEntidad().name() : null)
+                .etiqueta(doc.getEtiqueta())
                 .puedeDescargar(puedeDescargar)
-                .url(null) // acceso controlado vía endpoint autenticado
+                .url(null)
                 .build();
     }
 }
