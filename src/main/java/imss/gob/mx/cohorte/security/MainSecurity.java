@@ -42,6 +42,7 @@ public class MainSecurity {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/auth/reset-password/validate",
+            "/reset-password",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"

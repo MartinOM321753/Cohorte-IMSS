@@ -15,6 +15,12 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
 
     List<BeanUser> findAllByInstitucion_Id(Long idInstitucion);
 
+    @Query("SELECT DISTINCT u FROM BeanUser u " +
+           "WHERE u.institucion.id = :idInstitucion " +
+           "   OR (u.activo = true AND u.debeResetear = true) " +
+           "ORDER BY u.fechaCreacion DESC")
+    List<BeanUser> findAllByInstitucionOrInvitacionPendiente(@Param("idInstitucion") Long idInstitucion);
+
     List<BeanUser> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
     Optional<BeanUser> findByUsername(String username);
     Optional<BeanUser> findByUUID(String username);

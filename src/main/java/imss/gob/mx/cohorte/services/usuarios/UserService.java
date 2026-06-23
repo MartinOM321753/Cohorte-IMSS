@@ -29,6 +29,10 @@ public class UserService {
         return userRepository.findAllByInstitucion_Id(idInstitucion);
     }
 
+    public List<BeanUser> getAllByInstitucionConInvitacionesPendientes(Long idInstitucion) {
+        return userRepository.findAllByInstitucionOrInvitacionPendiente(idInstitucion);
+    }
+
     public List<BeanUser> getAllActiveByInstitucion(Long idInstitucion) {
         return userRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
     }

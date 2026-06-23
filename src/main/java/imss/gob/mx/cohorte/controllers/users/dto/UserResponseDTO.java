@@ -19,6 +19,7 @@ public class UserResponseDTO {
     @JsonProperty("UUID")
     private String UUID;
     private Boolean activo;
+    private Boolean debeResetear;
     private RolDTO rol;
     private LocalDateTime fechaCreacion;
     private PersonaResponseDTO persona;

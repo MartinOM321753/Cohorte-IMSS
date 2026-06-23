@@ -179,6 +179,15 @@ public class UserController {
         return ResponseEntity.ok(new APIResponse(msg, UserMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
+    @PostMapping("/{uuid}/reenviar-invitacion")
+    @Operation(summary = "Reenviar invitacion de usuario", description = "Genera un nuevo enlace de invitacion de un solo uso para usuarios que aun no definen su contrasena inicial")
+    public ResponseEntity<APIResponse> reenviarInvitacion(
+            @Parameter(description = "UUID del usuario", required = true)
+            @PathVariable String uuid) {
+        BeanUser updated = userApplicationService.reenviarInvitacion(uuid);
+        return ResponseEntity.ok(new APIResponse("Invitacion reenviada correctamente", UserMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar usuario", description = "Actualiza los datos de un usuario existente identificado por su ID numérico")
     @ApiResponses(value = {

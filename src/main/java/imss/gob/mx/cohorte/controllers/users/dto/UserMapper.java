@@ -59,6 +59,7 @@ public class UserMapper {
                 .username(user.getUsername())
                 .UUID(user.getUUID())
                 .activo(user.getActivo())
+                .debeResetear(user.getDebeResetear())
                 .rol(user.getRol() != null
                         ? new UserResponseDTO.RolDTO(user.getRol().getUuid(), user.getRol().getRole())
                         : null)
