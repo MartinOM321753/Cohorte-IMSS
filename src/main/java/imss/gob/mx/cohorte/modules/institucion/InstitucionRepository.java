@@ -32,4 +32,6 @@ public interface InstitucionRepository extends JpaRepository<Institucion, Long> 
     List<Institucion> findAllByEncargado_UUID(String uuidEncargado);
 
     List<Institucion> findAllByEncargadoIsNull();
+
+    List<Institucion> findAllByEncargado_Id(Long idEncargado);
 }

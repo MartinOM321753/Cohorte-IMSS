@@ -59,6 +59,14 @@ public class InstitucionController {
         return ResponseEntity.ok(new APIResponse("IDs gestionables", ids, false, HttpStatus.OK));
     }
 
+    @GetMapping("/gestionables-estado")
+    @Operation(summary = "IDs de instituciones cuyo estado puede cambiar el usuario",
+            description = "Retorna las instituciones que el usuario actual puede activar o desactivar segun la jerarquia.")
+    public ResponseEntity<APIResponse> getGestionablesEstado() {
+        Set<Long> ids = institucionApplicationService.getIdsConEstadoGestionable();
+        return ResponseEntity.ok(new APIResponse("IDs con estado gestionable", ids, false, HttpStatus.OK));
+    }
+
     @GetMapping("/paginado")
     @Operation(summary = "Listar instituciones paginadas",
             description = "Obtiene las instituciones en páginas (parámetros estándar de Spring: page, size, sort) para evitar cargar toda la tabla en una sola respuesta")

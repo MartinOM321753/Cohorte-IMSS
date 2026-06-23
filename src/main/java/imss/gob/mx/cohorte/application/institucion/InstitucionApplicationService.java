@@ -71,4 +71,9 @@ public class InstitucionApplicationService {
     public Set<Long> getIdsGestionables() {
         return institucionService.getIdsGestionables();
     }
+
+    @Transactional(readOnly = true)
+    public Set<Long> getIdsConEstadoGestionable() {
+        return institucionService.getIdsConEstadoGestionable();
+    }
 }

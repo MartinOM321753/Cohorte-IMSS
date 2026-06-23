@@ -158,8 +158,17 @@ public class InstitucionService {
     @Transactional
     public Institucion toggleActivo(Long id) {
         Institucion bd = getById(id);
-        verificarAutoridad(bd, institucionContextService.getUsuarioActual());
-        bd.setActivo(!bd.getActivo());
+        BeanUser usuarioActual = institucionContextService.getUsuarioActual();
+        verificarAutoridadParaCambiarEstado(bd, usuarioActual);
+
+        boolean nuevoEstado = !Boolean.TRUE.equals(bd.getActivo());
+        bd.setActivo(nuevoEstado);
+        if (!nuevoEstado) {
+            userRepository.findAllByInstitucion_Id(bd.getId()).forEach(usuario -> {
+                usuario.setActivo(false);
+                userRepository.save(usuario);
+            });
+        }
         return institucionRepository.save(bd);
     }
 
@@ -179,6 +188,22 @@ public class InstitucionService {
         List<Institucion> encargadoDe = institucionRepository.findAllByEncargado_UUID(usuario.getUUID());
         for (Institucion raiz : encargadoDe) {
             recolectarDescendientes(raiz, resultado);
+        }
+
+        return resultado;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Long> getIdsConEstadoGestionable() {
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        Set<Long> resultado = new HashSet<>();
+
+        List<Institucion> encargadoDe = institucionRepository.findAllByEncargado_UUID(usuario.getUUID());
+        for (Institucion institucion : encargadoDe) {
+            if (institucion.getInstitucionPadre() == null) {
+                resultado.add(institucion.getId());
+            }
+            recolectarDescendientesSinRaiz(institucion, resultado);
         }
 
         return resultado;
@@ -245,8 +270,40 @@ public class InstitucionService {
     }
 
     /** Agrega la institución y todos sus descendientes al conjunto de IDs. */
+    private void verificarAutoridadParaCambiarEstado(Institucion destino, BeanUser usuario) {
+        if (destino.getEncargado() == null) {
+            throw new AccessDeniedException("No se puede cambiar el estado de una institucion sin encargado asignado.");
+        }
+
+        if (destino.getInstitucionPadre() == null) {
+            if (destino.getEncargado().getId().equals(usuario.getId())) {
+                return;
+            }
+            throw new AccessDeniedException("Solo el encargado de la institucion raiz puede cambiar su estado.");
+        }
+
+        Institucion cursor = destino.getInstitucionPadre();
+        while (cursor != null) {
+            if (cursor.getEncargado() != null && cursor.getEncargado().getId().equals(usuario.getId())) {
+                return;
+            }
+            cursor = cursor.getInstitucionPadre();
+        }
+
+        throw new AccessDeniedException(
+                "Solo el encargado de una institucion superior puede cambiar el estado de '"
+                + destino.getNombre() + "'.");
+    }
+
     private void recolectarDescendientes(Institucion institucion, Set<Long> ids) {
         ids.add(institucion.getId());
+        List<Institucion> hijas = institucionRepository.findAllByInstitucionPadre_Id(institucion.getId());
+        for (Institucion hija : hijas) {
+            recolectarDescendientes(hija, ids);
+        }
+    }
+
+    private void recolectarDescendientesSinRaiz(Institucion institucion, Set<Long> ids) {
         List<Institucion> hijas = institucionRepository.findAllByInstitucionPadre_Id(institucion.getId());
         for (Institucion hija : hijas) {
             recolectarDescendientes(hija, ids);
