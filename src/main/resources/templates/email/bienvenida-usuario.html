@@ -6,95 +6,68 @@
   <title>Bienvenido al Sistema Cohorte</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
-
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0"
                style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
-
-          <!-- Cabecera -->
           <tr>
             <td style="background:#1e4e3a;padding:28px 32px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;letter-spacing:-0.02em;">
-                Sistema de Cohorte — IMSS
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">
+                Cohorte de Trabajadores de la Salud
               </h1>
-              <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;letter-spacing:0.04em;">
-                Instituto Mexicano del Seguro Social · Investigación clínica
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;">
+                Sistema de seguimiento · Investigación clínica
               </p>
             </td>
           </tr>
-
-          <!-- Banda de color acento -->
-          <tr>
-            <td style="background:#d4a866;height:3px;"></td>
-          </tr>
-
-          <!-- Cuerpo -->
+          <tr><td style="background:#d4a866;height:3px;"></td></tr>
           <tr>
             <td style="padding:36px 32px 28px;">
-
               <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8782;">
                 Acceso al sistema
               </p>
-              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;letter-spacing:-0.02em;">
+              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">
                 Tu cuenta ha sido creada
               </h2>
 
               <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
                 Hola, <strong th:text="${nombre}">Nombre Apellido</strong>. El administrador del sistema
-                ha creado tu cuenta institucional. A continuación encontrarás tus credenciales de acceso.
+                ha creado tu cuenta institucional. Define tu contraseña con el enlace seguro de un solo uso.
               </p>
 
-              <!-- Cuadro de credenciales -->
               <table width="100%" cellpadding="0" cellspacing="0"
                      style="background:#f8faf8;border:1px solid #d1e8db;border-radius:6px;margin-bottom:28px;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <p style="margin:0 0 12px;font-size:13px;font-weight:700;letter-spacing:0.06em;
-                               text-transform:uppercase;color:#1e4e3a;">
-                      Credenciales de acceso
+                    <p style="margin:0 0 12px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#1e4e3a;">
+                      Usuario asignado
                     </p>
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding:4px 0;font-size:14px;color:#6b7280;width:120px;">Usuario:</td>
-                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;
-                                   font-family:monospace;" th:text="${username}">jperez</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Contraseña:</td>
-                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;
-                                   font-family:monospace;" th:text="${password}">Abc123!@#</td>
-                      </tr>
-                    </table>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#0d1411;font-family:monospace;"
+                       th:text="${username}">jperez</p>
                   </td>
                 </tr>
               </table>
 
-              <!-- Botón CTA -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:28px;">
-                    <a th:href="${loginUrl}"
-                       href="#"
+                    <a th:href="${resetLink}" href="#"
                        style="display:inline-block;padding:14px 36px;background:#1e4e3a;color:#ffffff;
-                              font-size:15px;font-weight:600;text-decoration:none;border-radius:6px;
-                              letter-spacing:-0.005em;">
-                      Iniciar sesión
+                              font-size:15px;font-weight:600;text-decoration:none;border-radius:6px;">
+                      Definir contraseña
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <!-- Aviso de seguridad -->
               <table width="100%" cellpadding="0" cellspacing="0"
                      style="background:#fef9ee;border-left:4px solid #d4a866;border-radius:4px;margin-bottom:24px;">
                 <tr>
                   <td style="padding:16px 20px;">
                     <p style="margin:0;font-size:14px;color:#713f12;line-height:1.5;">
-                      🔒 <strong>Cambio obligatorio</strong> — Por seguridad, el sistema te pedirá
-                      crear una nueva contraseña en tu primer inicio de sesión.
-                      Guarda este correo hasta que hayas realizado el cambio.
+                      Este enlace es personal, expira en
+                      <strong th:text="${expiracionMinutos}">15</strong> minutos y solo puede usarse una vez.
                     </p>
                   </td>
                 </tr>
@@ -104,29 +77,24 @@
                 Si el botón no funciona, copia y pega la siguiente URL en tu navegador:
               </p>
               <p style="margin:0 0 32px;font-size:12px;word-break:break-all;">
-                <a th:href="${loginUrl}" th:text="${loginUrl}"
+                <a th:href="${resetLink}" th:text="${resetLink}"
                    style="color:#1e4e3a;text-decoration:underline;">
-                  http://sistema-cohorte.imss.gob.mx
+                  https://sistema.cohorte-salud.mx/reset-password?token=...
                 </a>
               </p>
-
             </td>
           </tr>
-
-          <!-- Pie -->
           <tr>
             <td style="border-top:1px solid #f0f0f0;padding:20px 32px;">
-              <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;letter-spacing:0.04em;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
                 ACCESO RESTRINGIDO · Todas las acciones se registran en bitácora institucional<br>
                 Si no esperabas este correo, contacta al administrador del sistema de inmediato.
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
   </table>
-
 </body>
 </html>

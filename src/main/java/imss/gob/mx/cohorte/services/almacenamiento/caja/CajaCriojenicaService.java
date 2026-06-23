@@ -4,6 +4,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenicaRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPisoRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,33 +21,52 @@ public class CajaCriojenicaService {
 
     private final CajaCriogenicaRepository cajaCriogenicaRepository;
     private final PosicionPisoRepository posicionPisoRepository;
+    private final InstitucionContextService institucionContextService;
 
     @Autowired
-    public CajaCriojenicaService(CajaCriogenicaRepository cajaCriogenicaRepository, 
-                                 PosicionPisoRepository posicionPisoRepository) {
+    public CajaCriojenicaService(CajaCriogenicaRepository cajaCriogenicaRepository,
+                                 PosicionPisoRepository posicionPisoRepository,
+                                 InstitucionContextService institucionContextService) {
         this.cajaCriogenicaRepository = cajaCriogenicaRepository;
         this.posicionPisoRepository = posicionPisoRepository;
+        this.institucionContextService = institucionContextService;
     }
 
     @Transactional(readOnly = true)
     public List<CajaCriogenica> getAll() {
-        return cajaCriogenicaRepository.findAll();
+        return cajaCriogenicaRepository.findAllByInstitucion_Id(institucionContextService.getIdInstitucionActual());
     }
 
     @Transactional(readOnly = true)
     public CajaCriogenica getById(Long id) {
-        return cajaCriogenicaRepository.findById(id)
+        CajaCriogenica caja = cajaCriogenicaRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la caja criogénica con id: " + id));
+        institucionContextService.verificarPertenece(caja.getInstitucion());
+        return caja;
+    }
+
+    public String generarCodigoAutomatico() {
+        String prefix = "C-";
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        Optional<String> maxCodigo = cajaCriogenicaRepository.findMaxCodigoCajaByPrefixAndInstitucion(prefix, idInst);
+        int siguiente = 1;
+        if (maxCodigo.isPresent()) {
+            String numPart = maxCodigo.get().substring(prefix.length());
+            try { siguiente = Integer.parseInt(numPart) + 1; } catch (NumberFormatException ignored) { }
+        }
+        return String.format("%s%04d", prefix, siguiente);
     }
 
     @Transactional
     public CajaCriogenica create(CajaCriogenica caja) {
-        Optional<CajaCriogenica> cajaBD = cajaCriogenicaRepository.findByCodigoCaja(caja.getCodigoCaja());
-        if (cajaBD.isPresent()) {
-            throw new ObjConflictException("El codgo de la caja ya existe");
-        }
         if (caja.getCodigoCaja() == null || caja.getCodigoCaja().trim().isEmpty()) {
-            throw new IllegalArgumentException("El código de la caja es obligatorio");
+            caja.setCodigoCaja(generarCodigoAutomatico());
+        } else {
+            Long idInst = institucionContextService.getIdInstitucionActual();
+            Optional<CajaCriogenica> cajaBD = cajaCriogenicaRepository.findByCodigoCajaAndInstitucion_Id(caja.getCodigoCaja(), idInst);
+            if (cajaBD.isPresent()) {
+                throw new ObjConflictException("El código de la caja ya existe");
+            }
         }
         if (caja.getFilas() == null || caja.getFilas() <= 0) {
             throw new IllegalArgumentException("El número de filas debe ser mayor a 0");
@@ -61,6 +81,7 @@ public class CajaCriojenicaService {
         }
         caja.setFechaRegistro(Timestamp.from(Instant.now()));
         caja.setActivo(true);
+        caja.setInstitucion(institucionContextService.getInstitucionActual());
 
         return cajaCriogenicaRepository.save(caja);
     }
@@ -69,6 +90,7 @@ public class CajaCriojenicaService {
     public CajaCriogenica update(CajaCriogenica caja) {
         CajaCriogenica cajaBD = cajaCriogenicaRepository.findById(caja.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la caja criogénica con id: " + caja.getId()));
+        institucionContextService.verificarPertenece(cajaBD.getInstitucion());
 
         if (caja.getCodigoCaja() != null && !caja.getCodigoCaja().trim().isEmpty()) {
             cajaBD.setCodigoCaja(caja.getCodigoCaja());

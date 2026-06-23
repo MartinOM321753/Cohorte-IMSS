@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.usuarios.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import jakarta.persistence.*;
@@ -54,6 +55,16 @@ public class BeanUser {
     @JoinColumn(name = "id_rol", nullable = false)
     @JsonIgnore
     private Role rol;
+
+    /**
+     * Institución a la que pertenece el usuario — define el alcance de
+     * aislamiento de datos (cada institución administra sus propios
+     * pacientes/estudios/exámenes/etc., salvo lo compartido vía permisos
+     * de módulo). Obligatoria: todo usuario pertenece a una institución.
+     */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
     @PrePersist
     public void prePersist() {

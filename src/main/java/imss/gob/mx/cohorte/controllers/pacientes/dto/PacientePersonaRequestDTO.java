@@ -22,13 +22,14 @@ public class PacientePersonaRequestDTO {
 
     private String apellidoMaterno;
 
-    @NotNull(message = "La fecha de nacimiento es obligatoria")
-    @MayorDeEdad(message = "El paciente debe ser mayor de 18 años (tolerancia de 3 meses)")
+    @MayorDeEdad(message = "El participante debe ser mayor de 18 años (tolerancia de 3 meses)")
     private LocalDate fechaNacimiento;
 
-    @NotNull(message = "El sexo es obligatorio")
     @Pattern(regexp = "M|F", message = "Sexo debe ser M o F")
     private String sexo;
+
+    @Pattern(regexp = "^[A-Z]{4}\\d{6}[HM][A-Z]{5}[A-Z0-9]\\d$", message = "El CURP no tiene un formato válido")
+    private String curp;
 
     @Pattern(regexp = "\\d{10}", message = "El teléfono debe tener 10 dígitos")
     private String telefono;

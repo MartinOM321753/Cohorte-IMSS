@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.examenes.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Setter
 public class ResultadoExamenRequestDTO {
 
-    @NotBlank(message = "El UUID del paciente es obligatorio")
+    @NotBlank(message = "El UUID del participante es obligatorio")
     private String pacienteUUID;
 
     @NotBlank(message = "El UUID del usuario de registro es obligatorio")
@@ -28,5 +29,6 @@ public class ResultadoExamenRequestDTO {
     private String observaciones;
 
     @NotNull(message = "La fecha del resultado es obligatoria")
+    @PastOrPresent(message = "La fecha del resultado no puede ser futura")
     private LocalDateTime fechaResultado;
 }

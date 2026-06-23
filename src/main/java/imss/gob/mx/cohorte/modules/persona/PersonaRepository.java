@@ -9,5 +9,7 @@ public interface PersonaRepository extends JpaRepository<Persona, Long> {
 
     Optional<Persona> findByEmail(String email);
     Optional<Persona> findByTelefono(String telefono);
+    boolean existsByCurp(String curp);
+    boolean existsByCurpAndIdNot(String curp, Long id);
 
 }

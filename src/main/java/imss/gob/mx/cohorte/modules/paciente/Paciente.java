@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.modules.paciente;
 
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,6 +38,11 @@ public class Paciente {
     @OneToOne
     @JoinColumn(name = "id_persona", nullable = false, unique = true)
     private Persona persona;
+
+    /** Institución que registró al participante — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
 
     @PrePersist

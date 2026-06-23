@@ -1,0 +1,26 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="CohorteApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <envs>
+      <env name="DB_PASSWORD" value="root" />
+      <env name="DB_URL" value="jdbc:mysql://localhost:3306/cohorte?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true" />
+      <env name="DB_USER_NAME" value="root" />
+      <env name="PORT" value="8081" />
+      <env name="SECRET_KEY" value="U29tZVN1cGVyU2VjdXJlS2V5Rm9ySldUMjU2Qml0cw==" />
+      <env name="TEMP" value="$PROJECT_DIR$/target" />
+      <env name="TMP" value="$PROJECT_DIR$/target" />
+    </envs>
+    <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+    <module name="cohorte_test" />
+    <option name="PASS_PARENT_ENVS" value="false" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="imss.gob.mx.cohorte.CohorteApplication" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="imss.gob.mx.cohorte.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

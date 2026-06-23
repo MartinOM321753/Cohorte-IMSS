@@ -13,137 +13,69 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.context.Context;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
+import java.util.Base64;
+import java.util.HexFormat;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PasswordResetService {
 
+    private static final int TOKEN_EXPIRY_MINUTES = 15;
+    private static final int RATE_LIMIT_MINUTES = 60;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
-    /** URL base del frontend, ej: http://localhost:5173 */
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    /** Minutos de validez del token (default 15). */
-    private static final int TOKEN_EXPIRY_MINUTES = 15;
-
-    /** Ventana de rate-limit: solo 1 solicitud cada 60 minutos por usuario. */
-    private static final int RATE_LIMIT_MINUTES = 0;
-
-    // ── Solicitar reseteo ──────────────────────────────────────────────────────
-
-    /**
-     * Valida que el correo esté vinculado a un usuario, aplica rate-limit,
-     * genera el token y envía el correo.
-     *
-     * <p>Siempre responde con el mismo mensaje genérico para no revelar si
-     * el email existe o no en el sistema.
-     */
     @Transactional
     public void solicitarReset(String email) {
-        // Busca directamente el usuario activo cuya persona tiene ese email (case-insensitive).
-        // Si no existe o no es usuario activo, responde igual (no revelar si el email existe).
         BeanUser usuario = userRepository.findActiveUserByPersonaEmail(email.trim()).orElse(null);
 
         if (usuario == null) {
-            log.info("Solicitud reset: email sin usuario activo asociado — {}", email);
+            log.info("Solicitud reset: email sin usuario activo asociado - {}", email);
             return;
         }
 
-        // Rate limit: máximo 1 solicitud por hora
         Instant hace60min = Instant.now().minus(RATE_LIMIT_MINUTES, ChronoUnit.MINUTES);
         if (tokenRepository.existsByUsuarioAndCreadoEnAfter(usuario, hace60min)) {
             log.info("Rate-limit de reset alcanzado para usuario: {}", usuario.getUsername());
-            // Lanzar excepción con mensaje de negocio — el controller la propagará
-            throw new RateLimitException("Ya enviamos un correo de recuperación en la última hora. Por favor revisa tu bandeja de entrada.");
+            throw new RateLimitException("Ya enviamos un correo de recuperacion en la ultima hora. Por favor revisa tu bandeja de entrada.");
         }
 
-        // Generar token único (UUID sin guiones + aleatorio para evitar colisiones)
-        String rawToken = UUID.randomUUID().toString().replace("-", "")
-                + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-
-        PasswordResetToken prt = new PasswordResetToken();
-        prt.setToken(rawToken);
-        prt.setUsuario(usuario);
-        prt.setExpiraEn(Instant.now().plus(TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES));
-        tokenRepository.save(prt);
-
-        // Enviar correo
-        String resetLink = frontendUrl + "/reset-password?token=" + rawToken;
-        String nombreCompleto = usuario.getPersona().getNombre() + " " + usuario.getPersona().getApellidoPaterno();
-
-        Context ctx = new Context();
-        ctx.setVariable("nombre", nombreCompleto);
-        ctx.setVariable("resetLink", resetLink);
-        ctx.setVariable("expiracionMinutos", TOKEN_EXPIRY_MINUTES);
-
-        // Usar el email real almacenado en la persona (ya validado por la query)
-        String destinatario = usuario.getPersona().getEmail();
-
-        try {
-            emailService.enviar(
-                    destinatario,
-                    "Recuperación de contraseña — Sistema Cohorte",
-                    "email/reset-password",
-                    ctx
-            );
-            log.info("Email de recuperación enviado a {}", destinatario);
-        } catch (Exception e) {
-            log.error("Error enviando email de recuperación a {}: {}", destinatario, e.getMessage());
-            // Borrar el token si el correo falló para no contaminar el rate-limit
-            tokenRepository.delete(prt);
-            throw new RuntimeException("No se pudo enviar el correo. Intenta de nuevo más tarde.");
-        }
+        enviarCorreoReset(usuario, "Recuperacion de contraseña - Sistema Cohorte", "email/reset-password");
     }
 
-    // ── Validar token ──────────────────────────────────────────────────────────
+    @Transactional
+    public void enviarInvitacion(BeanUser usuario) {
+        enviarCorreoReset(usuario, "Bienvenido al Sistema Cohorte - Define tu contraseña", "email/bienvenida-usuario");
+    }
 
-    /**
-     * Verifica que el token sea válido (existe, no expiró, no fue usado).
-     * Solo para la pantalla de "restablecer contraseña".
-     */
     @Transactional(readOnly = true)
     public void validarToken(String token) {
-        PasswordResetToken prt = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new TokenInvalidoException("El enlace no es válido o ya fue utilizado."));
-
-        if (prt.isUsado() || prt.isExpirado()) {
-            throw new TokenInvalidoException("El enlace ha expirado o ya fue utilizado. Solicita uno nuevo.");
-        }
-
-        if (!Boolean.TRUE.equals(prt.getUsuario().getActivo())) {
-            throw new TokenInvalidoException("Tu cuenta está desactivada. Contacta al administrador.");
-        }
+        PasswordResetToken prt = buscarToken(token);
+        validarTokenVigente(prt);
     }
-
-    // ── Aplicar nueva contraseña ───────────────────────────────────────────────
 
     @Transactional
     public void resetearPassword(String token, String nuevaPassword) {
-        PasswordResetToken prt = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new TokenInvalidoException("El enlace no es válido o ya fue utilizado."));
-
-        if (prt.isUsado()) {
-            throw new TokenInvalidoException("Este enlace ya fue utilizado. Solicita uno nuevo.");
-        }
-        if (prt.isExpirado()) {
-            throw new TokenInvalidoException("El enlace ha expirado. Solicita uno nuevo.");
-        }
+        PasswordResetToken prt = buscarToken(token);
+        validarTokenVigente(prt);
 
         BeanUser usuario = prt.getUsuario();
-
-        if (!Boolean.TRUE.equals(usuario.getActivo())) {
-            throw new TokenInvalidoException("Tu cuenta está desactivada. Contacta al administrador.");
-        }
-
         usuario.setPassword(passwordEncoder.encode(nuevaPassword));
+        usuario.setDebeResetear(false);
         userRepository.save(usuario);
 
         prt.setUsado(true);
@@ -152,7 +84,81 @@ public class PasswordResetService {
         log.info("Contraseña restablecida para usuario: {}", usuario.getUsername());
     }
 
-    // ── Excepciones internas ───────────────────────────────────────────────────
+    private void enviarCorreoReset(BeanUser usuario, String asunto, String template) {
+        PasswordResetTokenData tokenData = crearTokenParaUsuario(usuario);
+        String resetLink = frontendUrl + "/reset-password?token=" + tokenData.rawToken();
+        String nombreCompleto = usuario.getPersona().getNombre() + " " + usuario.getPersona().getApellidoPaterno();
+
+        Context ctx = new Context();
+        ctx.setVariable("nombre", nombreCompleto);
+        ctx.setVariable("username", usuario.getUsername());
+        ctx.setVariable("resetLink", resetLink);
+        ctx.setVariable("expiracionMinutos", TOKEN_EXPIRY_MINUTES);
+
+        String destinatario = usuario.getPersona().getEmail();
+
+        try {
+            emailService.enviar(destinatario, asunto, template, ctx);
+            log.info("Correo de acceso enviado a {}", destinatario);
+        } catch (Exception e) {
+            log.error("Error enviando correo de acceso a {}: {}", destinatario, e.getMessage());
+            tokenRepository.delete(tokenData.entity());
+            throw new RuntimeException("No se pudo enviar el correo. Intenta de nuevo mas tarde.");
+        }
+    }
+
+    private PasswordResetTokenData crearTokenParaUsuario(BeanUser usuario) {
+        tokenRepository.marcarTokensActivosComoUsados(usuario);
+
+        String rawToken = generarTokenSeguro();
+        PasswordResetToken prt = new PasswordResetToken();
+        prt.setToken(hashToken(rawToken));
+        prt.setUsuario(usuario);
+        prt.setExpiraEn(Instant.now().plus(TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES));
+        tokenRepository.save(prt);
+        return new PasswordResetTokenData(rawToken, prt);
+    }
+
+    private PasswordResetToken buscarToken(String token) {
+        return tokenRepository.findByToken(hashToken(token))
+                .orElseThrow(() -> new TokenInvalidoException("El enlace no es valido o ya fue utilizado."));
+    }
+
+    private void validarTokenVigente(PasswordResetToken prt) {
+        Instant ahora = Instant.now();
+
+        if (prt.isUsado()) {
+            log.info("Token de reset ya utilizado: id={}, usuario={}",
+                    prt.getId(), prt.getUsuario().getUsername());
+            throw new TokenInvalidoException("El enlace ya fue utilizado. Solicita uno nuevo.");
+        }
+        if (!prt.getExpiraEn().isAfter(ahora)) {
+            log.info("Token de reset expirado: id={}, usuario={}, expiraEn={}, ahora={}",
+                    prt.getId(), prt.getUsuario().getUsername(), prt.getExpiraEn(), ahora);
+            throw new TokenInvalidoException("El enlace ha expirado. Solicita uno nuevo.");
+        }
+        if (!Boolean.TRUE.equals(prt.getUsuario().getActivo())) {
+            throw new TokenInvalidoException("Tu cuenta esta desactivada. Contacta al administrador.");
+        }
+    }
+
+    private String generarTokenSeguro() {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no esta disponible", e);
+        }
+    }
+
+    private record PasswordResetTokenData(String rawToken, PasswordResetToken entity) {}
 
     public static class RateLimitException extends RuntimeException {
         public RateLimitException(String message) { super(message); }

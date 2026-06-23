@@ -75,6 +75,8 @@ public class CitaMapper {
             .createdAtUtc(c.getCreatedAtUtc())
             .paciente(c.getPaciente() != null ? PacienteMapper.toResumenDTO(c.getPaciente()) : null)
             .usuarioAgenda(c.getUsuarioAgenda() != null ? UserMapper.toResumenDTO(c.getUsuarioAgenda()) : null)
+            .institucionUuid(c.getInstitucion() != null ? c.getInstitucion().getUuid() : null)
+            .institucionNombre(c.getInstitucion() != null ? c.getInstitucion().getNombre() : null)
             .build();
     }
 

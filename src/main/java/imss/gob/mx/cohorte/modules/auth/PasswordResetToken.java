@@ -23,7 +23,7 @@ public class PasswordResetToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** UUID aleatorio que viaja en el enlace de correo. */
+    /** Hash SHA-256 del token que viaja en el enlace de correo. */
     @Column(name = "token", nullable = false, unique = true, length = 64)
     private String token;
 
@@ -46,6 +46,6 @@ public class PasswordResetToken {
     }
 
     public boolean isExpirado() {
-        return Instant.now().isAfter(expiraEn);
+        return !expiraEn.isAfter(Instant.now());
     }
 }

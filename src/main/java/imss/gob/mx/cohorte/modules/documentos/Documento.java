@@ -23,12 +23,12 @@ public class Documento {
     @Column(name = "id_documento")
     private Long id;
 
-    /** Nombre original del archivo tal como lo subió el usuario. */
-    @Column(name = "nombre_original", nullable = false, length = 255)
+    /** Nombre original del archivo tal como lo subió el usuario. Null si aún no se adjunta archivo. */
+    @Column(name = "nombre_original", length = 255)
     private String nombreOriginal;
 
-    /** Ruta del objeto dentro del bucket MinIO, ej. "estudios/12/uuid-archivo.pdf". */
-    @Column(name = "object_key", nullable = false, length = 500, unique = true)
+    /** Ruta del objeto dentro del bucket MinIO. Null si aún no se adjunta archivo. */
+    @Column(name = "object_key", length = 500, unique = true)
     private String objectKey;
 
     @Column(name = "mime_type", length = 100)
@@ -54,4 +54,14 @@ public class Documento {
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_entidad", length = 30, nullable = false)
     private TipoEntidadDocumento tipoEntidad;
+
+    @Column(name = "etiqueta", length = 40, unique = true)
+    private String etiqueta;
+
+    @Column(name = "id_institucion")
+    private Long idInstitucion;
+
+    /** Indica si el archivo físico ya fue subido a MinIO. */
+    @Column(name = "archivo_subido", nullable = false)
+    private boolean archivoSubido = true;
 }

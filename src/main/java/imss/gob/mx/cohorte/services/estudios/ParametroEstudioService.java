@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.services.estudios;
 
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudioRepository;
+import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.Optional;
 public class ParametroEstudioService {
 
     private final ParametroEstudioRepository parametroRepository;
+    private final OpcionParametroService opcionService;
 
     @Transactional(readOnly = true)
     public List<ParametroEstudio> getAll() {
@@ -26,7 +28,6 @@ public class ParametroEstudioService {
     public List<ParametroEstudio> getByTipoEstudio(Long tipoEstudioId) {
         return parametroRepository.findAllByTipoEstudio_Id(tipoEstudioId);
     }
-
 
     @Transactional(readOnly = true)
     public ParametroEstudio getOne(Long id) {
@@ -59,10 +60,18 @@ public class ParametroEstudioService {
             throw new ObjConflictException("Ya existe un parametro con ese nombre para el tipo de estudio");
         }
 
+        // Si el tipo cambia a uno que no es TEXTO_OPCIONES, limpiar las opciones
+        if (parametroEstudio.getTipo() != TipoParametro.TEXTO_OPCIONES
+                && parametroDB.getTipo() == TipoParametro.TEXTO_OPCIONES) {
+            opcionService.clearByParametro(parametroDB.getId());
+        }
+
         parametroDB.setTipoEstudio(parametroEstudio.getTipoEstudio());
         parametroDB.setNombre(parametroEstudio.getNombre());
         parametroDB.setUnidad(parametroEstudio.getUnidad());
         parametroDB.setTipo(parametroEstudio.getTipo());
+        parametroDB.setValorMinimo(parametroEstudio.getValorMinimo());
+        parametroDB.setValorMaximo(parametroEstudio.getValorMaximo());
 
         return parametroRepository.save(parametroDB);
     }

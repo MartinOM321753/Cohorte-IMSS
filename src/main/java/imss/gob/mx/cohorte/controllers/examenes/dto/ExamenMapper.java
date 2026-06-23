@@ -15,6 +15,7 @@ public class ExamenMapper {
         examen.setValorMaxMujeres(dto.getValorMaxMujeres());
         examen.setValorMinHombres(dto.getValorMinHombres());
         examen.setValorMaxHombres(dto.getValorMaxHombres());
+
         return examen;
     }
 
@@ -29,6 +30,8 @@ public class ExamenMapper {
             .valorMinHombres(e.getValorMinHombres())
             .valorMaxHombres(e.getValorMaxHombres())
             .activo(e.getActivo())
+            .institucionUuid(e.getInstitucion() != null ? e.getInstitucion().getUuid() : null)
+            .institucionNombre(e.getInstitucion() != null ? e.getInstitucion().getNombre() : null)
             .build();
     }
 

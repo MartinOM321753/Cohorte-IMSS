@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 import imss.gob.mx.cohorte.application.almacenamiento.TrasladoMuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,155 +14,175 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import org.springframework.data.domain.Page;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/almacenamiento/traslados")
 @RequiredArgsConstructor
-@Tag(name = "Traslados de Muestras", description = "Registro y consulta de traslados de muestras a laboratorios externos")
+@Tag(name = "Préstamos de Muestras", description = "Gestión de préstamos de muestras entre instituciones con biobanco (cadena de custodia)")
 @SecurityRequirement(name = "bearerAuth")
 public class TrasladoMuestraController {
 
     private final TrasladoMuestraApplicationService trasladoApplicationService;
+    private final InstitucionContextService institucionContextService;
+
+    // ── Consultas ────────────────────────────────────────────────────────────
 
     @GetMapping
-    @Operation(summary = "Listar todos los traslados")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
-    public ResponseEntity<APIResponse> getAll() {
-        List<TrasladoMuestra> list = trasladoApplicationService.getAllTraslados();
+    @Operation(summary = "Préstamos activos de mi institución",
+               description = "Lista los préstamos activos (ENVIADA, RECIBIDA, EN_DEVOLUCION) donde mi institución es origen O destino.")
+    public ResponseEntity<APIResponse> getActivos() {
+        List<TrasladoMuestra> list = trasladoApplicationService.getActivosByMiInstitucion();
         return ResponseEntity.ok(
-            new APIResponse("Traslados encontrados", TrasladoMapper.toResponseDTOList(list), false, HttpStatus.OK));
+            new APIResponse("Préstamos activos", TrasladoMapper.toResponseDTOList(list, myInstId()), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/historial")
+    @Operation(summary = "Historial completo de préstamos de mi institución (paginado)")
+    public ResponseEntity<APIResponse> getHistorialPaginado(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<TrasladoMuestra> pageResult = trasladoApplicationService.getAllByMiInstitucionPaginado(page, size);
+        Long viewerId = myInstId();
+        Page<TrasladoResponseDTO> dtoPage = pageResult.map(t -> TrasladoMapper.toResponseDTO(t, viewerId));
+        return ResponseEntity.ok(
+            new APIResponse("Historial de préstamos", dtoPage, false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener traslado por ID")
-    @ApiResponses(value = {
+    @Operation(summary = "Detalle de un préstamo por ID")
+    @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Traslado no encontrado",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
+            content = @Content(schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "No encontrado",
+            content = @Content(schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> getById(
-            @Parameter(description = "ID del traslado", required = true) @PathVariable Long id) {
-        TrasladoMuestra traslado = trasladoApplicationService.getTraslado(id);
+            @Parameter(description = "ID del préstamo") @PathVariable Long id) {
+        TrasladoMuestra t = trasladoApplicationService.getTraslado(id);
         return ResponseEntity.ok(
-            new APIResponse("Traslado encontrado", TrasladoMapper.toResponseDTO(traslado), false, HttpStatus.OK));
+            new APIResponse("Préstamo encontrado", TrasladoMapper.toResponseDTO(t, myInstId()), false, HttpStatus.OK));
     }
 
     @GetMapping("/muestra/{idMuestra}")
-    @Operation(summary = "Historial de traslados por muestra")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Muestra no encontrada",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Cadena de custodia de una muestra",
+               description = "Historial completo de préstamos de la muestra, ordenado por fecha descendente.")
     public ResponseEntity<APIResponse> getHistorialByMuestra(
-            @Parameter(description = "ID de la muestra", required = true) @PathVariable Long idMuestra) {
+            @Parameter(description = "ID de la muestra") @PathVariable Long idMuestra) {
         List<TrasladoMuestra> historial = trasladoApplicationService.getHistorialByMuestra(idMuestra);
         return ResponseEntity.ok(
-            new APIResponse("Historial de traslados encontrado", TrasladoMapper.toResponseDTOList(historial), false, HttpStatus.OK));
+            new APIResponse("Cadena de custodia", TrasladoMapper.toResponseDTOList(historial, myInstId()), false, HttpStatus.OK));
     }
 
-    @GetMapping("/almacen/{idAlmacen}")
-    @Operation(summary = "Traslados por almacén (paginado)", description = "Obtiene los traslados de un almacén con paginación. Usado por el ENCARGADO.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Éxito",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
-    public ResponseEntity<APIResponse> getByAlmacen(
-            @Parameter(description = "ID del almacén", required = true) @PathVariable Long idAlmacen,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Page<TrasladoMuestra> pageResult = trasladoApplicationService.getTrasladosByAlmacenPaginated(idAlmacen, page, size);
-        Page<TrasladoResponseDTO> dtoPage = pageResult.map(TrasladoMapper::toResponseDTO);
+    @GetMapping("/grupo/{grupoTraslado}")
+    @Operation(summary = "Traslados de un lote",
+               description = "Obtiene todos los TrasladoMuestra que forman un préstamo en lote (padre + alícuotas).")
+    public ResponseEntity<APIResponse> getByGrupo(
+            @Parameter(description = "UUID del grupo de traslado") @PathVariable String grupoTraslado) {
+        List<TrasladoMuestra> list = trasladoApplicationService.getByGrupo(grupoTraslado);
         return ResponseEntity.ok(
-            new APIResponse("Traslados del almacén encontrados", dtoPage, false, HttpStatus.OK));
+            new APIResponse("Traslados del lote", TrasladoMapper.toResponseDTOList(list, myInstId()), false, HttpStatus.OK));
     }
+
+    // ── Mutaciones ───────────────────────────────────────────────────────────
 
     @PostMapping
-    @Operation(summary = "Registrar traslado", description = "Registra el traslado de una muestra a un almacén externo. La posición en la caja queda reservada mientras dure el traslado.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Traslado registrado exitosamente",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Muestra, almacén o usuario no encontrado",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "409", description = "La muestra ya tiene un traslado activo",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
+    @Operation(summary = "Iniciar préstamo",
+               description = """
+                   Presta una o varias muestras (padre + alícuotas seleccionadas) a otra institución.
+                   La institución origen es la del usuario logueado (tenedor actual).
+                   Las muestras pasan a estado PRESTADA y sus posiciones se liberan.
+                   Si se incluyen múltiples muestras, se agrupan con el mismo grupoTraslado.
+                   """)
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Préstamo iniciado",
+            content = @Content(schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Muestra ya prestada o institución sin biobanco",
+            content = @Content(schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> registrarTraslado(@Validated @RequestBody TrasladoRequestDTO dto) {
-        TrasladoMuestra traslado = trasladoApplicationService.registrarTraslado(
-            dto.getIdMuestra(),
-            dto.getIdAlmacen(),
+    public ResponseEntity<APIResponse> iniciarPrestamo(@Validated @RequestBody TrasladoRequestDTO dto) {
+        List<TrasladoMuestra> traslados = trasladoApplicationService.iniciarPrestamo(
+            dto.getIdsMuestras(),
+            dto.getIdInstitucionDestino(),
             dto.getUuidAutoriza(),
             dto.getMotivo(),
             dto.getObservaciones()
         );
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new APIResponse("Traslado registrado exitosamente", TrasladoMapper.toResponseDTO(traslado), false, HttpStatus.CREATED));
+            .body(new APIResponse("Préstamo iniciado exitosamente",
+                TrasladoMapper.toResponseDTOList(traslados, myInstId()), false, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}/confirmar-recepcion")
-    @Operation(summary = "Confirmar recepción", description = "El encargado del almacén confirma que la muestra fue recibida físicamente. Cambia estado de TRASLADADA → RECIBIDA.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Recepción confirmada",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Traslado no encontrado",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "409", description = "Estado incorrecto para confirmar recepción",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Confirmar recepción",
+               description = "La institución destino confirma que recibió físicamente la muestra. Opcionalmente asigna posición en caja. Estado: ENVIADA → RECIBIDA.")
     public ResponseEntity<APIResponse> confirmarRecepcion(
-            @Parameter(description = "ID del traslado", required = true) @PathVariable Long id,
+            @PathVariable Long id,
             @Validated @RequestBody ConfirmarRecepcionRequestDTO dto) {
-        TrasladoMuestra updated = trasladoApplicationService.confirmarRecepcion(id, dto.getUuidEncargado());
+        TrasladoMuestra updated = trasladoApplicationService.confirmarRecepcion(
+            id, dto.getUuidConfirma(), dto.getIdPosicionCaja());
         return ResponseEntity.ok(
-            new APIResponse("Recepción confirmada exitosamente", TrasladoMapper.toResponseDTO(updated), false, HttpStatus.OK));
+            new APIResponse("Recepción confirmada", TrasladoMapper.toResponseDTO(updated, myInstId()), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas-en-destino")
+    @Operation(summary = "Alícuotas en institución destino",
+               description = "Lista las alícuotas de la muestra padre del traslado que están actualmente en la institución destino.")
+    public ResponseEntity<APIResponse> getAlicuotasEnDestino(@PathVariable Long id) {
+        var alicuotas = trasladoApplicationService.getAlicuotasEnDestino(id);
+        return ResponseEntity.ok(
+            new APIResponse("Alícuotas en destino", MuestraMapper.toResponseDTOList(alicuotas), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}/iniciar-devolucion")
-    @Operation(summary = "Iniciar devolución", description = "El encargado inicia el proceso de devolución. Cambia estado de RECIBIDA → EN_DEVOLUCION.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Devolución iniciada",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Traslado no encontrado",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "409", description = "Estado incorrecto para iniciar devolución",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
+    @Operation(summary = "Iniciar devolución",
+               description = "La institución destino inicia la devolución. Opcionalmente incluye alícuotas para devolver junto con la padre. Estado: RECIBIDA → EN_DEVOLUCION.")
     public ResponseEntity<APIResponse> iniciarDevolucion(
-            @Parameter(description = "ID del traslado", required = true) @PathVariable Long id,
+            @PathVariable Long id,
             @Validated @RequestBody IniciarDevolucionRequestDTO dto) {
-        TrasladoMuestra updated = trasladoApplicationService.iniciarDevolucion(id, dto.getUuidEncargado(), dto.getObservaciones());
+        List<TrasladoMuestra> traslados = trasladoApplicationService.iniciarDevolucion(
+            id, dto.getUuidInicia(), dto.getObservaciones(), dto.getIdsAlicuotasDevolver());
         return ResponseEntity.ok(
-            new APIResponse("Devolución iniciada exitosamente", TrasladoMapper.toResponseDTO(updated), false, HttpStatus.OK));
+            new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTOList(traslados, myInstId()), false, HttpStatus.OK));
     }
 
-    @PutMapping("/{id}/devolver")
-    @Operation(summary = "Confirmar devolución (admin)", description = "El administrador confirma la devolución física de la muestra. Cambia estado de EN_DEVOLUCION → DEVUELTA.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Devolución confirmada",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Traslado no encontrado",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class))),
-        @ApiResponse(responseCode = "409", description = "Estado incorrecto para confirmar devolución",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
-    })
+    @PutMapping("/{id}/confirmar-devolucion")
+    @Operation(summary = "Confirmar devolución",
+               description = "La institución anterior confirma la recepción de vuelta. Estado: EN_DEVOLUCION → DEVUELTA.")
     public ResponseEntity<APIResponse> confirmarDevolucion(
-            @Parameter(description = "ID del traslado a devolver", required = true) @PathVariable Long id,
+            @PathVariable Long id,
             @Validated @RequestBody DevolucionRequestDTO dto) {
-        TrasladoMuestra devuelto = trasladoApplicationService.confirmarDevolucion(id, dto.getObservaciones());
+        TrasladoMuestra devuelto = trasladoApplicationService.confirmarDevolucion(
+            id, dto.getUuidConfirma(), dto.getObservaciones());
         return ResponseEntity.ok(
-            new APIResponse("Devolución confirmada exitosamente", TrasladoMapper.toResponseDTO(devuelto), false, HttpStatus.OK));
+            new APIResponse("Devolución confirmada", TrasladoMapper.toResponseDTO(devuelto, myInstId()), false, HttpStatus.OK));
+    }
+
+    @PutMapping("/{id}/cancelar")
+    @Operation(summary = "Cancelar préstamo",
+               description = "La institución origen cancela el préstamo mientras está en estado ENVIADA (antes de que el destino confirme recepción). La muestra regresa a SIN_POSICION en la institución origen.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Préstamo cancelado",
+            content = @Content(schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "El préstamo no está en estado ENVIADA",
+            content = @Content(schema = @Schema(implementation = APIResponse.class)))
+    })
+    public ResponseEntity<APIResponse> cancelarPrestamo(
+            @PathVariable Long id,
+            @Validated @RequestBody CancelarPrestamoRequestDTO dto) {
+        TrasladoMuestra cancelado = trasladoApplicationService.cancelarPrestamo(
+            id, dto.getUuidUsuario(), dto.getMotivo());
+        return ResponseEntity.ok(
+            new APIResponse("Préstamo cancelado", TrasladoMapper.toResponseDTO(cancelado, myInstId()), false, HttpStatus.OK));
+    }
+
+    private Long myInstId() {
+        return institucionContextService.getIdInstitucionActual();
     }
 }

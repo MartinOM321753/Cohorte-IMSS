@@ -6,6 +6,9 @@ import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(
         name = "Parametro_Estudio",
@@ -36,7 +39,23 @@ public class ParametroEstudio {
     private String unidad;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo", nullable = false, length = 10)
+    @Column(name = "tipo", nullable = false, length = 15)
     private TipoParametro tipo;
+
+    /** Valor mínimo de referencia (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_minimo")
+    private Double valorMinimo;
+
+    /** Valor máximo de referencia (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_maximo")
+    private Double valorMaximo;
+
+    /**
+     * Opciones válidas para parámetros de tipo TEXTO_OPCIONES.
+     * Vacío para cualquier otro tipo.
+     */
+    @OneToMany(mappedBy = "parametro", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orden ASC")
+    private List<OpcionParametro> opciones = new ArrayList<>();
 
 }

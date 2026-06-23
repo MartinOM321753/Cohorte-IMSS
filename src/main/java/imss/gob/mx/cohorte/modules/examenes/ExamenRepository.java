@@ -15,6 +15,9 @@ public interface ExamenRepository extends JpaRepository<Examen, Long> {
 
     Optional<Examen> findByIdAndActivo(Long id, Boolean activo);
 
+    /** Catálogo de exámenes de una institución (aislamiento de datos). */
+    List<Examen> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
+
 
 
 

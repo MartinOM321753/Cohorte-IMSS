@@ -25,4 +25,6 @@ public class CitaResponseDTO {
     private Instant createdAtUtc;
     private PacienteResumenDTO paciente;
     private UsuarioResumenDTO usuarioAgenda;
+    private String institucionUuid;
+    private String institucionNombre;
 }

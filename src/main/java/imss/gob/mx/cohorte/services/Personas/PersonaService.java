@@ -33,12 +33,22 @@ public class PersonaService {
 
     public Persona createPerson(Persona persona) {
 
-        if (personaRepository.findByEmail(persona.getEmail()).isPresent()) {
-            throw new ObjConflictException("El correo ya existe");
+        if (persona.getEmail() != null && !persona.getEmail().isBlank()
+                && personaRepository.findByEmail(persona.getEmail()).isPresent()) {
+            throw new ObjConflictException("El correo electrónico ya fue registrado");
         }
 
-        if (personaRepository.findByTelefono(persona.getTelefono()).isPresent()) {
-            throw new ObjConflictException("El teléfono ya existe");
+        if (persona.getTelefono() != null && !persona.getTelefono().isBlank()
+                && personaRepository.findByTelefono(persona.getTelefono()).isPresent()) {
+            throw new ObjConflictException("El número telefónico ya fue registrado");
+        }
+
+        if (persona.getCurp() != null && !persona.getCurp().isBlank()
+                && personaRepository.existsByCurp(persona.getCurp().toUpperCase())) {
+            throw new ObjConflictException("El CURP ya fue registrado");
+        }
+        if (persona.getCurp() != null && !persona.getCurp().isBlank()) {
+            persona.setCurp(persona.getCurp().toUpperCase());
         }
 
         persona.setFechaRegistro(LocalDateTime.now());
@@ -53,18 +63,24 @@ public class PersonaService {
         Persona personaBD = personaRepository.findById(persona.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la persona"));
 
-        if (!persona.getEmail().equals(personaBD.getEmail())) {
-            if (personaRepository.findByEmail(persona.getEmail()).isPresent()) {
-                throw new ObjConflictException("El correo ya existe");
+        String nuevoEmail = persona.getEmail();
+        if (nuevoEmail != null && !nuevoEmail.isBlank() && !nuevoEmail.equals(personaBD.getEmail())) {
+            if (personaRepository.findByEmail(nuevoEmail).isPresent()) {
+                throw new ObjConflictException("El correo electrónico ya fue registrado");
             }
-            personaBD.setEmail(persona.getEmail());
+            personaBD.setEmail(nuevoEmail);
+        } else if (nuevoEmail == null || nuevoEmail.isBlank()) {
+            personaBD.setEmail(nuevoEmail);
         }
 
-        if (!persona.getTelefono().equals(personaBD.getTelefono())) {
-            if (personaRepository.findByTelefono(persona.getTelefono()).isPresent()) {
-                throw new ObjConflictException("El teléfono ya existe");
+        String nuevoTelefono = persona.getTelefono();
+        if (nuevoTelefono != null && !nuevoTelefono.isBlank() && !nuevoTelefono.equals(personaBD.getTelefono())) {
+            if (personaRepository.findByTelefono(nuevoTelefono).isPresent()) {
+                throw new ObjConflictException("El número telefónico ya fue registrado");
             }
-            personaBD.setTelefono(persona.getTelefono());
+            personaBD.setTelefono(nuevoTelefono);
+        } else if (nuevoTelefono == null || nuevoTelefono.isBlank()) {
+            personaBD.setTelefono(nuevoTelefono);
         }
         personaBD.setNombre(persona.getNombre());
         personaBD.setApellidoPaterno(persona.getApellidoPaterno());
@@ -72,6 +88,15 @@ public class PersonaService {
         personaBD.setFechaNacimiento(persona.getFechaNacimiento());
         personaBD.setSexo(persona.getSexo());
 
+        String nuevoCurp = persona.getCurp();
+        if (nuevoCurp != null && !nuevoCurp.isBlank()) {
+            nuevoCurp = nuevoCurp.toUpperCase();
+            if (!nuevoCurp.equals(personaBD.getCurp())
+                    && personaRepository.existsByCurpAndIdNot(nuevoCurp, personaBD.getId())) {
+                throw new ObjConflictException("El CURP ya fue registrado");
+            }
+            personaBD.setCurp(nuevoCurp);
+        }
 
         personaBD.setFechaActualizacion(LocalDateTime.now());
         return personaRepository.save(personaBD);

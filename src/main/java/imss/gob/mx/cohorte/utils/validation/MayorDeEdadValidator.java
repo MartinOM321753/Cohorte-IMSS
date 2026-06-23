@@ -15,8 +15,7 @@ public class MayorDeEdadValidator implements ConstraintValidator<MayorDeEdad, Lo
     @Override
     public boolean isValid(LocalDate fechaNacimiento, ConstraintValidatorContext context) {
         if (fechaNacimiento == null) {
-            // @NotNull se encarga de null; aquí solo rechazamos para no lanzar NPE
-            return false;
+            return true;
         }
         // Fecha límite: hoy - 18 años + 3 meses
         LocalDate maxFecha = LocalDate.now().minusYears(18).plusMonths(3);

@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ConfirmarRecepcionRequestDTO {
 
-    @NotBlank(message = "El UUID del encargado es obligatorio")
-    private String uuidEncargado;
+    @NotBlank(message = "El UUID del usuario que confirma es obligatorio")
+    private String uuidConfirma;
+
+    private Long idPosicionCaja;
 }

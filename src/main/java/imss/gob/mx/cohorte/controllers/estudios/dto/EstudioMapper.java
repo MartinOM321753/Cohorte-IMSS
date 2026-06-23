@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
@@ -73,7 +74,21 @@ public class EstudioMapper {
                     .nombre(e.getTipoEstudio().getNombre())
                     .descripcion(e.getTipoEstudio().getDescripcion())
                     .activo(e.getTipoEstudio().getActivo())
-                    .parametroEstudios(e.getTipoEstudio().getParametros())
+                    .parametroEstudios(e.getTipoEstudio().getParametros() != null
+                        ? e.getTipoEstudio().getParametros().stream()
+                            .map(p -> ParametroEstudioResponseDTO.builder()
+                                .id(p.getId())
+                                .nombre(p.getNombre())
+                                .unidad(p.getUnidad())
+                                .tipo(p.getTipo())
+                                .valorMinimo(p.getValorMinimo())
+                                .valorMaximo(p.getValorMaximo())
+                                .opciones(p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null
+                                    ? p.getOpciones().stream().map(op -> op.getValor()).collect(java.util.stream.Collectors.toList())
+                                    : null)
+                                .build())
+                            .collect(java.util.stream.Collectors.toList())
+                        : java.util.List.of())
                     .build();
         }
 
@@ -102,10 +117,14 @@ public class EstudioMapper {
                 .usuarioRealiza(usuarioDTO)
                 .tipoEstudio(tipoDTO)
                 .resultados(resultadosDTO)
+                .institucionUuid(e.getInstitucion() != null ? e.getInstitucion().getUuid() : null)
+                .institucionNombre(e.getInstitucion() != null ? e.getInstitucion().getNombre() : null)
                 .build();
     }
 
     public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e) {
+        int numResultados = (e.getResultadoEstudio() != null) ? e.getResultadoEstudio().size() : 0;
+        int numAdjuntos   = (e.getAdjuntos() != null)        ? e.getAdjuntos().size()          : 0;
         return EstudioListRequestDTO.builder()
                 .id(e.getId())
                 .fechaEstudio(e.getFechaEstudio())
@@ -115,7 +134,25 @@ public class EstudioMapper {
                 .usuarioRealizauuid(e.getUsuarioRealiza().getUUID())
                 .tipoEstudio(e.getTipoEstudio().getNombre())
                 .tipoEstudioid(e.getTipoEstudio().getId())
+                .cantidadResultados(numResultados)
+                .cantidadAdjuntos(numAdjuntos)
                 .build();
+    }
+
+    public static ParametroEstudioResponseDTO toParametroDTO(ParametroEstudio p) {
+        List<String> opciones = (p.getTipo() == TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null)
+            ? p.getOpciones().stream().map(op -> op.getValor()).collect(Collectors.toList())
+            : null;
+        return ParametroEstudioResponseDTO.builder()
+            .id(p.getId())
+            .nombre(p.getNombre())
+            .unidad(p.getUnidad())
+            .tipo(p.getTipo())
+            .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
+            .valorMinimo(p.getValorMinimo())
+            .valorMaximo(p.getValorMaximo())
+            .opciones(opciones)
+            .build();
     }
 
     public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {

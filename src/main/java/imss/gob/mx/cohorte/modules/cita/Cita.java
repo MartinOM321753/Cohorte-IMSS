@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.modules.cita;
 
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
@@ -33,6 +34,11 @@ public class Cita {
     @ManyToOne
     @JoinColumn(name = "id_usuario_agenda", nullable = false)
     private BeanUser usuarioAgenda;
+
+    /** Institución responsable de la cita — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
     @Column(name = "start_at_utc")
     private Instant startAtUtc;

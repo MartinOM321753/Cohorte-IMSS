@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.modules.examenes;
 
 
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
@@ -43,5 +44,9 @@ public class Examen {
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Timestamp fechaCreacion;
 
+    /** Institución propietaria del catálogo de examen — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
 }

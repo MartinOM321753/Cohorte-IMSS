@@ -1,6 +1,5 @@
 package imss.gob.mx.cohorte.controllers.estudios.dto;
 
-import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import lombok.*;
 
 import java.util.List;
@@ -17,5 +16,6 @@ public class TipoEstudioResponseDTO {
     private String nombre;
     private String descripcion;
     private Boolean activo;
-    private List<ParametroEstudio> parametroEstudios;
+    /** Parámetros serializados como DTO (incluye opciones para TEXTO_OPCIONES). */
+    private List<ParametroEstudioResponseDTO> parametroEstudios;
 }

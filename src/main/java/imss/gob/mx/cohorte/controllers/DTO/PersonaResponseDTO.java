@@ -18,6 +18,7 @@ public class PersonaResponseDTO {
     private String apellidoMaterno;
     private LocalDate fechaNacimiento;
     private String sexo;
+    private String curp;
     private String telefono;
     private String email;
 }

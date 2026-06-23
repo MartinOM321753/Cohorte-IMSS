@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.pacientes.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
+import imss.gob.mx.cohorte.controllers.reclutamiento.dto.ReclutamientoParticipanteResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,9 @@ public class PacienteResponseDTO {
     private LocalDateTime fechaRegistro;
     private LocalDateTime fechaActualizacion;
     private PersonaResponseDTO persona;
+    private ReclutamientoParticipanteResponseDTO reclutamiento;
+
+    private Long institucionId;
+    private String institucionNombre;
+    private Boolean propiaInstitucion;
 }

@@ -77,6 +77,36 @@ public class DocumentoPermisosConfig {
             "RECEPCIONISTA"
     );
 
+    // ─── CUESTIONARIOS DEL PACIENTE ─────────────────────────────────────────────
+    private static final Set<String> VER_CUESTIONARIO = Set.of(
+            "ADMINISTRADOR",
+            "MEDICO",
+            "USER",
+            "RECEPCIONISTA"
+    );
+
+    private static final Set<String> SUBIR_CUESTIONARIO = Set.of(
+            "ADMINISTRADOR",
+            "MEDICO",
+            "USER",
+            "RECEPCIONISTA"
+    );
+
+    // ─── RESULTADOS DE EXÁMENES ───────────────────────────────────────────────
+    private static final Set<String> VER_RESULTADO_EXAMEN = Set.of(
+            "ADMINISTRADOR",
+            "MEDICO",
+            "LABORATORISTA",
+            "USER"
+    );
+
+    private static final Set<String> SUBIR_RESULTADO_EXAMEN = Set.of(
+            "ADMINISTRADOR",
+            "MEDICO",
+            "LABORATORISTA",
+            "USER"
+    );
+
     // ─── ELIMINAR — aplica a TODOS los tipos ───────────────────────────────────
     /** Solo ADMINISTRADOR puede eliminar cualquier documento */
     private static final Set<String> ELIMINAR = Set.of(
@@ -89,19 +119,23 @@ public class DocumentoPermisosConfig {
 
     public boolean puedeVer(String role, TipoEntidadDocumento tipo) {
         return switch (tipo) {
-            case ESTUDIO                 -> VER_ESTUDIO.contains(role);
-            case MUESTRA                 -> VER_MUESTRA.contains(role);
-            case PACIENTE_CONSENTIMIENTO -> VER_CONSENTIMIENTO.contains(role);
-            case PACIENTE_GENERAL        -> VER_PACIENTE_GENERAL.contains(role);
+            case ESTUDIO                  -> VER_ESTUDIO.contains(role);
+            case MUESTRA                  -> VER_MUESTRA.contains(role);
+            case PACIENTE_CONSENTIMIENTO  -> VER_CONSENTIMIENTO.contains(role);
+            case PACIENTE_GENERAL         -> VER_PACIENTE_GENERAL.contains(role);
+            case PACIENTE_CUESTIONARIO    -> VER_CUESTIONARIO.contains(role);
+            case RESULTADO_EXAMEN         -> VER_RESULTADO_EXAMEN.contains(role);
         };
     }
 
     public boolean puedeSubir(String role, TipoEntidadDocumento tipo) {
         return switch (tipo) {
-            case ESTUDIO                 -> SUBIR_ESTUDIO.contains(role);
-            case MUESTRA                 -> SUBIR_MUESTRA.contains(role);
-            case PACIENTE_CONSENTIMIENTO -> SUBIR_CONSENTIMIENTO.contains(role);
-            case PACIENTE_GENERAL        -> SUBIR_PACIENTE_GENERAL.contains(role);
+            case ESTUDIO                  -> SUBIR_ESTUDIO.contains(role);
+            case MUESTRA                  -> SUBIR_MUESTRA.contains(role);
+            case PACIENTE_CONSENTIMIENTO  -> SUBIR_CONSENTIMIENTO.contains(role);
+            case PACIENTE_GENERAL         -> SUBIR_PACIENTE_GENERAL.contains(role);
+            case PACIENTE_CUESTIONARIO    -> SUBIR_CUESTIONARIO.contains(role);
+            case RESULTADO_EXAMEN         -> SUBIR_RESULTADO_EXAMEN.contains(role);
         };
     }
 

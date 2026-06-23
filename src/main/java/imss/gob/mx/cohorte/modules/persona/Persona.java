@@ -39,6 +39,9 @@ public class Persona {
     @Column(name = "telefono", length = 10)
     private String telefono;
 
+    @Column(name = "curp", length = 18, unique = true)
+    private String curp;
+
     @Column(name = "email", length = 50)
     private String email;
 
@@ -48,12 +51,13 @@ public class Persona {
     @Column(name = "fecha_actualizacion")
     private LocalDateTime fechaActualizacion;
 
-    public Persona(String nombre, String apellidoPaterno, String apellidoMaterno, LocalDate fechaNacimiento, Sexo sexo, String telefono, String email, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion) {
+    public Persona(String nombre, String apellidoPaterno, String apellidoMaterno, LocalDate fechaNacimiento, Sexo sexo, String curp, String telefono, String email, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion) {
         this.nombre = nombre;
         this.apellidoPaterno = apellidoPaterno;
         this.apellidoMaterno = apellidoMaterno;
         this.fechaNacimiento = fechaNacimiento;
         this.sexo = sexo;
+        this.curp = curp;
         this.telefono = telefono;
         this.email = email;
         this.fechaRegistro = fechaRegistro;

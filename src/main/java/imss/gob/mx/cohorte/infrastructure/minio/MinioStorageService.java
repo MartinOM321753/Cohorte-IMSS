@@ -162,6 +162,31 @@ public class MinioStorageService {
         }
     }
 
+    /**
+     * Comprueba si un objeto existe en el bucket sin descargar su contenido.
+     * Usa {@code statObject} (HEAD request) — muy ligero.
+     * Devuelve {@code false} si el objeto no existe o si MinIO no está disponible.
+     */
+    public boolean objectExists(String objectKey) {
+        requireMinio();
+        try {
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(properties.getBucket())
+                            .object(objectKey)
+                            .build()
+            );
+            return true;
+        } catch (io.minio.errors.ErrorResponseException e) {
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                return false;
+            }
+            throw new RuntimeException("Error al verificar existencia en MinIO [" + objectKey + "]: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("Error al verificar existencia en MinIO [" + objectKey + "]: " + e.getMessage(), e);
+        }
+    }
+
     /** Elimina un objeto del bucket. */
     public void delete(String objectKey) {
         requireMinio();

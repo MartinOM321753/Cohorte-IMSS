@@ -1,13 +1,16 @@
 package imss.gob.mx.cohorte.modules.almacenamiento.caja;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import jakarta.persistence.*;
 import lombok.*;
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "Caja_Criogenica")
+@Table(name = "Caja_Criogenica",
+        uniqueConstraints = @UniqueConstraint(name = "uk_caja_codigo_institucion", columnNames = {"codigo_caja", "id_institucion"}))
 @Getter @Setter
 @NoArgsConstructor
 public class CajaCriogenica {
@@ -16,7 +19,7 @@ public class CajaCriogenica {
     @Column(name = "id_caja")
     private Long Id;
 
-    @Column(name = "codigo_caja", nullable = false, unique = true, length = 50)
+    @Column(name = "codigo_caja", nullable = false, length = 50)
     private String codigoCaja;
 
     @Column(name = "filas", nullable = false)
@@ -40,7 +43,14 @@ public class CajaCriogenica {
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;
 
+    /** Institución propietaria de la caja criogénica — define el ámbito de aislamiento de datos. */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_institucion", nullable = false)
+    @JsonIgnore
+    private Institucion institucion;
+
     @OneToOne
     @JoinColumn(name = "id_posicion_piso", unique = true)
+    @JsonIgnore
     private PosicionPiso posicionPiso;
 }

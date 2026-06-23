@@ -14,4 +14,6 @@ public interface PacienteDocumentoRepository extends JpaRepository<PacienteDocum
             String uuid, TipoDocumentoPaciente tipoDoc);
 
     void deleteByDocumento_Id(Long documentoId);
+
+    long countByPaciente_Institucion_Id(Long idInstitucion);
 }

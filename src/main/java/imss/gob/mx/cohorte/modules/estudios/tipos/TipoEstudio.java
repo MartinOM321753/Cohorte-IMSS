@@ -1,10 +1,11 @@
 package imss.gob.mx.cohorte.modules.estudios.tipos;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import jakarta.persistence.*;
 import lombok.*;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,6 +31,11 @@ public class TipoEstudio {
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
+
+    @JsonIgnore
+    @ManyToOne
+    @JoinColumn(name = "id_institucion", nullable = false)
+    private Institucion institucion;
 
     @OneToMany(mappedBy = "tipoEstudio")
     private List<ParametroEstudio> parametros;

@@ -42,6 +42,7 @@ public class MainSecurity {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/auth/reset-password/validate",
+            "/reset-password",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
@@ -55,8 +56,16 @@ public class MainSecurity {
         AuthenticationEntryPoint restEntryPoint = (req, res, ex) ->
                 res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
 
+        // CSRF: la API es 100% stateless (sin sesión de servidor) y la cookie de
+        // sesión se emite con SameSite=Lax/Strict + HttpOnly + Secure (ver
+        // AuthController/application.properties). SameSite ya impide que un sitio
+        // de terceros provoque que el navegador envíe la cookie en peticiones
+        // cross-site, que es precisamente el vector que CSRF explota — por eso se
+        // mantiene deshabilitado el mecanismo de token CSRF (evita complejidad
+        // adicional sin aportar protección extra en este escenario).
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(c -> c.configurationSource(corsRegistry()))
+                .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()))
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(restEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         // Los dispatches ASYNC (StreamingResponseBody) no deben re-evaluarse
@@ -78,7 +87,15 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.GET, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.POST, "/api/pacientes/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/pacientes/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/pacientes/**").hasRole("ADMINISTRADOR")
+
+                        // Configuración de horario de citas: escritura solo ADMINISTRADOR
+                        .requestMatchers(HttpMethod.GET, "/api/citas/configuracion-horario/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.POST, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
 
                         // Citas: lectura y creación para RECEPCIONISTA y ADMINISTRADOR
                         .requestMatchers(HttpMethod.GET, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
@@ -119,6 +136,15 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasRole("ADMINISTRADOR")
 
+                        // Somatometria
+                        .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.PUT, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
+                        .requestMatchers(HttpMethod.DELETE, "/api/somatometria/**").hasRole("ADMINISTRADOR")
+
+                        // Visualización por token temporal (escaneo QR) — público porque el token ES la autenticación
+                        .requestMatchers(HttpMethod.GET, "/api/documentos/ver/**").permitAll()
+
                         // Documentos (archivos en MinIO): lectura y subida para RECEPCIONISTA y ADMINISTRADOR, borrado solo ADMINISTRADOR
                         .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
                         .requestMatchers(HttpMethod.POST, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
@@ -151,7 +177,15 @@ public class MainSecurity {
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(false);
+        // Expose response headers that the browser JS can read (needed for blob downloads)
+        configuration.setExposedHeaders(List.of(
+                "Content-Disposition",
+                "Content-Type",
+                "Content-Length"
+        ));
+        // Necesario para que el navegador envíe/reciba la cookie httpOnly de sesión
+        // en peticiones cross-origin (frontend y backend en distinto puerto/dominio).
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

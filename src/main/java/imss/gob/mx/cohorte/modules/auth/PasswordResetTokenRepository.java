@@ -2,6 +2,9 @@ package imss.gob.mx.cohorte.modules.auth;
 
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -17,4 +20,8 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
      * Se usa para verificar el límite de 1 solicitud por hora.
      */
     boolean existsByUsuarioAndCreadoEnAfter(BeanUser usuario, Instant desde);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE PasswordResetToken t SET t.usado = true WHERE t.usuario = :usuario AND t.usado = false")
+    int marcarTokensActivosComoUsados(@Param("usuario") BeanUser usuario);
 }

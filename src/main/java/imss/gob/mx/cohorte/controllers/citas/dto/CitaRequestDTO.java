@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CitaRequestDTO {
 
-    @NotBlank(message = "El UUID del paciente es obligatorio")
+    @NotBlank(message = "El UUID del participante es obligatorio")
     private String pacienteUUID;
 
     @NotBlank(message = "El UUID del usuario que agenda es obligatorio")

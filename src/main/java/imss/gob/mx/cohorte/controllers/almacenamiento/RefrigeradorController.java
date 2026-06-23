@@ -1,8 +1,9 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.PisoRefrigeradorApplicationService;
-import imss.gob.mx.cohorte.application.almacenamiento.RefrieradorApplicationService;
+import imss.gob.mx.cohorte.application.almacenamiento.RefrigeradorApplicationService;
 import imss.gob.mx.cohorte.controllers.DTO.PisosDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoRefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorResponseDTO;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,11 +31,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/almacenamiento/refrigeradores")
 @AllArgsConstructor
+@Validated
 @Tag(name = "Refrigeradores", description = "Gestión de refrigeradores criogénicos")
 @SecurityRequirement(name = "bearerAuth")
 public class RefrigeradorController {
 
-    private final RefrieradorApplicationService refrieradorApplicationService;
+    private final RefrigeradorApplicationService refrigeradorApplicationService;
     private final PisoRefrigeradorApplicationService pisoRefrigeradorApplicationService;
 
     @GetMapping
@@ -50,8 +53,8 @@ public class RefrigeradorController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     public ResponseEntity<APIResponse> getAll() {
-        List<Refrigerador> list = refrieradorApplicationService.getAllRefrigeradores();
-        return ResponseEntity.ok(new APIResponse("Refrigeradores encontrados", RefrigeradorMapper.toResponseDTOList(list), false, HttpStatus.OK));
+        return ResponseEntity.ok(new APIResponse("Refrigeradores encontrados",
+            refrigeradorApplicationService.getAllRefrigeradoresConEstadisticas(), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -73,7 +76,7 @@ public class RefrigeradorController {
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id) {
-        Refrigerador ref = refrieradorApplicationService.getRefrigerador(id);
+        Refrigerador ref = refrigeradorApplicationService.getRefrigerador(id);
         return ResponseEntity.ok(new APIResponse("Refrigerador encontrado", RefrigeradorMapper.toResponseDTO(ref), false, HttpStatus.OK));
     }
 
@@ -92,7 +95,7 @@ public class RefrigeradorController {
     })
     public ResponseEntity<APIResponse> create(@Validated @RequestBody RefrigeradorRequestDTO dto) {
         Refrigerador entity = RefrigeradorMapper.toEntity(dto);
-        Refrigerador saved = refrieradorApplicationService.createRefrigerador(entity);
+        Refrigerador saved = refrigeradorApplicationService.createRefrigerador(entity);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Refrigerador creado exitosamente", RefrigeradorMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
@@ -117,7 +120,7 @@ public class RefrigeradorController {
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id, @Validated @RequestBody RefrigeradorRequestDTO dto) {
         Refrigerador entity = RefrigeradorMapper.toEntity(dto);
-        Refrigerador updated = refrieradorApplicationService.updateRefrigerador(id, entity);
+        Refrigerador updated = refrigeradorApplicationService.updateRefrigerador(id, entity);
         return ResponseEntity.ok(new APIResponse("Refrigerador actualizado", RefrigeradorMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
@@ -140,7 +143,7 @@ public class RefrigeradorController {
     public ResponseEntity<APIResponse> delete(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id) {
-        refrieradorApplicationService.deleteRefrigerador(id);
+        refrigeradorApplicationService.deleteRefrigerador(id);
         return ResponseEntity.ok(new APIResponse("Refrigerador eliminado", null, false, HttpStatus.OK));
     }
 
@@ -204,7 +207,7 @@ public class RefrigeradorController {
     })
     public ResponseEntity<APIResponse> updatePiso(
         @Parameter(description = "ID numérico del piso", required = true)
-        @PathVariable Long id, @RequestBody PisoRefrigerador piso) {
+        @PathVariable @Positive Long id, @Validated @RequestBody PisoRefrigeradorRequestDTO piso) {
         PisoRefrigerador updated = pisoRefrigeradorApplicationService.updatePiso(id, piso);
         return ResponseEntity.ok(new APIResponse("Piso actualizado", updated, false, HttpStatus.OK));
     }

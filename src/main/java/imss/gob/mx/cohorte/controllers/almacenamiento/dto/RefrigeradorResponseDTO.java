@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,4 +18,6 @@ public class RefrigeradorResponseDTO {
     private String marca;
     private String modelo;
     private Boolean activo;
+    private int totalPisos;
+    private List<PisoResumenDTO> pisos;
 }

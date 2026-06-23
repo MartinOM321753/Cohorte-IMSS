@@ -1,6 +1,5 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,7 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RefrigeradorRequestDTO {
 
-    @NotBlank(message = "El código es obligatorio")
     @Size(max = 50, message = "Código máximo 50 caracteres")
     private String codigo;
 

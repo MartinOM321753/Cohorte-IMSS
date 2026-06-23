@@ -29,7 +29,7 @@ public class EmailService {
     private boolean enabled;
 
     /**
-     * @param destinatario email del paciente
+     * @param destinatario email del destinatario
      * @param asunto       asunto del correo
      * @param template     ruta relativa a /templates (p.ej. "email/confirmacion-cita")
      * @param context      variables para la plantilla Thymeleaf

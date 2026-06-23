@@ -1,12 +1,14 @@
 package imss.gob.mx.cohorte.modules.almacenamiento.traslado;
 
 public enum EstadoTraslado {
-    /** Admin registró el traslado; muestra en camino al almacén externo. */
-    TRASLADADA,
-    /** Encargado confirmó que la muestra llegó a su laboratorio. */
+    /** Institución origen envió la muestra — en tránsito hacia destino. */
+    ENVIADA,
+    /** Institución destino confirmó la recepción física de la muestra. */
     RECIBIDA,
-    /** Encargado inició la devolución; muestra en camino de regreso. */
+    /** Institución destino inició la devolución — muestra en tránsito de regreso. */
     EN_DEVOLUCION,
-    /** Admin confirmó que la muestra fue recibida de vuelta en el biobanco. */
-    DEVUELTA
+    /** Institución anterior confirmó la recepción de vuelta. Registro histórico. */
+    DEVUELTA,
+    /** Préstamo cancelado por la institución origen antes de que el destino confirmara recepción. */
+    CANCELADO
 }
