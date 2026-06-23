@@ -20,7 +20,8 @@ public class PacienteMapper {
         persona.setApellidoPaterno(dto.getPersona().getApellidoPaterno());
         persona.setApellidoMaterno(dto.getPersona().getApellidoMaterno());
         persona.setFechaNacimiento(dto.getPersona().getFechaNacimiento());
-        persona.setSexo(Persona.Sexo.valueOf(dto.getPersona().getSexo()));
+        persona.setSexo(dto.getPersona().getSexo() != null ? Persona.Sexo.valueOf(dto.getPersona().getSexo()) : null);
+        persona.setCurp(dto.getPersona().getCurp());
         persona.setTelefono(dto.getPersona().getTelefono());
         persona.setEmail(dto.getPersona().getEmail());
         paciente.setPersona(persona);
@@ -29,11 +30,14 @@ public class PacienteMapper {
     }
 
     public static PacienteResponseDTO toResponseDTO(Paciente p) {
-        return toResponseDTO(p, null);
+        return toResponseDTO(p, null, null);
     }
 
-    /** Sobrecarga que incluye la clasificación de reclutamiento (1:1, se consulta aparte). */
     public static PacienteResponseDTO toResponseDTO(Paciente p, ReclutamientoParticipante reclutamiento) {
+        return toResponseDTO(p, reclutamiento, null);
+    }
+
+    public static PacienteResponseDTO toResponseDTO(Paciente p, ReclutamientoParticipante reclutamiento, Long idInstitucionActual) {
         PersonaResponseDTO personaDTO = null;
         if (p.getPersona() != null) {
             Persona per = p.getPersona();
@@ -44,10 +48,17 @@ public class PacienteMapper {
                 .apellidoMaterno(per.getApellidoMaterno())
                 .fechaNacimiento(per.getFechaNacimiento())
                 .sexo(per.getSexo() != null ? per.getSexo().name() : null)
+                .curp(per.getCurp())
                 .telefono(per.getTelefono())
                 .email(per.getEmail())
                 .build();
         }
+
+        Long instId = p.getInstitucion() != null ? p.getInstitucion().getId() : null;
+        String instNombre = p.getInstitucion() != null ? p.getInstitucion().getNombre() : null;
+        Boolean propia = (idInstitucionActual != null && instId != null)
+                ? instId.equals(idInstitucionActual)
+                : null;
 
         return PacienteResponseDTO.builder()
             .id(p.getId())
@@ -58,6 +69,9 @@ public class PacienteMapper {
             .fechaActualizacion(p.getFechaActualizacion())
             .persona(personaDTO)
             .reclutamiento(ReclutamientoParticipanteMapper.toResponseDTO(reclutamiento))
+            .institucionId(instId)
+            .institucionNombre(instNombre)
+            .propiaInstitucion(propia)
             .build();
     }
 
@@ -79,5 +93,9 @@ public class PacienteMapper {
 
     public static List<PacienteResponseDTO> toResponseDTOList(List<Paciente> list) {
         return list.stream().map(PacienteMapper::toResponseDTO).toList();
+    }
+
+    public static List<PacienteResponseDTO> toResponseDTOList(List<Paciente> list, Long idInstitucionActual) {
+        return list.stream().map(p -> toResponseDTO(p, null, idInstitucionActual)).toList();
     }
 }

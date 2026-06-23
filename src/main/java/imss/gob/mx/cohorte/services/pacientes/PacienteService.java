@@ -4,6 +4,7 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
+import jakarta.validation.ValidationException;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,18 +73,15 @@ public class PacienteService {
         return findPatient;
     }
 
-    public Paciente cretePatient(Paciente paciente, Long idInstitucion) {
+    public Paciente cretePatient(Paciente paciente) {
         String folioCapturado = paciente.getFolio();
         String folio;
 
         if (folioCapturado == null || folioCapturado.isBlank()) {
-            folio = folioGeneratorService.generarFolio(idInstitucion);
+            folio = folioGeneratorService.generarFolio();
         } else {
-            // El usuario capturó un folio existente (participante con seguimiento previo):
-            // se normaliza a MAYÚSCULAS/alfanumérico para evitar choques de formato
-            // con los folios autogenerados, y se valida su unicidad.
             folio = folioGeneratorService.normalizar(folioCapturado);
-            if (pacienteRepository.findByFolio(folio).isPresent()) {
+            if (pacienteRepository.existsByFolio(folio)) {
                 throw new ObjConflictException("El folio ya existe");
             }
         }
@@ -99,12 +97,25 @@ public class PacienteService {
         Paciente pacienteBD = pacienteRepository.findByIdAndInstitucion_Id(paciente.getId(), idInstitucion)
                 .orElseThrow(() -> new ObjNotFoundException("El participante no existe"));
 
+        if (paciente.getPersona() != null) {
+            String curp = paciente.getPersona().getCurp();
+            if (curp == null || curp.isBlank()) {
+                throw new ValidationException("El CURP es obligatorio para completar el expediente");
+            }
+            if (paciente.getPersona().getFechaNacimiento() == null) {
+                throw new ValidationException("La fecha de nacimiento es obligatoria para completar el expediente");
+            }
+            if (paciente.getPersona().getSexo() == null) {
+                throw new ValidationException("El sexo es obligatorio para completar el expediente");
+            }
+        }
+
         String folioCapturado = paciente.getFolio();
         String folio = (folioCapturado == null || folioCapturado.isBlank())
                 ? pacienteBD.getFolio()
                 : folioGeneratorService.normalizar(folioCapturado);
 
-        if (!folio.equals(pacienteBD.getFolio()) && pacienteRepository.findByFolio(folio).isPresent()) {
+        if (!folio.equals(pacienteBD.getFolio()) && pacienteRepository.existsByFolio(folio)) {
             throw new ObjConflictException("El folio ya existe");
         }
 
@@ -112,6 +123,43 @@ public class PacienteService {
         pacienteBD.setPersona(paciente.getPersona());
         pacienteBD.setFechaActualizacion(LocalDateTime.now());
         return pacienteRepository.save(pacienteBD);
+    }
+
+    // ── Variantes multi-institución (jerarquía) ──
+
+    public List<Paciente> findAllByInstituciones(List<Long> ids) {
+        return pacienteRepository.findAllByInstitucion_IdIn(ids);
+    }
+
+    public Page<Paciente> findAllPaginadoByInstituciones(List<Long> ids, Pageable pageable) {
+        return pacienteRepository.findAllByInstitucion_IdIn(ids, pageable);
+    }
+
+    public Paciente getByUUID(String uuid, List<Long> idsInstituciones) {
+        Paciente findPatient = pacienteRepository.findByUuidAndInstitucion_IdIn(uuid, idsInstituciones)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
+        if (!findPatient.getActivo()) {
+            throw new ObjNotFoundException("El participante no se encuentra activo");
+        }
+        return findPatient;
+    }
+
+    public Paciente getByFolio(String folio, List<Long> idsInstituciones) {
+        Paciente findPatient = pacienteRepository.findByFolioAndInstitucion_IdIn(folio, idsInstituciones)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
+        if (!findPatient.getActivo()) {
+            throw new ObjNotFoundException("El participante no se encuentra activo");
+        }
+        return findPatient;
+    }
+
+    public Paciente getPatient(Long idPaciente, List<Long> idsInstituciones) {
+        Paciente findPatient = pacienteRepository.findByIdAndInstitucion_IdIn(idPaciente, idsInstituciones)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
+        if (!findPatient.getActivo()) {
+            throw new ObjNotFoundException("El participante no se encuentra activo");
+        }
+        return findPatient;
     }
 
     /** Alterna el campo activo del paciente (activo ↔ inactivo) sin restricciones de estado. */

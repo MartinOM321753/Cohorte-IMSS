@@ -6,9 +6,13 @@ import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.reclutamiento.ReclutamientoParticipante;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.controllers.pacientes.dto.ImportResultDTO;
 import imss.gob.mx.cohorte.services.Personas.PersonaService;
+import imss.gob.mx.cohorte.services.pacientes.PacienteImportService;
+import imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
 import imss.gob.mx.cohorte.services.reclutamiento.ReclutamientoParticipanteService;
+import org.springframework.web.multipart.MultipartFile;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +31,9 @@ public class PacienteApplicationService {
     private final PacienteService pacienteService;
     private final PersonaService personaService;
     private final ReclutamientoParticipanteService reclutamientoService;
+    private final PacienteImportService pacienteImportService;
     private final InstitucionContextService institucionContextService;
+    private final InstitucionJerarquiaService institucionJerarquiaService;
 
     @Transactional(readOnly = true)
     public List<Paciente> getAll() {
@@ -35,8 +41,26 @@ public class PacienteApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<Paciente> getAllConJerarquia() {
+        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+        return pacienteService.findAllByInstituciones(ids);
+    }
+
+    @Transactional(readOnly = true)
     public Page<Paciente> getAllPaginado(Pageable pageable) {
         return pacienteService.findAllPaginadoByInstitucion(institucionContextService.getIdInstitucionActual(), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Paciente> getAllPaginadoConJerarquia(Pageable pageable) {
+        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+        return pacienteService.findAllPaginadoByInstituciones(ids, pageable);
+    }
+
+    public Long getIdInstitucionActual() {
+        return institucionContextService.getIdInstitucionActual();
     }
 
     @Transactional(readOnly = true)
@@ -81,7 +105,7 @@ public class PacienteApplicationService {
         // nunca se acepta del cliente, para evitar que se registre en otra institución.
         Institucion institucionActual = institucionContextService.getInstitucionActual();
         paciente.setInstitucion(institucionActual);
-        return pacienteService.cretePatient(paciente, institucionActual.getId());
+        return pacienteService.cretePatient(paciente);
     }
 
     /**
@@ -136,5 +160,11 @@ public class PacienteApplicationService {
     @Transactional
     public Paciente toggleActivo(String uuid) {
         return pacienteService.toggleActivo(uuid, institucionContextService.getIdInstitucionActual());
+    }
+
+    @Transactional
+    public ImportResultDTO importarPacientes(MultipartFile archivo) {
+        Institucion institucionActual = institucionContextService.getInstitucionActual();
+        return pacienteImportService.importar(archivo, institucionActual);
     }
 }

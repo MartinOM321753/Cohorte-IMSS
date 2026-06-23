@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.pacientes;
 
 import imss.gob.mx.cohorte.application.PacienteApplicationService;
+import imss.gob.mx.cohorte.controllers.pacientes.dto.ImportResultDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteRequestDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteResponseDTO;
@@ -23,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -49,9 +51,14 @@ public class PacienteController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> getAll() {
-        List<Paciente> pacientes = pacienteApplicationService.getAll();
-        return ResponseEntity.ok(new APIResponse("Participantes encontrados", PacienteMapper.toResponseDTOList(pacientes), false, HttpStatus.OK));
+    public ResponseEntity<APIResponse> getAll(
+            @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia) {
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        List<Paciente> pacientes = incluirJerarquia
+                ? pacienteApplicationService.getAllConJerarquia()
+                : pacienteApplicationService.getAll();
+        return ResponseEntity.ok(new APIResponse("Participantes encontrados",
+                PacienteMapper.toResponseDTOList(pacientes, idInstActual), false, HttpStatus.OK));
     }
 
     @GetMapping("/paginado")
@@ -64,10 +71,15 @@ public class PacienteController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
-        Page<Paciente> pacientes = pacienteApplicationService.getAllPaginado(pageable);
+    public ResponseEntity<APIResponse> getAllPaginado(
+            Pageable pageable,
+            @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia) {
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        Page<Paciente> pacientes = incluirJerarquia
+                ? pacienteApplicationService.getAllPaginadoConJerarquia(pageable)
+                : pacienteApplicationService.getAllPaginado(pageable);
         Map<String, Object> body = Map.of(
-            "content", PacienteMapper.toResponseDTOList(pacientes.getContent()),
+            "content", PacienteMapper.toResponseDTOList(pacientes.getContent(), idInstActual),
             "page", pacientes.getNumber(),
             "size", pacientes.getSize(),
             "totalElements", pacientes.getTotalElements(),
@@ -115,7 +127,8 @@ public class PacienteController {
             @PathVariable Long id) {
         Paciente paciente = pacienteApplicationService.findUser(id);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
     }
 
     @GetMapping("/uuid/{uuid}")
@@ -139,7 +152,8 @@ public class PacienteController {
             @PathVariable String uuid) {
         Paciente paciente = pacienteApplicationService.findByUUID(uuid);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
     }
 
     @GetMapping("/folio/{folio}")
@@ -163,7 +177,8 @@ public class PacienteController {
             @PathVariable String folio) {
         Paciente paciente = pacienteApplicationService.findByFolio(folio);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento), false, HttpStatus.OK));
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
     }
 
     @PostMapping
@@ -185,8 +200,9 @@ public class PacienteController {
         String uuidUsuarioAutenticado = userDetails != null ? userDetails.getUsername() : null;
         Paciente saved = pacienteApplicationService.saveUserConReclutamiento(paciente, dto.getReclutamiento(), uuidUsuarioAutenticado);
         var reclutamiento = pacienteApplicationService.getReclutamiento(saved.getId());
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new APIResponse("Participante registrado exitosamente", PacienteMapper.toResponseDTO(saved, reclutamiento), false, HttpStatus.CREATED));
+            .body(new APIResponse("Participante registrado exitosamente", PacienteMapper.toResponseDTO(saved, reclutamiento, idInstActual), false, HttpStatus.CREATED));
     }
 
     @PatchMapping("/uuid/{uuid}/toggle-activo")
@@ -195,9 +211,19 @@ public class PacienteController {
     public ResponseEntity<APIResponse> toggleActivo(@PathVariable String uuid) {
         Paciente updated = pacienteApplicationService.toggleActivo(uuid);
         var reclutamiento = pacienteApplicationService.getReclutamiento(updated.getId());
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         return ResponseEntity.ok(new APIResponse(
                 updated.getActivo() ? "Participante activado" : "Participante desactivado",
-                PacienteMapper.toResponseDTO(updated, reclutamiento), false, HttpStatus.OK));
+                PacienteMapper.toResponseDTO(updated, reclutamiento, idInstActual), false, HttpStatus.OK));
+    }
+
+    @PostMapping(value = "/importar", consumes = "multipart/form-data")
+    @Operation(summary = "Importar participantes desde CSV o Excel",
+               description = "Recibe un archivo CSV o XLSX con columnas: folio, nombre, apellidoPaterno, apellidoMaterno, curp, fechaNacimiento, sexo, telefono, email. Solo folio (o vacío para auto-generar), nombre y apellidoPaterno son obligatorios.")
+    public ResponseEntity<APIResponse> importar(@RequestParam("archivo") MultipartFile archivo) {
+        ImportResultDTO resultado = pacienteApplicationService.importarPacientes(archivo);
+        String msg = "Importación completada: " + resultado.getExitosos() + " exitosos, " + resultado.getErrores() + " errores";
+        return ResponseEntity.ok(new APIResponse(msg, resultado, false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}")
@@ -224,6 +250,7 @@ public class PacienteController {
         paciente.setId(id);
         Paciente updated = pacienteApplicationService.updateUser(paciente);
         var reclutamiento = pacienteApplicationService.getReclutamiento(updated.getId());
-        return ResponseEntity.ok(new APIResponse("Participante actualizado", PacienteMapper.toResponseDTO(updated, reclutamiento), false, HttpStatus.OK));
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Participante actualizado", PacienteMapper.toResponseDTO(updated, reclutamiento, idInstActual), false, HttpStatus.OK));
     }
 }

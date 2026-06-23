@@ -24,4 +24,8 @@ public class PacienteResponseDTO {
     private LocalDateTime fechaActualizacion;
     private PersonaResponseDTO persona;
     private ReclutamientoParticipanteResponseDTO reclutamiento;
+
+    private Long institucionId;
+    private String institucionNombre;
+    private Boolean propiaInstitucion;
 }
