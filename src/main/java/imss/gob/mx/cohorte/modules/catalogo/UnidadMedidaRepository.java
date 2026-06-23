@@ -8,7 +8,9 @@ import java.util.Optional;
 
 @Repository
 public interface UnidadMedidaRepository extends JpaRepository<UnidadMedida, Long> {
-    List<UnidadMedida> findAllByActivo(Boolean activo);
-    Optional<UnidadMedida> findByNombreIgnoreCase(String nombre);
-    boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
+    List<UnidadMedida> findAllByInstitucion_IdOrderByNombreAsc(Long idInstitucion);
+    List<UnidadMedida> findAllByInstitucion_IdAndActivoOrderByNombreAsc(Long idInstitucion, Boolean activo);
+    Optional<UnidadMedida> findByIdAndInstitucion_Id(Long id, Long idInstitucion);
+    Optional<UnidadMedida> findByNombreIgnoreCaseAndInstitucion_Id(String nombre, Long idInstitucion);
+    boolean existsByNombreIgnoreCaseAndInstitucion_IdAndIdNot(String nombre, Long idInstitucion, Long id);
 }

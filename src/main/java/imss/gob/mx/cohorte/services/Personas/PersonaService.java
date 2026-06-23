@@ -43,6 +43,14 @@ public class PersonaService {
             throw new ObjConflictException("El número telefónico ya fue registrado");
         }
 
+        if (persona.getCurp() != null && !persona.getCurp().isBlank()
+                && personaRepository.existsByCurp(persona.getCurp().toUpperCase())) {
+            throw new ObjConflictException("El CURP ya fue registrado");
+        }
+        if (persona.getCurp() != null && !persona.getCurp().isBlank()) {
+            persona.setCurp(persona.getCurp().toUpperCase());
+        }
+
         persona.setFechaRegistro(LocalDateTime.now());
         persona.setFechaActualizacion(LocalDateTime.now());
 
@@ -80,6 +88,15 @@ public class PersonaService {
         personaBD.setFechaNacimiento(persona.getFechaNacimiento());
         personaBD.setSexo(persona.getSexo());
 
+        String nuevoCurp = persona.getCurp();
+        if (nuevoCurp != null && !nuevoCurp.isBlank()) {
+            nuevoCurp = nuevoCurp.toUpperCase();
+            if (!nuevoCurp.equals(personaBD.getCurp())
+                    && personaRepository.existsByCurpAndIdNot(nuevoCurp, personaBD.getId())) {
+                throw new ObjConflictException("El CURP ya fue registrado");
+            }
+            personaBD.setCurp(nuevoCurp);
+        }
 
         personaBD.setFechaActualizacion(LocalDateTime.now());
         return personaRepository.save(personaBD);

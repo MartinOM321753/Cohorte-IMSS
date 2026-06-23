@@ -41,6 +41,23 @@ public class AuditSerializer {
             byte[].class
     );
 
+    private static final Set<String> SENSITIVE_FIELD_TOKENS = Set.of(
+            "password",
+            "contrasena",
+            "contraseña",
+            "token",
+            "secret",
+            "credential",
+            "authorization",
+            "cookie",
+            "smtp",
+            "accesskey",
+            "secretkey",
+            "apikey",
+            "privatekey",
+            "key"
+    );
+
     private final ObjectMapper simpleMapper;
 
     public AuditSerializer() {
@@ -61,10 +78,18 @@ public class AuditSerializer {
             return serializeEntity(unwrapped);
         }
 
+        if (isApplicationObject(unwrapped)) {
+            return serializeObject(unwrapped);
+        }
+
+        if (unwrapped instanceof Collection<?> col) {
+            return serializeCollection(col);
+        }
+
         try {
             return simpleMapper.writeValueAsString(unwrapped);
-        } catch (JsonProcessingException e) {
-            return serializeEntity(unwrapped);
+        } catch (Exception e) {
+            return fallbackToString(unwrapped);
         }
     }
 
@@ -84,6 +109,8 @@ public class AuditSerializer {
             if (unwrapped == null) continue;
             if (isJpaEntity(unwrapped)) {
                 parts.add(extractFields(unwrapped, 0, new IdentityHashMap<>()));
+            } else if (isApplicationObject(unwrapped)) {
+                parts.add(extractFields(unwrapped, 0, new IdentityHashMap<>()));
             } else {
                 parts.add(unwrapped);
             }
@@ -101,9 +128,48 @@ public class AuditSerializer {
         }
     }
 
+    // ── Serialización de colecciones ────────────────────────────────────────
+
+    private String serializeCollection(Collection<?> col) {
+        if (isLazyCollection(col)) {
+            return "[lazy, no cargada]";
+        }
+        List<Object> items = new ArrayList<>();
+        for (Object item : col) {
+            if (item == null) { items.add(null); continue; }
+            Object itemUnwrapped = unwrapProxy(item);
+            if (itemUnwrapped == null) { items.add(null); continue; }
+            if (isJpaEntity(itemUnwrapped) || isApplicationObject(itemUnwrapped)) {
+                items.add(extractFields(itemUnwrapped, 0, new IdentityHashMap<>()));
+            } else {
+                items.add(itemUnwrapped);
+            }
+        }
+        try {
+            return simpleMapper.writeValueAsString(items);
+        } catch (Exception e) {
+            return "[" + items.size() + " elementos]";
+        }
+    }
+
+    private String fallbackToString(Object obj) {
+        return "{\"_tipo\":\"" + obj.getClass().getSimpleName()
+                + "\",\"_toString\":\"" + sanitize(obj.toString()) + "\"}";
+    }
+
     // ── Serialización de entidades ───────────────────────────────────────────
 
     private String serializeEntity(Object obj) {
+        Map<String, Object> map = extractFields(obj, 0, new IdentityHashMap<>());
+        try {
+            return simpleMapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            return "{\"_tipo\":\"" + obj.getClass().getSimpleName()
+                    + "\",\"_toString\":\"" + sanitize(obj.toString()) + "\"}";
+        }
+    }
+
+    private String serializeObject(Object obj) {
         Map<String, Object> map = extractFields(obj, 0, new IdentityHashMap<>());
         try {
             return simpleMapper.writeValueAsString(map);
@@ -118,6 +184,14 @@ public class AuditSerializer {
 
         Object unwrapped = unwrapProxy(obj);
         if (unwrapped == null) return null;
+
+        String className = unwrapped.getClass().getName();
+        if (!className.startsWith("imss.gob.mx") && !isJpaEntity(unwrapped)) {
+            Map<String, Object> fallback = new LinkedHashMap<>();
+            fallback.put("_tipo", unwrapped.getClass().getSimpleName());
+            fallback.put("_toString", sanitize(unwrapped.toString()));
+            return fallback;
+        }
 
         if (visited.containsKey(unwrapped)) {
             Map<String, Object> ref = new LinkedHashMap<>();
@@ -134,9 +208,9 @@ public class AuditSerializer {
             if (Modifier.isStatic(field.getModifiers())) continue;
             if (Modifier.isTransient(field.getModifiers())) continue;
 
-            field.setAccessible(true);
             Object value;
             try {
+                field.setAccessible(true);
                 value = field.get(unwrapped);
             } catch (Exception e) {
                 continue;
@@ -144,6 +218,11 @@ public class AuditSerializer {
 
             if (value == null) {
                 map.put(field.getName(), null);
+                continue;
+            }
+
+            if (isSensitiveField(field.getName())) {
+                map.put(field.getName(), redactValue(field.getName(), value));
                 continue;
             }
 
@@ -172,6 +251,11 @@ public class AuditSerializer {
             }
 
             if (isJpaEntity(value)) {
+                map.put(field.getName(), extractFields(value, depth + 1, visited));
+                continue;
+            }
+
+            if (isApplicationObject(value)) {
                 map.put(field.getName(), extractFields(value, depth + 1, visited));
                 continue;
             }
@@ -247,6 +331,12 @@ public class AuditSerializer {
         return clazz.isAnnotationPresent(Entity.class);
     }
 
+    private boolean isApplicationObject(Object obj) {
+        if (obj == null) return false;
+        Package pkg = obj.getClass().getPackage();
+        return pkg != null && pkg.getName().startsWith("imss.gob.mx.cohorte");
+    }
+
     private Object extractId(Object entity) {
         if (entity == null) return null;
         for (Field f : getAllFields(entity.getClass())) {
@@ -288,6 +378,38 @@ public class AuditSerializer {
                 || Temporal.class.isAssignableFrom(type)
                 || Date.class.isAssignableFrom(type)
                 || type == UUID.class;
+    }
+
+    private boolean isSensitiveField(String fieldName) {
+        String normalized = fieldName == null ? "" : fieldName.toLowerCase(Locale.ROOT);
+        if (normalized.contains("email") || normalized.contains("correo")) {
+            return true;
+        }
+        for (String token : SENSITIVE_FIELD_TOKENS) {
+            if (normalized.contains(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String redactValue(String fieldName, Object value) {
+        String normalized = fieldName == null ? "" : fieldName.toLowerCase(Locale.ROOT);
+        if ((normalized.contains("email") || normalized.contains("correo")) && value instanceof String email) {
+            return maskEmail(email);
+        }
+        return "***REDACTED***";
+    }
+
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 0 || at == email.length() - 1) {
+            return "***REDACTED***";
+        }
+        String local = email.substring(0, at);
+        String domain = email.substring(at + 1);
+        String visible = local.length() <= 1 ? local : local.substring(0, 1);
+        return visible + "***@" + domain;
     }
 
     private boolean isSkippable(Object obj) {
