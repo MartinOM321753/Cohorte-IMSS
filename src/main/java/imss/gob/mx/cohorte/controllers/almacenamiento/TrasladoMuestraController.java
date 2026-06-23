@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 import imss.gob.mx.cohorte.application.almacenamiento.TrasladoMuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +30,7 @@ import java.util.List;
 public class TrasladoMuestraController {
 
     private final TrasladoMuestraApplicationService trasladoApplicationService;
+    private final InstitucionContextService institucionContextService;
 
     // ── Consultas ────────────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ public class TrasladoMuestraController {
     public ResponseEntity<APIResponse> getActivos() {
         List<TrasladoMuestra> list = trasladoApplicationService.getActivosByMiInstitucion();
         return ResponseEntity.ok(
-            new APIResponse("Préstamos activos", TrasladoMapper.toResponseDTOList(list), false, HttpStatus.OK));
+            new APIResponse("Préstamos activos", TrasladoMapper.toResponseDTOList(list, myInstId()), false, HttpStatus.OK));
     }
 
     @GetMapping("/historial")
@@ -47,7 +49,8 @@ public class TrasladoMuestraController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Page<TrasladoMuestra> pageResult = trasladoApplicationService.getAllByMiInstitucionPaginado(page, size);
-        Page<TrasladoResponseDTO> dtoPage = pageResult.map(TrasladoMapper::toResponseDTO);
+        Long viewerId = myInstId();
+        Page<TrasladoResponseDTO> dtoPage = pageResult.map(t -> TrasladoMapper.toResponseDTO(t, viewerId));
         return ResponseEntity.ok(
             new APIResponse("Historial de préstamos", dtoPage, false, HttpStatus.OK));
     }
@@ -64,7 +67,7 @@ public class TrasladoMuestraController {
             @Parameter(description = "ID del préstamo") @PathVariable Long id) {
         TrasladoMuestra t = trasladoApplicationService.getTraslado(id);
         return ResponseEntity.ok(
-            new APIResponse("Préstamo encontrado", TrasladoMapper.toResponseDTO(t), false, HttpStatus.OK));
+            new APIResponse("Préstamo encontrado", TrasladoMapper.toResponseDTO(t, myInstId()), false, HttpStatus.OK));
     }
 
     @GetMapping("/muestra/{idMuestra}")
@@ -74,7 +77,7 @@ public class TrasladoMuestraController {
             @Parameter(description = "ID de la muestra") @PathVariable Long idMuestra) {
         List<TrasladoMuestra> historial = trasladoApplicationService.getHistorialByMuestra(idMuestra);
         return ResponseEntity.ok(
-            new APIResponse("Cadena de custodia", TrasladoMapper.toResponseDTOList(historial), false, HttpStatus.OK));
+            new APIResponse("Cadena de custodia", TrasladoMapper.toResponseDTOList(historial, myInstId()), false, HttpStatus.OK));
     }
 
     @GetMapping("/grupo/{grupoTraslado}")
@@ -84,7 +87,7 @@ public class TrasladoMuestraController {
             @Parameter(description = "UUID del grupo de traslado") @PathVariable String grupoTraslado) {
         List<TrasladoMuestra> list = trasladoApplicationService.getByGrupo(grupoTraslado);
         return ResponseEntity.ok(
-            new APIResponse("Traslados del lote", TrasladoMapper.toResponseDTOList(list), false, HttpStatus.OK));
+            new APIResponse("Traslados del lote", TrasladoMapper.toResponseDTOList(list, myInstId()), false, HttpStatus.OK));
     }
 
     // ── Mutaciones ───────────────────────────────────────────────────────────
@@ -113,7 +116,7 @@ public class TrasladoMuestraController {
         );
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Préstamo iniciado exitosamente",
-                TrasladoMapper.toResponseDTOList(traslados), false, HttpStatus.CREATED));
+                TrasladoMapper.toResponseDTOList(traslados, myInstId()), false, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}/confirmar-recepcion")
@@ -125,7 +128,7 @@ public class TrasladoMuestraController {
         TrasladoMuestra updated = trasladoApplicationService.confirmarRecepcion(
             id, dto.getUuidConfirma(), dto.getIdPosicionCaja());
         return ResponseEntity.ok(
-            new APIResponse("Recepción confirmada", TrasladoMapper.toResponseDTO(updated), false, HttpStatus.OK));
+            new APIResponse("Recepción confirmada", TrasladoMapper.toResponseDTO(updated, myInstId()), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}/alicuotas-en-destino")
@@ -146,7 +149,7 @@ public class TrasladoMuestraController {
         List<TrasladoMuestra> traslados = trasladoApplicationService.iniciarDevolucion(
             id, dto.getUuidInicia(), dto.getObservaciones(), dto.getIdsAlicuotasDevolver());
         return ResponseEntity.ok(
-            new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTOList(traslados), false, HttpStatus.OK));
+            new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTOList(traslados, myInstId()), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}/confirmar-devolucion")
@@ -158,7 +161,7 @@ public class TrasladoMuestraController {
         TrasladoMuestra devuelto = trasladoApplicationService.confirmarDevolucion(
             id, dto.getUuidConfirma(), dto.getObservaciones());
         return ResponseEntity.ok(
-            new APIResponse("Devolución confirmada", TrasladoMapper.toResponseDTO(devuelto), false, HttpStatus.OK));
+            new APIResponse("Devolución confirmada", TrasladoMapper.toResponseDTO(devuelto, myInstId()), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}/cancelar")
@@ -176,6 +179,10 @@ public class TrasladoMuestraController {
         TrasladoMuestra cancelado = trasladoApplicationService.cancelarPrestamo(
             id, dto.getUuidUsuario(), dto.getMotivo());
         return ResponseEntity.ok(
-            new APIResponse("Préstamo cancelado", TrasladoMapper.toResponseDTO(cancelado), false, HttpStatus.OK));
+            new APIResponse("Préstamo cancelado", TrasladoMapper.toResponseDTO(cancelado, myInstId()), false, HttpStatus.OK));
+    }
+
+    private Long myInstId() {
+        return institucionContextService.getIdInstitucionActual();
     }
 }

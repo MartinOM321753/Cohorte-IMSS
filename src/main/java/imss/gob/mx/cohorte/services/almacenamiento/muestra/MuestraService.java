@@ -116,6 +116,26 @@ public class MuestraService {
         return muestra;
     }
 
+    /**
+     * Acceso ampliado: propietaria, tenedora actual, o cualquier institución
+     * que haya participado en un traslado de esta muestra (préstamo/devolución).
+     */
+    @Transactional(readOnly = true)
+    public Muestra getByIdConAccesoHistorico(Long id) {
+        Muestra muestra = muestraRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        boolean esPropietaria = muestra.getInstitucion().getId().equals(idInst);
+        boolean esTenedora = muestra.getInstitucionActual().getId().equals(idInst);
+        if (!esPropietaria && !esTenedora) {
+            boolean tuvoAcceso = trasladoMuestraRepository.existsByMuestraAndInstitucion(id, idInst);
+            if (!tuvoAcceso) {
+                throw new ObjConflictException("No tiene acceso a esta muestra.");
+            }
+        }
+        return muestra;
+    }
+
     /** Obtiene las alícuotas de una muestra padre. */
     @Transactional(readOnly = true)
     public List<Muestra> getAlicuotas(Long idMuestraPadre) {

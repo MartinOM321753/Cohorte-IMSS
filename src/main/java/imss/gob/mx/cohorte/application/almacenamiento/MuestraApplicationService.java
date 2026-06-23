@@ -260,7 +260,8 @@ public class MuestraApplicationService {
         String folio = muestra.getPaciente().getFolio();
         int lote = muestraRepository.findMaxLoteByFolioAndTuboPrefix(folio, prefijo) + 1;
         muestra.setNumeroLote(lote);
-        return prefijo + "/" + folio + "/F4-L" + lote;
+        Long idInst = muestra.getInstitucion().getId();
+        return prefijo + "/" + folio + "/I" + idInst + "F4-L" + lote;
     }
 
     @Transactional
@@ -307,10 +308,7 @@ public class MuestraApplicationService {
         String folio = padre.getPaciente().getFolio();
         int lote = padre.getNumeroLote();
 
-        boolean esExterna = !padre.getInstitucion().getId().equals(miInstitucion.getId());
-        String etiquetaBase = esExterna
-                ? prefijo + "/" + folio + "/I" + miInstitucion.getId() + "-F4-L" + lote
-                : prefijo + "/" + folio + "/F4-L" + lote;
+        String etiquetaBase = prefijo + "/" + folio + "/I" + miInstitucion.getId() + "F4-L" + lote;
 
         java.util.List<Muestra> generadas = new java.util.ArrayList<>();
 

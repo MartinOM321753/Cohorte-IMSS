@@ -52,7 +52,7 @@ public class EstudioMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<EstudioMuestra> getByMuestra(Long idMuestra) {
-        muestraService.getByIdConAcceso(idMuestra);
+        muestraService.getByIdConAccesoHistorico(idMuestra);
         return estudioService.getByMuestra(idMuestra);
     }
 
@@ -97,14 +97,10 @@ public class EstudioMuestraApplicationService {
         Muestra muestra = existente.getMuestra();
 
         Long idInst = institucionContextService.getIdInstitucionActual();
+
         if (!existente.getUsuarioRealiza().getInstitucion().getId().equals(idInst)) {
             throw new ObjConflictException(
                     "Solo la institución que creó este estudio puede editarlo.");
-        }
-
-        if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
-            throw new ObjConflictException(
-                    "No se puede editar un estudio de una muestra en tránsito hacia otra institución.");
         }
 
         Double consumoAnterior = existente.getCantidadConsumida() != null ? existente.getCantidadConsumida() : 0.0;
@@ -149,7 +145,7 @@ public class EstudioMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<HistorialCambioMuestra> getHistorial(Long idMuestra) {
-        muestraService.getByIdConAcceso(idMuestra);
+        muestraService.getByIdConAccesoHistorico(idMuestra);
         return historialService.getByMuestra(idMuestra);
     }
 

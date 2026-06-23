@@ -57,5 +57,13 @@ public interface TrasladoMuestraRepository extends JpaRepository<TrasladoMuestra
 
     List<TrasladoMuestra> findAllByOrderByFechaTrasladoDesc();
 
+    @Query("""
+            SELECT COUNT(t) > 0 FROM TrasladoMuestra t
+            WHERE t.muestra.id = :idMuestra
+              AND (t.institucionOrigen.id = :idInst OR t.institucionDestino.id = :idInst)
+            """)
+    boolean existsByMuestraAndInstitucion(@Param("idMuestra") Long idMuestra,
+                                          @Param("idInst") Long idInst);
+
     void deleteAllByMuestra_Id(Long idMuestra);
 }

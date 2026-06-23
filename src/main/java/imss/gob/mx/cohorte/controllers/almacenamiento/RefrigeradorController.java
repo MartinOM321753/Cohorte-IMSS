@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 import imss.gob.mx.cohorte.application.almacenamiento.PisoRefrigeradorApplicationService;
 import imss.gob.mx.cohorte.application.almacenamiento.RefrigeradorApplicationService;
 import imss.gob.mx.cohorte.controllers.DTO.PisosDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoRefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorResponseDTO;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/almacenamiento/refrigeradores")
 @AllArgsConstructor
+@Validated
 @Tag(name = "Refrigeradores", description = "Gestión de refrigeradores criogénicos")
 @SecurityRequirement(name = "bearerAuth")
 public class RefrigeradorController {
@@ -204,7 +207,7 @@ public class RefrigeradorController {
     })
     public ResponseEntity<APIResponse> updatePiso(
         @Parameter(description = "ID numérico del piso", required = true)
-        @PathVariable Long id, @RequestBody PisoRefrigerador piso) {
+        @PathVariable @Positive Long id, @Validated @RequestBody PisoRefrigeradorRequestDTO piso) {
         PisoRefrigerador updated = pisoRefrigeradorApplicationService.updatePiso(id, piso);
         return ResponseEntity.ok(new APIResponse("Piso actualizado", updated, false, HttpStatus.OK));
     }

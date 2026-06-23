@@ -443,6 +443,8 @@ public class TrasladoMuestraService {
                 traslado.getInstitucionOrigen().getNombre(),
                 motivo, saved);
 
+        enviarEmailPrestamoCancelado(saved, usuario, motivo);
+
         return saved;
     }
 
@@ -497,6 +499,37 @@ public class TrasladoMuestraService {
                     "email/traslado-recibido", ctx);
         } catch (Exception e) {
             log.error("Error enviando email préstamo recibido: {}", e.getMessage());
+        }
+    }
+
+    private void enviarEmailPrestamoCancelado(TrasladoMuestra t, BeanUser cancela, String motivoCancelacion) {
+        Institucion destino = t.getInstitucionDestino();
+        if (destino.getEncargado() == null) return;
+        String email = destino.getEncargado().getPersona() != null
+                ? destino.getEncargado().getPersona().getEmail() : null;
+        if (email == null || email.isBlank()) return;
+
+        try {
+            String nombreEncargado = destino.getEncargado().getPersona().getNombre()
+                    + " " + destino.getEncargado().getPersona().getApellidoPaterno();
+            String nombreCancela = cancela.getPersona() != null
+                    ? cancela.getPersona().getNombre() + " " + cancela.getPersona().getApellidoPaterno()
+                    : cancela.getUsername();
+
+            Context ctx = new Context();
+            ctx.setVariable("nombreEncargado",          nombreEncargado.trim());
+            ctx.setVariable("etiquetaMuestra",          t.getMuestra().getEtiqueta());
+            ctx.setVariable("nombreInstitucionOrigen",  t.getInstitucionOrigen().getNombre());
+            ctx.setVariable("nombreCancela",            nombreCancela.trim());
+            ctx.setVariable("fechaCancelacion",         LocalDateTime.now().format(FMT));
+            ctx.setVariable("motivo",                   motivoCancelacion != null && !motivoCancelacion.isBlank()
+                    ? motivoCancelacion : "Sin motivo especificado");
+
+            emailService.enviar(email,
+                    "Préstamo cancelado — Muestra " + t.getMuestra().getEtiqueta(),
+                    "email/traslado-cancelado", ctx);
+        } catch (Exception e) {
+            log.error("Error enviando email préstamo cancelado: {}", e.getMessage());
         }
     }
 

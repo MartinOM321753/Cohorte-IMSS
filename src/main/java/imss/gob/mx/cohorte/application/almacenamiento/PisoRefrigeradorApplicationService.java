@@ -1,12 +1,14 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
 import imss.gob.mx.cohorte.controllers.DTO.PisosDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoRefrigeradorRequestDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PisoRefrigeradorService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.RefrigeradorService;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 
 
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
@@ -29,14 +31,17 @@ public class PisoRefrigeradorApplicationService {
     private final PisoRefrigeradorService pisoService;
     private final RefrigeradorService refrigeradorService;
     private final PosicionPisoService posicionPisoService;
+    private final InstitucionContextService institucionContextService;
 
     @Autowired
     public PisoRefrigeradorApplicationService(PisoRefrigeradorService pisoService, 
                                             RefrigeradorService refrigeradorService, 
-                                            PosicionPisoService posicionPisoService) {
+                                            PosicionPisoService posicionPisoService,
+                                            InstitucionContextService institucionContextService) {
         this.pisoService = pisoService;
         this.refrigeradorService = refrigeradorService;
         this.posicionPisoService = posicionPisoService;
+        this.institucionContextService = institucionContextService;
     }
 
     @Transactional(readOnly = true)
@@ -87,8 +92,16 @@ public class PisoRefrigeradorApplicationService {
     }
 
     @Transactional
-    public PisoRefrigerador updatePiso(Long id, PisoRefrigerador piso) {
+    public PisoRefrigerador updatePiso(Long id, PisoRefrigeradorRequestDTO dto) {
         PisoRefrigerador pisoBD = pisoService.getPiso(id);
+        institucionContextService.verificarPertenece(pisoBD.getRefrigerador().getInstitucion());
+
+        PisoRefrigerador piso = new PisoRefrigerador();
+        piso.setNumeroPiso(dto.getNumeroPiso());
+        piso.setFilas(dto.getFilas());
+        piso.setColumnas(dto.getColumnas());
+        piso.setAltura(dto.getAltura());
+        piso.setActivo(pisoBD.getActivo());
 
         int nuevasFilas = piso.getFilas() != null ? piso.getFilas() : pisoBD.getFilas();
         int nuevasColumnas = piso.getColumnas() != null ? piso.getColumnas() : pisoBD.getColumnas();

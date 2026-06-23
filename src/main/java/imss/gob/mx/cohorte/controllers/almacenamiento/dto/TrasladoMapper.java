@@ -14,7 +14,7 @@ public class TrasladoMapper {
 
     private TrasladoMapper() {}
 
-    public static TrasladoResponseDTO toResponseDTO(TrasladoMuestra t) {
+    public static TrasladoResponseDTO toResponseDTO(TrasladoMuestra t, Long viewerInstitucionId) {
         Muestra muestra = t.getMuestra();
         return TrasladoResponseDTO.builder()
                 .id(t.getId())
@@ -25,7 +25,7 @@ public class TrasladoMapper {
                         .estadoMuestra(muestra.getEstadoMuestra() != null
                                 ? muestra.getEstadoMuestra().name() : null)
                         .esAlicuota(muestra.getMuestraPadre() != null)
-                        .posicionLabel(buildPosicionLabel(muestra))
+                        .posicionLabel(buildPosicionLabel(muestra, viewerInstitucionId))
                         .build())
                 .institucionOrigen(mapInstitucion(t.getInstitucionOrigen()))
                 .institucionDestino(mapInstitucion(t.getInstitucionDestino()))
@@ -40,8 +40,8 @@ public class TrasladoMapper {
                 .build();
     }
 
-    public static List<TrasladoResponseDTO> toResponseDTOList(List<TrasladoMuestra> list) {
-        return list.stream().map(TrasladoMapper::toResponseDTO).toList();
+    public static List<TrasladoResponseDTO> toResponseDTOList(List<TrasladoMuestra> list, Long viewerInstitucionId) {
+        return list.stream().map(t -> toResponseDTO(t, viewerInstitucionId)).toList();
     }
 
     private static TrasladoResponseDTO.InstitucionResumenDTO mapInstitucion(Institucion i) {
@@ -55,7 +55,14 @@ public class TrasladoMapper {
                 .build();
     }
 
-    private static String buildPosicionLabel(Muestra muestra) {
+    private static String buildPosicionLabel(Muestra muestra, Long viewerInstitucionId) {
+        Institucion instActual = muestra.getInstitucionActual();
+        boolean esMiMuestra = instActual != null && instActual.getId().equals(viewerInstitucionId);
+
+        if (!esMiMuestra) {
+            return instActual != null ? "En: " + instActual.getNombre() : null;
+        }
+
         PosicionCaja pos = muestra.getPosicionCaja();
         if (pos == null) return null;
         CajaCriogenica caja = pos.getCaja();
