@@ -80,6 +80,17 @@ public class DocumentoController {
         this.accessTokenService = accessTokenService;
     }
 
+    // ─── Helper: mapeo TipoDocumentoPaciente → TipoEntidadDocumento ───────────
+
+    private TipoEntidadDocumento mapTipoEntidad(TipoDocumentoPaciente tipoDoc) {
+        return switch (tipoDoc) {
+            case CONSENTIMIENTO -> TipoEntidadDocumento.PACIENTE_CONSENTIMIENTO;
+            case CUESTIONARIO, CUESTIONARIO_GENERAL, CUESTIONARIO_MINIMENTAL,
+                 CUESTIONARIO_AFLUENCIA_VERBAL, CUESTIONARIO_AGES -> TipoEntidadDocumento.PACIENTE_CUESTIONARIO;
+            case GENERAL        -> TipoEntidadDocumento.PACIENTE_GENERAL;
+        };
+    }
+
     // ─── Helper: extrae el rol del SecurityContext ────────────────────────────────
 
     /**
@@ -123,13 +134,34 @@ public class DocumentoController {
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
-        TipoEntidadDocumento tipoEntidad = tipoDoc == TipoDocumentoPaciente.CONSENTIMIENTO
-                ? TipoEntidadDocumento.PACIENTE_CONSENTIMIENTO
-                : TipoEntidadDocumento.PACIENTE_GENERAL;
+        TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
         documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
         DocumentoResponseDTO dto = documentoService.uploadParaPaciente(file, uuid, tipoDoc, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
+    }
+
+    @PostMapping("/paciente/{uuid}/sin-archivo")
+    public ResponseEntity<APIResponse> crearSinArchivo(
+            @PathVariable String uuid,
+            @RequestParam(value = "tipoDoc", defaultValue = "CUESTIONARIO") TipoDocumentoPaciente tipoDoc,
+            @RequestParam(value = "descripcion", required = false) String descripcion,
+            @RequestParam(value = "usuarioUUID") String usuarioUUID
+    ) {
+        TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
+        documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
+        DocumentoResponseDTO dto = documentoService.crearDocumentoSinArchivo(uuid, tipoDoc, descripcion, usuarioUUID);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new APIResponse("Registro creado — etiqueta generada", dto, false, HttpStatus.CREATED));
+    }
+
+    @PostMapping(value = "/{id}/adjuntar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<APIResponse> adjuntarArchivo(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file
+    ) {
+        DocumentoResponseDTO dto = documentoService.adjuntarArchivo(id, file);
+        return ResponseEntity.ok(new APIResponse("Archivo adjuntado correctamente", dto, false, HttpStatus.OK));
     }
 
     // ─── Upload para Muestra ──────────────────────────────────────────────────────
@@ -143,6 +175,21 @@ public class DocumentoController {
     ) {
         documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.MUESTRA);
         DocumentoResponseDTO dto = documentoService.uploadParaMuestra(file, muestraId, descripcion, usuarioUUID);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
+    }
+
+    // ─── Upload para Resultado de Examen ─────────────────────────────────────────
+
+    @PostMapping(value = "/resultado-examen/{resultadoId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<APIResponse> uploadParaResultadoExamen(
+            @PathVariable Long resultadoId,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "descripcion", required = false) String descripcion,
+            @RequestParam(value = "usuarioUUID") String usuarioUUID
+    ) {
+        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.RESULTADO_EXAMEN);
+        DocumentoResponseDTO dto = documentoService.uploadParaResultadoExamen(file, resultadoId, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
     }
@@ -181,6 +228,12 @@ public class DocumentoController {
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
 
+    @GetMapping("/resultado-examen/{resultadoId}")
+    public ResponseEntity<APIResponse> getByResultadoExamen(@PathVariable Long resultadoId) {
+        List<DocumentoResponseDTO> docs = documentoService.getDocumentosByResultadoExamen(resultadoId);
+        return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
+    }
+
     /** Devuelve una URL firmada fresca (útil cuando la URL del DTO ya expiró). */
     @GetMapping("/{id}/url")
     public ResponseEntity<APIResponse> getDownloadUrl(@PathVariable Long id) {
@@ -214,6 +267,10 @@ public class DocumentoController {
 
         Documento doc = documentoService.getDocumentoById(id);
         documentoService.verificarPuedeVer(getCurrentRole(), doc.getTipoEntidad());
+
+        if (!doc.isArchivoSubido() || doc.getObjectKey() == null) {
+            throw new ObjNotFoundException("Este documento aún no tiene archivo adjunto");
+        }
 
         // ── Verificar que el archivo existe en MinIO ANTES de comprometer los headers ──
         // Si se lanza aquí (antes del StreamingResponseBody), Spring aún no ha fijado
@@ -322,6 +379,10 @@ public class DocumentoController {
 
         Documento doc = accessTokenService.validarTokenYObtenerDocumento(token);
 
+        if (!doc.isArchivoSubido() || doc.getObjectKey() == null) {
+            throw new ObjNotFoundException("Este documento aún no tiene archivo adjunto");
+        }
+
         if (!minioStorageService.objectExists(doc.getObjectKey())) {
             throw new ObjNotFoundException(
                     "El archivo no se encontró en el almacenamiento: " + doc.getNombreOriginal());
@@ -355,11 +416,12 @@ public class DocumentoController {
         Documento doc = documentoService.getDocumentoPorEtiqueta(etiqueta);
         Map<String, Object> info = Map.of(
                 "id", doc.getId(),
-                "nombreOriginal", doc.getNombreOriginal(),
+                "nombreOriginal", doc.getNombreOriginal() != null ? doc.getNombreOriginal() : "",
                 "mimeType", doc.getMimeType() != null ? doc.getMimeType() : "",
                 "etiqueta", doc.getEtiqueta(),
                 "tipoEntidad", doc.getTipoEntidad().name(),
-                "fechaSubida", doc.getFechaSubida().toString()
+                "fechaSubida", doc.getFechaSubida().toString(),
+                "archivoSubido", doc.isArchivoSubido()
         );
         return ResponseEntity.ok(new APIResponse("Información del documento", info, false, HttpStatus.OK));
     }

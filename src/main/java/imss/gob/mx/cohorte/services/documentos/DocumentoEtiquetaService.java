@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.services.documentos;
 
 import imss.gob.mx.cohorte.modules.documentos.DocumentoFolioSeq;
 import imss.gob.mx.cohorte.modules.documentos.DocumentoFolioSeqRepository;
+import imss.gob.mx.cohorte.modules.documentos.TipoDocumentoPaciente;
 import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,19 @@ public class DocumentoEtiquetaService {
             TipoEntidadDocumento.ESTUDIO, "E",
             TipoEntidadDocumento.MUESTRA, "M",
             TipoEntidadDocumento.PACIENTE_CONSENTIMIENTO, "C",
-            TipoEntidadDocumento.PACIENTE_GENERAL, "G"
+            TipoEntidadDocumento.PACIENTE_GENERAL, "G",
+            TipoEntidadDocumento.PACIENTE_CUESTIONARIO, "Q"
+    );
+
+    /** Literal fijo requerido en la etiqueta de Consentimiento/Cuestionario: {PREFIJO}/{folio}/F4. */
+    private static final String LITERAL_F4 = "F4";
+
+    private static final Map<TipoDocumentoPaciente, String> PREFIJO_PACIENTE = Map.of(
+            TipoDocumentoPaciente.CUESTIONARIO_GENERAL, "C1",
+            TipoDocumentoPaciente.CUESTIONARIO_MINIMENTAL, "C2",
+            TipoDocumentoPaciente.CUESTIONARIO_AFLUENCIA_VERBAL, "C3",
+            TipoDocumentoPaciente.CUESTIONARIO_AGES, "C4",
+            TipoDocumentoPaciente.CONSENTIMIENTO, "CI"
     );
 
     private static final Map<String, String> MIME_A_EXTENSION = Map.ofEntries(
@@ -65,6 +78,44 @@ public class DocumentoEtiquetaService {
         String extension = resolverExtension(mimeType, nombreOriginal);
 
         return String.format("D%02d-%02d-%s-%05d.%s", yy, idInstitucion, prefTipo, folio, extension);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String generarEtiquetaSinArchivo(Long idInstitucion, TipoEntidadDocumento tipo) {
+        int anio = LocalDate.now().getYear();
+        int yy = anio % 100;
+
+        int folio = siguienteFolio(idInstitucion, anio);
+
+        String prefTipo = PREFIJO_TIPO.getOrDefault(tipo, "X");
+
+        return String.format("D%02d-%02d-%s-%05d.PND", yy, idInstitucion, prefTipo, folio);
+    }
+
+    /** Indica si {@code tipoDoc} usa el formato nuevo {PREFIJO}/{folio}/F4 en vez del formato D{YY}-{II}-{T}-{FOLIO}. */
+    public static boolean usaFormatoPaciente(TipoDocumentoPaciente tipoDoc) {
+        return PREFIJO_PACIENTE.containsKey(tipoDoc);
+    }
+
+    /**
+     * Genera la etiqueta de Consentimiento/Cuestionario con formato {PREFIJO}/{folio}/F4.
+     * <p>
+     * Los cuestionarios siempre usan el folio fijo del paciente. Para Consentimiento, el
+     * primer registro usa ese mismo folio; los posteriores agregan la revision al folio para
+     * mantener etiquetas unicas sin mover el literal final F4: CI/{folio}-2/F4.
+     */
+    public String generarEtiquetaPaciente(TipoDocumentoPaciente tipoDoc, String folioPaciente, int revisionConsentimiento) {
+        String prefijo = PREFIJO_PACIENTE.getOrDefault(tipoDoc, "X");
+        String valor = tipoDoc == TipoDocumentoPaciente.CONSENTIMIENTO
+                ? folioConsentimiento(folioPaciente, revisionConsentimiento)
+                : folioPaciente;
+        return prefijo + "/" + valor + "/" + LITERAL_F4;
+    }
+
+    private String folioConsentimiento(String folioPaciente, int revisionConsentimiento) {
+        return revisionConsentimiento <= 1
+                ? folioPaciente
+                : folioPaciente + "-" + revisionConsentimiento;
     }
 
     private int siguienteFolio(Long idInstitucion, int anio) {

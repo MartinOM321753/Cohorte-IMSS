@@ -20,5 +20,6 @@ public class DocumentoResponseDTO {
     /** Código único imprimible del documento, formato D{YY}-{II}-{T}-{FOLIO}.{EXT} */
     private String etiqueta;
     private boolean puedeDescargar;
+    private boolean archivoSubido;
     private String url;
 }
