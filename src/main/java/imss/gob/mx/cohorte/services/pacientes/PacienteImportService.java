@@ -2,26 +2,19 @@ package imss.gob.mx.cohorte.services.pacientes;
 
 import imss.gob.mx.cohorte.controllers.pacientes.dto.ImportResultDTO;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
-import imss.gob.mx.cohorte.modules.paciente.Paciente;
-import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
-import imss.gob.mx.cohorte.modules.persona.Persona;
-import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -30,25 +23,27 @@ import java.util.*;
 @RequiredArgsConstructor
 public class PacienteImportService {
 
-    private final PacienteRepository pacienteRepository;
-    private final PersonaRepository personaRepository;
-    private final FolioGeneratorService folioGeneratorService;
+    private final PacienteImportRowService pacienteImportRowService;
 
     private static final List<String> COLUMNAS_ESPERADAS = List.of(
             "folio", "nombre", "apellidoPaterno", "apellidoMaterno",
             "curp", "fechaNacimiento", "sexo", "telefono", "email"
     );
 
-    @Transactional
-    public ImportResultDTO importar(MultipartFile archivo, Institucion institucion) {
-        String nombre = archivo.getOriginalFilename();
-        if (nombre == null) nombre = "";
+    /**
+     * Recibe el contenido del archivo como bytes (no MultipartFile) porque esto
+     * se invoca desde un metodo @Async, despues de que la peticion HTTP original
+     * ya terminó — el MultipartFile y su stream/archivo temporal ya no son
+     * validos para entonces.
+     */
+    public ImportResultDTO importar(byte[] contenido, String nombreArchivo, Institucion institucion) {
+        String nombre = nombreArchivo != null ? nombreArchivo : "";
 
         List<Map<String, String>> filas;
         if (nombre.endsWith(".xlsx") || nombre.endsWith(".xls")) {
-            filas = parsearExcel(archivo);
+            filas = parsearExcel(contenido);
         } else {
-            filas = parsearCsv(archivo);
+            filas = parsearCsv(contenido);
         }
 
         List<ImportResultDTO.FilaError> errores = new ArrayList<>();
@@ -58,102 +53,31 @@ public class PacienteImportService {
         for (int i = 0; i < filas.size(); i++) {
             Map<String, String> fila = filas.get(i);
             int numFila = i + 2; // +2 porque fila 1 es header
-            String folioRaw = fila.getOrDefault("folio", "").trim();
 
             try {
-                String nombreVal = fila.getOrDefault("nombre", "").trim();
-                String apPaterno = fila.getOrDefault("apellidoPaterno", "").trim();
-
-                if (nombreVal.isEmpty() || apPaterno.isEmpty()) {
-                    errores.add(ImportResultDTO.FilaError.builder()
-                            .fila(numFila).folio(folioRaw)
-                            .motivo("Nombre y apellido paterno son obligatorios")
-                            .build());
-                    continue;
-                }
-
-                String folio;
-                if (folioRaw.isEmpty()) {
-                    folio = folioGeneratorService.generarFolio();
-                } else {
-                    folio = folioGeneratorService.normalizar(folioRaw);
-                    if (pacienteRepository.existsByFolio(folio)) {
+                // Cada fila se procesa en su propia transaccion (ver
+                // PacienteImportRowService) para que generarFolio() vea los
+                // folios ya confirmados de filas previas del mismo lote, y
+                // para que un error en una fila no corrompa la sesion de
+                // Hibernate de las demas.
+                PacienteImportRowService.Resultado resultado = pacienteImportRowService.guardarFila(fila, institucion);
+                switch (resultado.estado()) {
+                    case EXITOSO -> exitosos++;
+                    case DUPLICADO -> {
                         duplicados++;
                         errores.add(ImportResultDTO.FilaError.builder()
-                                .fila(numFila).folio(folio)
-                                .motivo("El folio ya existe")
+                                .fila(numFila).folio(resultado.folio())
+                                .motivo(resultado.motivo())
                                 .build());
-                        continue;
                     }
-                }
-
-                String curp = fila.getOrDefault("curp", "").trim().toUpperCase();
-                if (!curp.isEmpty() && personaRepository.existsByCurp(curp)) {
-                    duplicados++;
-                    errores.add(ImportResultDTO.FilaError.builder()
-                            .fila(numFila).folio(folio)
-                            .motivo("El CURP '" + curp + "' ya existe")
+                    case ERROR -> errores.add(ImportResultDTO.FilaError.builder()
+                            .fila(numFila).folio(resultado.folio())
+                            .motivo(resultado.motivo())
                             .build());
-                    continue;
                 }
-
-                String emailVal = fila.getOrDefault("email", "").trim();
-                if (!emailVal.isEmpty() && personaRepository.findByEmail(emailVal).isPresent()) {
-                    duplicados++;
-                    errores.add(ImportResultDTO.FilaError.builder()
-                            .fila(numFila).folio(folio)
-                            .motivo("El email '" + emailVal + "' ya existe")
-                            .build());
-                    continue;
-                }
-
-                String telefonoVal = fila.getOrDefault("telefono", "").trim();
-                if (!telefonoVal.isEmpty() && personaRepository.findByTelefono(telefonoVal).isPresent()) {
-                    duplicados++;
-                    errores.add(ImportResultDTO.FilaError.builder()
-                            .fila(numFila).folio(folio)
-                            .motivo("El teléfono '" + telefonoVal + "' ya existe")
-                            .build());
-                    continue;
-                }
-
-                Persona persona = new Persona();
-                persona.setNombre(nombreVal);
-                persona.setApellidoPaterno(apPaterno);
-                persona.setApellidoMaterno(emptyToNull(fila.getOrDefault("apellidoMaterno", "")));
-                persona.setCurp(curp.isEmpty() ? null : curp);
-                persona.setTelefono(telefonoVal.isEmpty() ? null : telefonoVal);
-                persona.setEmail(emailVal.isEmpty() ? null : emailVal);
-
-                String fechaNacStr = fila.getOrDefault("fechaNacimiento", "").trim();
-                if (!fechaNacStr.isEmpty()) {
-                    persona.setFechaNacimiento(parsearFecha(fechaNacStr));
-                }
-
-                String sexoStr = fila.getOrDefault("sexo", "").trim().toUpperCase();
-                if ("M".equals(sexoStr) || "F".equals(sexoStr)) {
-                    persona.setSexo(Persona.Sexo.valueOf(sexoStr));
-                }
-
-                persona.setFechaRegistro(LocalDateTime.now());
-                persona.setFechaActualizacion(LocalDateTime.now());
-                persona = personaRepository.save(persona);
-
-                Paciente paciente = new Paciente();
-                paciente.setFolio(folio);
-                paciente.setPersona(persona);
-                paciente.setInstitucion(institucion);
-                paciente.setActivo(true);
-                paciente.setFechaRegistro(LocalDateTime.now());
-                paciente.setFechaActualizacion(LocalDateTime.now());
-                paciente.setUuid(UUID.randomUUID().toString());
-                pacienteRepository.save(paciente);
-
-                exitosos++;
-
             } catch (Exception e) {
                 errores.add(ImportResultDTO.FilaError.builder()
-                        .fila(numFila).folio(folioRaw)
+                        .fila(numFila).folio(fila.getOrDefault("folio", "").trim())
                         .motivo(e.getMessage())
                         .build());
             }
@@ -168,10 +92,10 @@ public class PacienteImportService {
                 .build();
     }
 
-    private List<Map<String, String>> parsearCsv(MultipartFile archivo) {
+    private List<Map<String, String>> parsearCsv(byte[] contenido) {
         List<Map<String, String>> filas = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(archivo.getInputStream(), StandardCharsets.UTF_8))) {
+                new InputStreamReader(new ByteArrayInputStream(contenido), StandardCharsets.UTF_8))) {
 
             String headerLine = reader.readLine();
             if (headerLine == null) return filas;
@@ -202,9 +126,9 @@ public class PacienteImportService {
         return filas;
     }
 
-    private List<Map<String, String>> parsearExcel(MultipartFile archivo) {
+    private List<Map<String, String>> parsearExcel(byte[] contenido) {
         List<Map<String, String>> filas = new ArrayList<>();
-        try (Workbook workbook = WorkbookFactory.create(archivo.getInputStream())) {
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(contenido))) {
             Sheet sheet = workbook.getSheetAt(0);
             if (sheet == null) return filas;
 
@@ -263,27 +187,6 @@ public class PacienteImportService {
             default:
                 return "";
         }
-    }
-
-    private LocalDate parsearFecha(String valor) {
-        List<DateTimeFormatter> formatos = List.of(
-                DateTimeFormatter.ISO_LOCAL_DATE,           // yyyy-MM-dd
-                DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                DateTimeFormatter.ofPattern("d/M/yyyy"),
-                DateTimeFormatter.ofPattern("MM/dd/yyyy")
-        );
-        for (DateTimeFormatter fmt : formatos) {
-            try {
-                return LocalDate.parse(valor, fmt);
-            } catch (Exception ignored) {}
-        }
-        throw new RuntimeException("Formato de fecha no reconocido: " + valor);
-    }
-
-    private String emptyToNull(String valor) {
-        if (valor == null) return null;
-        String trimmed = valor.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public List<String> getColumnasEsperadas() {
