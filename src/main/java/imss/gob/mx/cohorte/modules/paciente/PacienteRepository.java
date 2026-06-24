@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -56,4 +57,32 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     Optional<Paciente> findByFolioAndInstitucion_IdIn(String folio, List<Long> ids);
 
     Optional<Paciente> findByIdAndInstitucion_IdIn(Long id, List<Long> ids);
+
+    // ── Búsqueda paginada con filtro de texto (server-side search) ──
+
+    @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id = :idInstitucion "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+    Page<Paciente> buscarPaginado(@Param("idInstitucion") Long idInstitucion,
+                                  @Param("buscar") String buscar,
+                                  Pageable pageable);
+
+    @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id IN :ids "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+    Page<Paciente> buscarPaginadoEnInstituciones(@Param("ids") List<Long> ids,
+                                                 @Param("buscar") String buscar,
+                                                 Pageable pageable);
 }

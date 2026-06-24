@@ -5,10 +5,10 @@ import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.reclutamiento.ReclutamientoParticipante;
+import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
-import imss.gob.mx.cohorte.controllers.pacientes.dto.ImportResultDTO;
 import imss.gob.mx.cohorte.services.Personas.PersonaService;
-import imss.gob.mx.cohorte.services.pacientes.PacienteImportService;
+import imss.gob.mx.cohorte.services.pacientes.ImportacionParticipantesAsyncService;
 import imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
 import imss.gob.mx.cohorte.services.reclutamiento.ReclutamientoParticipanteService;
@@ -19,6 +19,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
@@ -31,7 +33,7 @@ public class PacienteApplicationService {
     private final PacienteService pacienteService;
     private final PersonaService personaService;
     private final ReclutamientoParticipanteService reclutamientoService;
-    private final PacienteImportService pacienteImportService;
+    private final ImportacionParticipantesAsyncService importacionParticipantesAsyncService;
     private final InstitucionContextService institucionContextService;
     private final InstitucionJerarquiaService institucionJerarquiaService;
 
@@ -57,6 +59,18 @@ public class PacienteApplicationService {
         List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
                 institucionContextService.getIdInstitucionActual());
         return pacienteService.findAllPaginadoByInstituciones(ids, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Paciente> buscarPaginado(String buscar, Pageable pageable) {
+        return pacienteService.buscarPaginado(institucionContextService.getIdInstitucionActual(), buscar, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Paciente> buscarPaginadoConJerarquia(String buscar, Pageable pageable) {
+        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+        return pacienteService.buscarPaginadoEnInstituciones(ids, buscar, pageable);
     }
 
     public Long getIdInstitucionActual() {
@@ -162,9 +176,28 @@ public class PacienteApplicationService {
         return pacienteService.toggleActivo(uuid, institucionContextService.getIdInstitucionActual());
     }
 
-    @Transactional
-    public ImportResultDTO importarPacientes(MultipartFile archivo) {
+    /**
+     * Dispara la importación masiva en segundo plano (ver
+     * ImportacionParticipantesAsyncService) y regresa de inmediato. El archivo
+     * se lee a memoria aquí mismo porque el MultipartFile ya no es válido una
+     * vez que termina la petición HTTP. Al concluir, se notifica por correo al
+     * usuario que inició la carga.
+     */
+    public void importarPacientesAsync(MultipartFile archivo) {
         Institucion institucionActual = institucionContextService.getInstitucionActual();
-        return pacienteImportService.importar(archivo, institucionActual);
+        BeanUser usuarioActual = institucionContextService.getUsuarioActual();
+        Persona persona = usuarioActual.getPersona();
+        String email = persona != null ? persona.getEmail() : null;
+        String nombre = persona != null ? persona.getNombre() : usuarioActual.getUsername();
+
+        byte[] contenido;
+        try {
+            contenido = archivo.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo leer el archivo: " + e.getMessage(), e);
+        }
+
+        importacionParticipantesAsyncService.procesarYNotificar(
+                contenido, archivo.getOriginalFilename(), institucionActual, email, nombre);
     }
 }

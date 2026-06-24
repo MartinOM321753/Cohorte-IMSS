@@ -1,7 +1,6 @@
 package imss.gob.mx.cohorte.controllers.pacientes;
 
 import imss.gob.mx.cohorte.application.PacienteApplicationService;
-import imss.gob.mx.cohorte.controllers.pacientes.dto.ImportResultDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteRequestDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteResponseDTO;
@@ -62,7 +61,10 @@ public class PacienteController {
     }
 
     @GetMapping("/paginado")
-    @Operation(summary = "Listar pacientes paginados", description = "Obtiene los pacientes en páginas (parámetros estándar de Spring: page, size, sort) para evitar cargar toda la tabla en una sola respuesta")
+    @Operation(summary = "Listar pacientes paginados con búsqueda server-side",
+               description = "Obtiene los pacientes en páginas con filtro de texto opcional. " +
+                       "El parámetro 'buscar' filtra por nombre, apellidos, CURP, correo o folio. " +
+                       "Parámetros de paginación estándar de Spring: page, size, sort.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Éxito",
             content = @Content(mediaType = "application/json",
@@ -73,11 +75,12 @@ public class PacienteController {
     })
     public ResponseEntity<APIResponse> getAllPaginado(
             Pageable pageable,
+            @RequestParam(value = "buscar", required = false) String buscar,
             @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Page<Paciente> pacientes = incluirJerarquia
-                ? pacienteApplicationService.getAllPaginadoConJerarquia(pageable)
-                : pacienteApplicationService.getAllPaginado(pageable);
+                ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, pageable)
+                : pacienteApplicationService.buscarPaginado(buscar, pageable);
         Map<String, Object> body = Map.of(
             "content", PacienteMapper.toResponseDTOList(pacientes.getContent(), idInstActual),
             "page", pacientes.getNumber(),
@@ -218,12 +221,12 @@ public class PacienteController {
     }
 
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
-    @Operation(summary = "Importar participantes desde CSV o Excel",
-               description = "Recibe un archivo CSV o XLSX con columnas: folio, nombre, apellidoPaterno, apellidoMaterno, curp, fechaNacimiento, sexo, telefono, email. Solo folio (o vacío para auto-generar), nombre y apellidoPaterno son obligatorios.")
+    @Operation(summary = "Importar participantes desde CSV o Excel (procesamiento en segundo plano)",
+               description = "Recibe un archivo CSV o XLSX con columnas: folio, nombre, apellidoPaterno, apellidoMaterno, curp, fechaNacimiento, sexo, telefono, email. Solo nombre y apellidoPaterno son obligatorios. El archivo se procesa de forma asíncrona; al terminar se envía un correo de confirmación al usuario que inició la carga.")
     public ResponseEntity<APIResponse> importar(@RequestParam("archivo") MultipartFile archivo) {
-        ImportResultDTO resultado = pacienteApplicationService.importarPacientes(archivo);
-        String msg = "Importación completada: " + resultado.getExitosos() + " exitosos, " + resultado.getErrores() + " errores";
-        return ResponseEntity.ok(new APIResponse(msg, resultado, false, HttpStatus.OK));
+        pacienteApplicationService.importarPacientesAsync(archivo);
+        String msg = "Archivo recibido. Se está procesando en segundo plano — recibirás un correo cuando termine.";
+        return ResponseEntity.accepted().body(new APIResponse(msg, false, HttpStatus.ACCEPTED));
     }
 
     @PutMapping("/{id}")

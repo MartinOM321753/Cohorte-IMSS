@@ -14,6 +14,8 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +46,12 @@ public class UserApplicationService {
     public List<BeanUser> findAllActiveByInstitucion() {
         Long idInstitucion = institucionContextService.getIdInstitucionActual();
         return userService.getAllActiveByInstitucion(idInstitucion);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BeanUser> buscarPaginado(String buscar, Pageable pageable) {
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        return userService.buscarPaginadoConInvitacionesPendientes(idInstitucion, buscar, pageable);
     }
 
     @Transactional

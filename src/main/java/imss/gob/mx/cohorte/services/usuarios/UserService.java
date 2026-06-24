@@ -6,6 +6,8 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,10 @@ public class UserService {
 
     public List<BeanUser> getAllActiveByInstitucion(Long idInstitucion) {
         return userRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
+    }
+
+    public Page<BeanUser> buscarPaginadoConInvitacionesPendientes(Long idInstitucion, String buscar, Pageable pageable) {
+        return userRepository.buscarPaginadoConInvitacionesPendientes(idInstitucion, buscar, pageable);
     }
 
     public BeanUser getUser(Long idUser) {

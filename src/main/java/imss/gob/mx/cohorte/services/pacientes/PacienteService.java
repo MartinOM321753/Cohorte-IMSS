@@ -135,6 +135,14 @@ public class PacienteService {
         return pacienteRepository.findAllByInstitucion_IdIn(ids, pageable);
     }
 
+    public Page<Paciente> buscarPaginado(Long idInstitucion, String buscar, Pageable pageable) {
+        return pacienteRepository.buscarPaginado(idInstitucion, buscar, pageable);
+    }
+
+    public Page<Paciente> buscarPaginadoEnInstituciones(List<Long> ids, String buscar, Pageable pageable) {
+        return pacienteRepository.buscarPaginadoEnInstituciones(ids, buscar, pageable);
+    }
+
     public Paciente getByUUID(String uuid, List<Long> idsInstituciones) {
         Paciente findPatient = pacienteRepository.findByUuidAndInstitucion_IdIn(uuid, idsInstituciones)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));

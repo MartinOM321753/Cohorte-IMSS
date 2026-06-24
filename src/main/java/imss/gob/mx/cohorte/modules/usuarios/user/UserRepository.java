@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.modules.usuarios.user;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -54,6 +56,33 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
            "AND (NOT EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u) " +
            "     OR EXISTS (SELECT i FROM Institucion i WHERE i.encargado = u AND i.uuid = :uuidInstitucion))")
     List<BeanUser> findAdministradoresDisponiblesParaInstitucion(@Param("uuidInstitucion") String uuidInstitucion);
+
+    // ── Búsqueda paginada con filtro de texto (server-side search) ──
+    // Mantiene la misma lógica que findAllByInstitucionOrInvitacionPendiente:
+    // usuarios de la institución actual + usuarios con invitación pendiente de cualquier institución.
+    @Query(value = "SELECT DISTINCT u FROM BeanUser u JOIN u.persona per JOIN u.rol r "
+         + "WHERE (u.institucion.id = :idInstitucion OR (u.activo = true AND u.debeResetear = true)) "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')))",
+           countQuery = "SELECT COUNT(DISTINCT u) FROM BeanUser u JOIN u.persona per JOIN u.rol r "
+         + "WHERE (u.institucion.id = :idInstitucion OR (u.activo = true AND u.debeResetear = true)) "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+    Page<BeanUser> buscarPaginadoConInvitacionesPendientes(@Param("idInstitucion") Long idInstitucion,
+                                                           @Param("buscar") String buscar,
+                                                           Pageable pageable);
 
     @Query("SELECT DISTINCT u FROM BeanUser u " +
            "JOIN FETCH u.persona JOIN FETCH u.rol " +

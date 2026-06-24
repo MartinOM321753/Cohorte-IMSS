@@ -15,12 +15,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -47,6 +50,25 @@ public class UserController {
     public ResponseEntity<APIResponse> getAll() {
         List<BeanUser> users = userApplicationService.findAllByInstitucion();
         return ResponseEntity.ok(new APIResponse("Usuarios encontrados", UserMapper.toResponseDTOList(users), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/paginado")
+    @Operation(summary = "Listar usuarios paginados con búsqueda server-side",
+               description = "Obtiene los usuarios en páginas con filtro de texto opcional. " +
+                       "El parámetro 'buscar' filtra por nombre, apellidos, username, correo o rol. " +
+                       "Incluye usuarios de la institución actual + invitaciones pendientes de cualquier institución.")
+    public ResponseEntity<APIResponse> getAllPaginado(
+            Pageable pageable,
+            @RequestParam(value = "buscar", required = false) String buscar) {
+        Page<BeanUser> usuarios = userApplicationService.buscarPaginado(buscar, pageable);
+        Map<String, Object> body = Map.of(
+            "content", UserMapper.toResponseDTOList(usuarios.getContent()),
+            "page", usuarios.getNumber(),
+            "size", usuarios.getSize(),
+            "totalElements", usuarios.getTotalElements(),
+            "totalPages", usuarios.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Usuarios encontrados", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/activos")
