@@ -240,11 +240,12 @@ public class UserApplicationService {
         String base = (baseNombre + baseApellido).trim();
         if (base.isBlank()) base = "usuario";
 
-        if (userService.findByUsername(base).isEmpty()) return base;
-
-        int suffix = 2;
-        while (userService.findByUsername(base + suffix).isPresent()) suffix++;
-        return base + suffix;
+        SecureRandom rng = new SecureRandom();
+        String candidato;
+        do {
+            candidato = base + (100 + rng.nextInt(900)); // 3 digitos: 100-999
+        } while (userService.findByUsername(candidato).isPresent());
+        return candidato;
     }
 
     private String normalizarSegmento(String texto) {
