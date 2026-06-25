@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,6 +39,7 @@ public class MainSecurity {
 
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/login",
+            "/api/auth/clear-session",   // limpieza de cookie stale antes del login
             "/api/auth/logout",          // registro de logout no requiere token válido
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
@@ -65,7 +67,7 @@ public class MainSecurity {
         // adicional sin aportar protección extra en este escenario).
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(c -> c.configurationSource(corsRegistry()))
-                .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()))
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(restEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         // Los dispatches ASYNC (StreamingResponseBody) no deben re-evaluarse

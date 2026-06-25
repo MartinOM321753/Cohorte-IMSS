@@ -31,36 +31,31 @@ public class JWTFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String userUuid = null;
-        String token = extractTokenFromCookie(request);
+        try {
+            String token = extractTokenFromCookie(request);
 
-        if (token != null && !token.isEmpty()) {
-            try {
-                userUuid = jwtUtils.extractUserUuid(token);
-            } catch (Exception e) {
-                System.out.println("JWT inválido: " + e.getMessage());
+            if (token != null && !token.isEmpty()) {
+                String userUuid = jwtUtils.extractUserUuid(token);
+
+                if (userUuid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UserDetails userDetails = udService.loadUserByUsername(userUuid);
+
+                    if (jwtUtils.validateToken(token, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
+                }
             }
-        }
-
-        if (userUuid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // Carga el rol/autoridades desde BD en cada request (no del claim "role" del JWT),
-            // así un cambio de rol en BD aplica de inmediato sin esperar a que expire el token.
-            UserDetails userDetails = udService.loadUserByUsername(userUuid);
-
-            if (jwtUtils.validateToken(token, userDetails)) {
-
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
+        } catch (Exception e) {
+            // Token expirado, firma inválida o usuario no encontrado —
+            // continuar sin autenticación; la cadena de seguridad decide
+            // si el endpoint es público (permitAll) o requiere auth (401).
         }
 
         filterChain.doFilter(request, response);
@@ -77,32 +72,4 @@ public class JWTFilter extends OncePerRequestFilter {
         }
         return null;
     }
-
-//    protected  void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-//        final String AUTHORIZATION_HEADER = request.getHeader("Authorization");
-//        String username  = null;
-//        String token = null ;
-//
-//        if (AUTHORIZATION_HEADER != null  && AUTHORIZATION_HEADER.startsWith("Bearer ")){
-//            token = AUTHORIZATION_HEADER.substring(7).trim();
-//            username = jwtUtils.extractUsername(token);
-//        }
-//        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null){
-//
-//            UserDetails userDetails = udService.loadUserByUsername(username);
-//
-//            if (jwtUtils.validateToken(token,userDetails)){
-//                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-//                        userDetails,null,userDetails.getAuthorities()
-//                );
-//                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-//                SecurityContextHolder.getContext().setAuthentication(authToken);
-//
-//            }
-//
-//        }
-//
-//        filterChain.doFilter(request,response);
-//    }
-
 }

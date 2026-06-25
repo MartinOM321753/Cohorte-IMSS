@@ -110,6 +110,19 @@ public class AuthController {
         return ResponseEntity.ok(new APIResponse("Sesión vigente", body, false, HttpStatus.OK));
     }
 
+    // ── Limpieza de cookie pre-login ─────────────────────────────────────────
+
+    @PostMapping("/clear-session")
+    @Operation(summary = "Limpiar cookie de sesión",
+               description = "Expira la cookie auth_token sin registrar nada en bitácora. "
+                           + "Se invoca antes del login para eliminar cookies stale de deploys previos.")
+    public ResponseEntity<APIResponse> clearSession() {
+        ResponseCookie expiredCookie = buildAuthCookie("", 0);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                .body(new APIResponse("Cookie eliminada", null, false, HttpStatus.OK));
+    }
+
     // ── Logout ────────────────────────────────────────────────────────────────
 
     @PostMapping("/logout")
