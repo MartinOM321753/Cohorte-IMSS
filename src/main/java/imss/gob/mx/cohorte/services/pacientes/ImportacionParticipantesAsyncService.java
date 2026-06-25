@@ -50,6 +50,7 @@ public class ImportacionParticipantesAsyncService {
         ctx.setVariable("exitosos", resultado.getExitosos());
         ctx.setVariable("errores", resultado.getErrores());
         ctx.setVariable("duplicados", resultado.getDuplicados());
+        ctx.setVariable("detalleErrores", resultado.getDetalleErrores());
         emailService.enviar(email, "Carga de participantes completada", "email/carga-participantes-completada", ctx);
     }
 

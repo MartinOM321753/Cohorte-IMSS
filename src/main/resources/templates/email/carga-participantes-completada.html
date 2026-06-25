@@ -53,8 +53,25 @@
                 </tr>
               </table>
 
-              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
-                Entra al sistema, sección "Importar participantes", para ver el detalle de las filas con error o duplicadas.
+              <div th:if="${detalleErrores != null and !detalleErrores.isEmpty()}">
+                <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0d1411;">Detalle de registros con problemas</p>
+                <table width="100%" cellpadding="0" cellspacing="0"
+                       style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;font-size:13px;">
+                  <tr style="background:#f9fafb;">
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Fila</th>
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Folio</th>
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Motivo</th>
+                  </tr>
+                  <tr th:each="err : ${detalleErrores}">
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;" th:text="${err.fila}">2</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;font-family:monospace;" th:text="${err.folio != null and err.folio != '' ? err.folio : '—'}">000001</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b3261e;" th:text="${err.motivo}">Nombre obligatorio</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p th:if="${detalleErrores == null or detalleErrores.isEmpty()}" style="margin:0;font-size:14px;color:#15803d;line-height:1.6;">
+                Todos los registros se importaron correctamente.
               </p>
             </td>
           </tr>
