@@ -26,7 +26,7 @@ public class PacienteImportService {
     private final PacienteImportRowService pacienteImportRowService;
 
     private static final List<String> COLUMNAS_ESPERADAS = List.of(
-            "folio", "nombre", "apellidoPaterno", "apellidoMaterno",
+            "folio", "nombre", "segundoNombre", "tercerNombre", "apellidoPaterno", "apellidoMaterno",
             "curp", "fechaNacimiento", "sexo", "telefono", "email"
     );
 

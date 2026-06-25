@@ -41,10 +41,20 @@ public class PacienteImportRowService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Resultado guardarFila(Map<String, String> fila, Institucion institucion) {
         String folioRaw = fila.getOrDefault("folio", "").trim();
-        String nombreVal = fila.getOrDefault("nombre", "").trim();
-        String apPaterno = fila.getOrDefault("apellidoPaterno", "").trim();
 
-        if (nombreVal.isEmpty() || apPaterno.isEmpty()) {
+        String nombreVal = normalizarCampoNombre(fila.getOrDefault("nombre", ""));
+
+        String segundoNombreVal = fila.getOrDefault("segundoNombre", "").trim();
+        String tercerNombreVal = fila.getOrDefault("tercerNombre", "").trim();
+        if (!tercerNombreVal.isEmpty()) {
+            segundoNombreVal = (segundoNombreVal + " " + tercerNombreVal).trim();
+        }
+        segundoNombreVal = normalizarCampoNombre(segundoNombreVal);
+
+        String apPaterno = normalizarCampoNombre(fila.getOrDefault("apellidoPaterno", ""));
+        String apMaterno = normalizarCampoNombre(fila.getOrDefault("apellidoMaterno", ""));
+
+        if (nombreVal == null || apPaterno == null) {
             return new Resultado(Estado.ERROR, folioRaw, "Nombre y apellido paterno son obligatorios");
         }
 
@@ -75,8 +85,9 @@ public class PacienteImportRowService {
 
         Persona persona = new Persona();
         persona.setNombre(nombreVal);
+        persona.setSegundoNombre(segundoNombreVal);
         persona.setApellidoPaterno(apPaterno);
-        persona.setApellidoMaterno(emptyToNull(fila.getOrDefault("apellidoMaterno", "")));
+        persona.setApellidoMaterno(apMaterno);
         persona.setCurp(curp.isEmpty() ? null : curp);
         persona.setTelefono(telefonoVal.isEmpty() ? null : telefonoVal);
         persona.setEmail(emailVal.isEmpty() ? null : emailVal);
@@ -127,5 +138,31 @@ public class PacienteImportRowService {
         if (valor == null) return null;
         String trimmed = valor.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String sanitizarNombre(String valor) {
+        if (valor == null) return null;
+        return valor.replaceAll("[^\\p{L}\\s']", "").replaceAll("\\s+", " ").trim();
+    }
+
+    private String titleCase(String valor) {
+        if (valor == null || valor.isBlank()) return valor;
+        String[] palabras = valor.toLowerCase().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String p : palabras) {
+            if (!p.isEmpty()) {
+                if (sb.length() > 0) sb.append(' ');
+                sb.append(Character.toUpperCase(p.charAt(0)));
+                if (p.length() > 1) sb.append(p.substring(1));
+            }
+        }
+        return sb.toString();
+    }
+
+    private String normalizarCampoNombre(String valor) {
+        if (valor == null) return null;
+        String limpio = sanitizarNombre(valor.trim());
+        if (limpio == null || limpio.isEmpty()) return null;
+        return titleCase(limpio);
     }
 }
