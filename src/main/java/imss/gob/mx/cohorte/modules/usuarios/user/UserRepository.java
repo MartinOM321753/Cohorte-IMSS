@@ -64,9 +64,10 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
          + "WHERE (u.institucion.id = :idInstitucion OR (u.activo = true AND u.debeResetear = true)) "
          + "AND (:buscar IS NULL OR :buscar = '' OR "
          + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')))",
@@ -74,9 +75,10 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
          + "WHERE (u.institucion.id = :idInstitucion OR (u.activo = true AND u.debeResetear = true)) "
          + "AND (:buscar IS NULL OR :buscar = '' OR "
          + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')))")

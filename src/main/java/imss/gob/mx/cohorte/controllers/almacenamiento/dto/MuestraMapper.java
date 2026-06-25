@@ -32,9 +32,10 @@ public class MuestraMapper {
             String nombreCompleto = "";
             if (u.getPersona() != null) {
                 var p = u.getPersona();
-                nombreCompleto = (p.getNombre() != null ? p.getNombre() : "") + " "
-                    + (p.getApellidoPaterno() != null ? p.getApellidoPaterno() : "") + " "
-                    + (p.getApellidoMaterno() != null ? p.getApellidoMaterno() : "");
+                nombreCompleto = (p.getNombre() != null ? p.getNombre() : "")
+                    + (p.getSegundoNombre() != null ? " " + p.getSegundoNombre() : "")
+                    + " " + (p.getApellidoPaterno() != null ? p.getApellidoPaterno() : "")
+                    + (p.getApellidoMaterno() != null ? " " + p.getApellidoMaterno() : "");
             }
             usuarioDTO = UsuarioResumenDTO.builder()
                 .id(u.getId())

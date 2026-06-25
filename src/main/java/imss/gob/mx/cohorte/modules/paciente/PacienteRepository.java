@@ -63,9 +63,10 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id = :idInstitucion "
          + "AND (:buscar IS NULL OR :buscar = '' OR "
          + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")
@@ -76,9 +77,10 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id IN :ids "
          + "AND (:buscar IS NULL OR :buscar = '' OR "
          + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(CONCAT(per.nombre, ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")

@@ -17,6 +17,7 @@ public class PacienteMapper {
 
         Persona persona = new Persona();
         persona.setNombre(dto.getPersona().getNombre());
+        persona.setSegundoNombre(dto.getPersona().getSegundoNombre());
         persona.setApellidoPaterno(dto.getPersona().getApellidoPaterno());
         persona.setApellidoMaterno(dto.getPersona().getApellidoMaterno());
         persona.setFechaNacimiento(dto.getPersona().getFechaNacimiento());
@@ -44,6 +45,7 @@ public class PacienteMapper {
             personaDTO = PersonaResponseDTO.builder()
                 .id(per.getId())
                 .nombre(per.getNombre())
+                .segundoNombre(per.getSegundoNombre())
                 .apellidoPaterno(per.getApellidoPaterno())
                 .apellidoMaterno(per.getApellidoMaterno())
                 .fechaNacimiento(per.getFechaNacimiento())
@@ -78,9 +80,10 @@ public class PacienteMapper {
     public static PacienteResumenDTO toResumenDTO(Paciente p) {
         String nombreCompleto = "";
         if (p.getPersona() != null) {
-            nombreCompleto = p.getPersona().getNombre() + " "
-                + p.getPersona().getApellidoPaterno() + " "
-                + (p.getPersona().getApellidoMaterno() != null ? p.getPersona().getApellidoMaterno() : "");
+            nombreCompleto = p.getPersona().getNombre()
+                + (p.getPersona().getSegundoNombre() != null ? " " + p.getPersona().getSegundoNombre() : "")
+                + " " + p.getPersona().getApellidoPaterno()
+                + (p.getPersona().getApellidoMaterno() != null ? " " + p.getPersona().getApellidoMaterno() : "");
         }
         return PacienteResumenDTO.builder()
             .id(p.getId())

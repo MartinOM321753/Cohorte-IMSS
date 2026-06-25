@@ -18,6 +18,7 @@ public class UserMapper {
 
         Persona persona = new Persona();
         persona.setNombre(dto.getPersona().getNombre());
+        persona.setSegundoNombre(dto.getPersona().getSegundoNombre());
         persona.setApellidoPaterno(dto.getPersona().getApellidoPaterno());
         persona.setApellidoMaterno(dto.getPersona().getApellidoMaterno());
         persona.setFechaNacimiento(dto.getPersona().getFechaNacimiento());
@@ -45,6 +46,7 @@ public class UserMapper {
             Persona p = user.getPersona();
             personaDTO = PersonaResponseDTO.builder()
                     .nombre(p.getNombre())
+                    .segundoNombre(p.getSegundoNombre())
                     .apellidoPaterno(p.getApellidoPaterno())
                     .apellidoMaterno(p.getApellidoMaterno())
                     .fechaNacimiento(p.getFechaNacimiento())

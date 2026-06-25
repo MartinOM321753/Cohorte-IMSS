@@ -83,6 +83,7 @@ public class PersonaService {
             personaBD.setTelefono(nuevoTelefono);
         }
         personaBD.setNombre(persona.getNombre());
+        personaBD.setSegundoNombre(persona.getSegundoNombre());
         personaBD.setApellidoPaterno(persona.getApellidoPaterno());
         personaBD.setApellidoMaterno(persona.getApellidoMaterno());
         personaBD.setFechaNacimiento(persona.getFechaNacimiento());

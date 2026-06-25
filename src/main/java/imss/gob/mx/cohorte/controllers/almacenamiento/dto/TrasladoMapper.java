@@ -74,7 +74,9 @@ public class TrasladoMapper {
         if (u == null) return null;
         Persona p = u.getPersona();
         String nombre = p != null
-                ? (p.getNombre() + " " + p.getApellidoPaterno()
+                ? (p.getNombre()
+                   + (p.getSegundoNombre() != null ? " " + p.getSegundoNombre() : "")
+                   + " " + p.getApellidoPaterno()
                    + (p.getApellidoMaterno() != null ? " " + p.getApellidoMaterno() : "")).trim()
                 : u.getUsername();
         return TrasladoResponseDTO.UsuarioResumenDTO.builder()

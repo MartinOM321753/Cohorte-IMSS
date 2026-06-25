@@ -25,7 +25,11 @@ public class UsuarioResumenDTO {
         userResponse.setId(0L);
         userResponse.setUsername(user.getUsername());
         userResponse.setUUID(user.getUUID());
-        userResponse.setNombreCompleto(user.getPersona().getNombre() + " " + user.getPersona().getApellidoPaterno() + " " + user.getPersona().getApellidoMaterno());
+        userResponse.setNombreCompleto(
+                user.getPersona().getNombre()
+                + (user.getPersona().getSegundoNombre() != null ? " " + user.getPersona().getSegundoNombre() : "")
+                + " " + user.getPersona().getApellidoPaterno()
+                + (user.getPersona().getApellidoMaterno() != null ? " " + user.getPersona().getApellidoMaterno() : ""));
 
         return userResponse;
 

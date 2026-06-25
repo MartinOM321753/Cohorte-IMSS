@@ -37,7 +37,10 @@ public class ReclutamientoParticipanteMapper {
         if (u == null) return null;
         Persona p = u.getPersona();
         String nombreCompleto = p != null
-                ? (p.getNombre() + " " + p.getApellidoPaterno() + (p.getApellidoMaterno() != null ? " " + p.getApellidoMaterno() : "")).trim()
+                ? (p.getNombre()
+                   + (p.getSegundoNombre() != null ? " " + p.getSegundoNombre() : "")
+                   + " " + p.getApellidoPaterno()
+                   + (p.getApellidoMaterno() != null ? " " + p.getApellidoMaterno() : "")).trim()
                 : u.getUsername();
         return ReclutamientoParticipanteResponseDTO.UsuarioResumenDTO.builder()
                 .id(u.getId())

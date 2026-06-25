@@ -14,6 +14,7 @@ import java.time.LocalDate;
 public class PersonaResponseDTO {
     private Long id;
     private String nombre;
+    private String segundoNombre;
     private String apellidoPaterno;
     private String apellidoMaterno;
     private LocalDate fechaNacimiento;

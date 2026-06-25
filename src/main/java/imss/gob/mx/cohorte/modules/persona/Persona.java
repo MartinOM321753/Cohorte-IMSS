@@ -22,7 +22,10 @@ public class Persona {
     private Long Id;
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
-    
+
+    @Column(name = "segundo_nombre", length = 100)
+    private String segundoNombre;
+
     @Column(name = "apellido_paterno", nullable = false, length = 100)
     private String apellidoPaterno;
     
@@ -51,8 +54,9 @@ public class Persona {
     @Column(name = "fecha_actualizacion")
     private LocalDateTime fechaActualizacion;
 
-    public Persona(String nombre, String apellidoPaterno, String apellidoMaterno, LocalDate fechaNacimiento, Sexo sexo, String curp, String telefono, String email, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion) {
+    public Persona(String nombre, String segundoNombre, String apellidoPaterno, String apellidoMaterno, LocalDate fechaNacimiento, Sexo sexo, String curp, String telefono, String email, LocalDateTime fechaRegistro, LocalDateTime fechaActualizacion) {
         this.nombre = nombre;
+        this.segundoNombre = segundoNombre;
         this.apellidoPaterno = apellidoPaterno;
         this.apellidoMaterno = apellidoMaterno;
         this.fechaNacimiento = fechaNacimiento;
