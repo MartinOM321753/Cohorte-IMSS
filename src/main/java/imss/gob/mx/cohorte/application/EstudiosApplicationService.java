@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.application;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
+import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudioRepository;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
@@ -45,6 +46,7 @@ public class EstudiosApplicationService {
     private final PacienteService pacienteService;
     private final UserService userService;
     private final ParametroEstudioService parametroService;
+    private final ResultadoEstudioRepository resultadoRepository;
     private final InstitucionRepository institucionRepository;
     private final InstitucionContextService institucionContextService;
 
@@ -83,14 +85,15 @@ public class EstudiosApplicationService {
 
     @Transactional
     public EstudioMedico updateEstudio(Long id, EstudioMedico estudioMedico) {
-        resolveRelaciones(estudioMedico);
-
         EstudioMedico existente = estudioService.getOne(id);
         institucionContextService.verificarPertenece(existente.getInstitucion());
+
+        estudioMedico.setInstitucion(existente.getInstitucion());
+        resolveRelaciones(estudioMedico);
+
         existente.setPaciente(estudioMedico.getPaciente());
         existente.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
         existente.setTipoEstudio(estudioMedico.getTipoEstudio());
-        existente.setInstitucion(estudioMedico.getInstitucion());
         existente.setFechaEstudio(estudioMedico.getFechaEstudio());
         existente.setObservaciones(estudioMedico.getObservaciones());
 
@@ -170,6 +173,7 @@ public class EstudiosApplicationService {
             estudio.setResultadoEstudio(new ArrayList<>());
         }
         estudio.getResultadoEstudio().clear();
+        resultadoRepository.flush();
         if (nuevosResultados == null) {
             return;
         }
