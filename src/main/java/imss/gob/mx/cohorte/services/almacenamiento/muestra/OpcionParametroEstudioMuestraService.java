@@ -29,6 +29,12 @@ public class OpcionParametroEstudioMuestraService {
     public List<OpcionParametroEstudioMuestra> replaceAll(ParametroEstudioMuestra parametro, List<String> valores) {
         repository.deleteAllByParametro_Id(parametro.getId());
         repository.flush();
+        // El borrado anterior va directo por repositorio y no actualiza la coleccion
+        // en memoria de `parametro` (EAGER + cascade=ALL). Si no se limpia aqui, al
+        // hacer flush del padre al final de la transaccion Hibernate intenta volver
+        // a guardar esas opciones ya eliminadas -> "deleted object would be re-saved
+        // by cascade" (500).
+        parametro.getOpciones().clear();
 
         for (int i = 0; i < valores.size(); i++) {
             String val = valores.get(i).trim();
