@@ -31,6 +31,49 @@ public class PacienteImportService {
     );
 
     /**
+     * Alias de headers (normalizados: trim + minusculas + sin acentos) hacia la
+     * clave canonica usada en {@link #COLUMNAS_ESPERADAS}. Los archivos Excel
+     * reales no siempre traen el header exacto (ej. "Sexo", "Fecha de nacimiento",
+     * "Correo electronico") — sin esto, esas columnas se ignoraban en silencio.
+     */
+    private static final Map<String, String> ALIAS_COLUMNAS = construirAliasColumnas();
+
+    private static Map<String, String> construirAliasColumnas() {
+        Map<String, String> alias = new HashMap<>();
+        alias.put("folio", "folio");
+        alias.put("nombre", "nombre");
+        alias.put("segundonombre", "segundoNombre");
+        alias.put("segundo nombre", "segundoNombre");
+        alias.put("tercernombre", "tercerNombre");
+        alias.put("tercer nombre", "tercerNombre");
+        alias.put("apellidopaterno", "apellidoPaterno");
+        alias.put("apellido paterno", "apellidoPaterno");
+        alias.put("apellidomaterno", "apellidoMaterno");
+        alias.put("apellido materno", "apellidoMaterno");
+        alias.put("curp", "curp");
+        alias.put("fechanacimiento", "fechaNacimiento");
+        alias.put("fecha de nacimiento", "fechaNacimiento");
+        alias.put("fecha nacimiento", "fechaNacimiento");
+        alias.put("sexo", "sexo");
+        alias.put("genero", "sexo");
+        alias.put("telefono", "telefono");
+        alias.put("celular", "telefono");
+        alias.put("email", "email");
+        alias.put("correo", "email");
+        alias.put("correo electronico", "email");
+        return alias;
+    }
+
+    /** Normaliza un header de archivo (trim, minusculas, sin acentos) a su clave canonica. */
+    private String normalizarHeader(String header) {
+        if (header == null) return "";
+        String limpio = header.trim().toLowerCase()
+                .replace("á", "a").replace("é", "e").replace("í", "i")
+                .replace("ó", "o").replace("ú", "u");
+        return ALIAS_COLUMNAS.getOrDefault(limpio, header.trim());
+    }
+
+    /**
      * Recibe el contenido del archivo como bytes (no MultipartFile) porque esto
      * se invoca desde un metodo @Async, despues de que la peticion HTTP original
      * ya terminó — el MultipartFile y su stream/archivo temporal ya no son
@@ -107,7 +150,7 @@ public class PacienteImportService {
 
             String[] headers = headerLine.split(",");
             for (int i = 0; i < headers.length; i++) {
-                headers[i] = headers[i].trim().replace("\"", "");
+                headers[i] = normalizarHeader(headers[i].replace("\"", ""));
             }
 
             String line;
@@ -137,7 +180,7 @@ public class PacienteImportService {
 
             List<String> headers = new ArrayList<>();
             for (Cell cell : headerRow) {
-                headers.add(getCellValueAsString(cell).trim());
+                headers.add(normalizarHeader(getCellValueAsString(cell)));
             }
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
