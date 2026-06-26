@@ -262,8 +262,16 @@ public class ExamenController {
         Double valor = resultado.getValorObtenido();
         Examen examen = resultado.getExamen();
         if (valor == null || examen == null) return null;
-        Double min = examen.getValorMinMujeres();
-        Double max = examen.getValorMaxMujeres();
+
+        imss.gob.mx.cohorte.modules.persona.Persona.Sexo sexo = resultado.getPaciente() != null
+                && resultado.getPaciente().getPersona() != null
+                ? resultado.getPaciente().getPersona().getSexo()
+                : null;
+
+        Double min = sexo == imss.gob.mx.cohorte.modules.persona.Persona.Sexo.M
+                ? examen.getValorMinHombres() : examen.getValorMinMujeres();
+        Double max = sexo == imss.gob.mx.cohorte.modules.persona.Persona.Sexo.M
+                ? examen.getValorMaxHombres() : examen.getValorMaxMujeres();
         if (min != null && valor < min) return false;
         if (max != null && valor > max) return false;
         return true;

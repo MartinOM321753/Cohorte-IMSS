@@ -42,13 +42,19 @@ public class ParametroEstudio {
     @Column(name = "tipo", nullable = false, length = 15)
     private TipoParametro tipo;
 
-    /** Valor mínimo de referencia (solo aplica a parámetros NUMERICO). */
-    @Column(name = "valor_minimo")
-    private Double valorMinimo;
+    /** Rango de referencia para mujeres (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_min_mujeres")
+    private Double valorMinMujeres;
 
-    /** Valor máximo de referencia (solo aplica a parámetros NUMERICO). */
-    @Column(name = "valor_maximo")
-    private Double valorMaximo;
+    @Column(name = "valor_max_mujeres")
+    private Double valorMaxMujeres;
+
+    /** Rango de referencia para hombres (solo aplica a parámetros NUMERICO). */
+    @Column(name = "valor_min_hombres")
+    private Double valorMinHombres;
+
+    @Column(name = "valor_max_hombres")
+    private Double valorMaxHombres;
 
     /**
      * Opciones válidas para parámetros de tipo TEXTO_OPCIONES.

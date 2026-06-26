@@ -81,8 +81,10 @@ public class EstudioMapper {
                                 .nombre(p.getNombre())
                                 .unidad(p.getUnidad())
                                 .tipo(p.getTipo())
-                                .valorMinimo(p.getValorMinimo())
-                                .valorMaximo(p.getValorMaximo())
+                                .valorMinMujeres(p.getValorMinMujeres())
+                                .valorMaxMujeres(p.getValorMaxMujeres())
+                                .valorMinHombres(p.getValorMinHombres())
+                                .valorMaxHombres(p.getValorMaxHombres())
                                 .opciones(p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null
                                     ? p.getOpciones().stream().map(op -> op.getValor()).collect(java.util.stream.Collectors.toList())
                                     : null)
@@ -149,8 +151,10 @@ public class EstudioMapper {
             .unidad(p.getUnidad())
             .tipo(p.getTipo())
             .tipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
-            .valorMinimo(p.getValorMinimo())
-            .valorMaximo(p.getValorMaximo())
+            .valorMinMujeres(p.getValorMinMujeres())
+            .valorMaxMujeres(p.getValorMaxMujeres())
+            .valorMinHombres(p.getValorMinHombres())
+            .valorMaxHombres(p.getValorMaxHombres())
             .opciones(opciones)
             .build();
     }

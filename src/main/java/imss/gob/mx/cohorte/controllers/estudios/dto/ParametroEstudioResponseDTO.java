@@ -18,8 +18,10 @@ public class ParametroEstudioResponseDTO {
     private String unidad;
     private TipoParametro tipo;
     private String tipoEstudio;
-    private Double valorMinimo;
-    private Double valorMaximo;
+    private Double valorMinMujeres;
+    private Double valorMaxMujeres;
+    private Double valorMinHombres;
+    private Double valorMaxHombres;
 
     /** Valores predefinidos. Presente (no null) solo cuando tipo == TEXTO_OPCIONES. */
     private List<String> opciones;

@@ -28,11 +28,13 @@ public class ParametroEstudioRequestDTO {
     @NotNull
     private TipoParametro tipo;
 
-    /** Valor mínimo de referencia (solo aplica a parámetros NUMERICO, opcional). */
-    private Double valorMinimo;
+    /** Rango de referencia para mujeres (solo aplica a parámetros NUMERICO, opcional). */
+    private Double valorMinMujeres;
+    private Double valorMaxMujeres;
 
-    /** Valor máximo de referencia (solo aplica a parámetros NUMERICO, opcional). */
-    private Double valorMaximo;
+    /** Rango de referencia para hombres (solo aplica a parámetros NUMERICO, opcional). */
+    private Double valorMinHombres;
+    private Double valorMaxHombres;
 
     /**
      * Lista de valores válidos. Solo se usa cuando tipo == TEXTO_OPCIONES.

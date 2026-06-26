@@ -37,8 +37,10 @@ public class ParametroEstudioController {
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
         parametro.setTipo(dto.getTipo());
-        parametro.setValorMinimo(dto.getValorMinimo());
-        parametro.setValorMaximo(dto.getValorMaximo());
+        parametro.setValorMinMujeres(dto.getValorMinMujeres());
+        parametro.setValorMaxMujeres(dto.getValorMaxMujeres());
+        parametro.setValorMinHombres(dto.getValorMinHombres());
+        parametro.setValorMaxHombres(dto.getValorMaxHombres());
         ParametroEstudio creado = gestionEstudiosApplicationService.createParametro(parametro, dto.getOpciones());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse(EstudioMapper.toParametroDTO(creado), "Parámetro creado correctamente", HttpStatus.CREATED, false));
@@ -58,8 +60,10 @@ public class ParametroEstudioController {
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
         parametro.setTipo(dto.getTipo());
-        parametro.setValorMinimo(dto.getValorMinimo());
-        parametro.setValorMaximo(dto.getValorMaximo());
+        parametro.setValorMinMujeres(dto.getValorMinMujeres());
+        parametro.setValorMaxMujeres(dto.getValorMaxMujeres());
+        parametro.setValorMinHombres(dto.getValorMinHombres());
+        parametro.setValorMaxHombres(dto.getValorMaxHombres());
         ParametroEstudio actualizado = gestionEstudiosApplicationService.updateParametro(parametro, dto.getOpciones());
         return ResponseEntity.ok(new APIResponse(EstudioMapper.toParametroDTO(actualizado), "Parámetro actualizado correctamente", HttpStatus.OK, false));
     }
