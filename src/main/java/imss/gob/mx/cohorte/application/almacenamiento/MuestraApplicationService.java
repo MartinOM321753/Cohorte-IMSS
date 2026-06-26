@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraRequestDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ZplLoteResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
@@ -389,12 +390,31 @@ public class MuestraApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> generarZplAlicuotas(Long idMuestraPadre, Long configuracionId) {
+    public ZplLoteResponseDTO generarZplAlicuotas(Long idMuestraPadre, Long configuracionId) {
         ConfiguracionEtiqueta config = resolverConfig(configuracionId);
         List<Muestra> alicuotas = muestraService.getAlicuotas(idMuestraPadre);
-        return alicuotas.stream()
-                .map(m -> zplLabelService.generarZplMuestra(m, config))
-                .toList();
+        String zpl = zplLabelService.generarZplLote(alicuotas, config);
+        return new ZplLoteResponseDTO(zpl, alicuotas.size());
+    }
+
+    @Transactional(readOnly = true)
+    public ZplLoteResponseDTO generarZplLoteCompleto(Long idMuestraPadre, Long configuracionId) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        Muestra padre = muestraService.getByIdConAcceso(idMuestraPadre);
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        boolean padreEnMiBiobanco = padre.getInstitucionActual().getId().equals(idInst);
+        List<Muestra> alicuotas = muestraRepository.findAllByMuestraPadre_IdAndInstitucionActual_Id(
+                idMuestraPadre, idInst);
+        if (!padreEnMiBiobanco && alicuotas.isEmpty()) {
+            throw new ObjConflictException("No tiene muestras de este lote en su biobanco.");
+        }
+        List<Muestra> aImprimir = new java.util.ArrayList<>();
+        if (padreEnMiBiobanco) {
+            aImprimir.add(padre);
+        }
+        aImprimir.addAll(alicuotas);
+        String zpl = zplLabelService.generarZplLote(aImprimir, config);
+        return new ZplLoteResponseDTO(zpl, aImprimir.size());
     }
 
     // ── Impresión directa ───────────────────────────────────────────────────

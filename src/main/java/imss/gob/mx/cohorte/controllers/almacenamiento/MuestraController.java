@@ -332,12 +332,21 @@ public class  MuestraController {
     }
 
     @GetMapping("/{id}/alicuotas/etiquetas/zpl")
-    @Operation(summary = "Generar ZPL para etiquetas de alícuotas")
+    @Operation(summary = "Generar ZPL para etiquetas de alícuotas, agrupado por fila")
     public ResponseEntity<APIResponse> getZplAlicuotas(
             @PathVariable Long id,
             @RequestParam(required = false) Long configuracionId) {
-        List<String> zpls = muestraApplicationService.generarZplAlicuotas(id, configuracionId);
-        return ResponseEntity.ok(new APIResponse("ZPL generado para alícuotas", zpls, false, HttpStatus.OK));
+        ZplLoteResponseDTO zpl = muestraApplicationService.generarZplAlicuotas(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("ZPL generado para alícuotas", zpl, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/lote-completo/zpl")
+    @Operation(summary = "Generar ZPL para etiqueta padre + alícuotas, agrupado por fila")
+    public ResponseEntity<APIResponse> getZplLoteCompleto(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        ZplLoteResponseDTO zpl = muestraApplicationService.generarZplLoteCompleto(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("ZPL generado para lote completo", zpl, false, HttpStatus.OK));
     }
 
     // ── Impresión directa ───────────────────────────────────────────────────
