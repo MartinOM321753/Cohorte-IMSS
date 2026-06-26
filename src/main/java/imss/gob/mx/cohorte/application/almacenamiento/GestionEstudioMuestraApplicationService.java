@@ -72,7 +72,6 @@ public class GestionEstudioMuestraApplicationService {
         ParametroEstudioMuestra creado = parametroService.create(parametro);
         if (creado.getTipo() == TipoParametro.TEXTO_OPCIONES && opciones != null && !opciones.isEmpty()) {
             opcionService.replaceAll(creado, opciones);
-            creado = parametroService.getById(creado.getId());
         }
         return creado;
     }
@@ -80,12 +79,10 @@ public class GestionEstudioMuestraApplicationService {
     @Transactional
     public ParametroEstudioMuestra updateParametro(Long id, ParametroEstudioMuestra datos, List<String> opciones) {
         ParametroEstudioMuestra paramBD = parametroService.getById(id);
-        // No cambiamos el tipo de estudio al actualizar
         datos.setTipoEstudioMuestra(paramBD.getTipoEstudioMuestra());
         ParametroEstudioMuestra actualizado = parametroService.update(id, datos);
         if (actualizado.getTipo() == TipoParametro.TEXTO_OPCIONES) {
             opcionService.replaceAll(actualizado, opciones != null ? opciones : List.of());
-            actualizado = parametroService.getById(actualizado.getId());
         }
         return actualizado;
     }

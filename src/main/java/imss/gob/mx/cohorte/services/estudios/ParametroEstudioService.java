@@ -17,7 +17,6 @@ import java.util.Optional;
 public class ParametroEstudioService {
 
     private final ParametroEstudioRepository parametroRepository;
-    private final OpcionParametroService opcionService;
 
     @Transactional(readOnly = true)
     public List<ParametroEstudio> getAll() {
@@ -63,15 +62,17 @@ public class ParametroEstudioService {
         // Si el tipo cambia a uno que no es TEXTO_OPCIONES, limpiar las opciones
         if (parametroEstudio.getTipo() != TipoParametro.TEXTO_OPCIONES
                 && parametroDB.getTipo() == TipoParametro.TEXTO_OPCIONES) {
-            opcionService.clearByParametro(parametroDB.getId());
+            parametroDB.getOpciones().clear();
         }
 
         parametroDB.setTipoEstudio(parametroEstudio.getTipoEstudio());
         parametroDB.setNombre(parametroEstudio.getNombre());
         parametroDB.setUnidad(parametroEstudio.getUnidad());
         parametroDB.setTipo(parametroEstudio.getTipo());
-        parametroDB.setValorMinimo(parametroEstudio.getValorMinimo());
-        parametroDB.setValorMaximo(parametroEstudio.getValorMaximo());
+        parametroDB.setValorMinMujeres(parametroEstudio.getValorMinMujeres());
+        parametroDB.setValorMaxMujeres(parametroEstudio.getValorMaxMujeres());
+        parametroDB.setValorMinHombres(parametroEstudio.getValorMinHombres());
+        parametroDB.setValorMaxHombres(parametroEstudio.getValorMaxHombres());
 
         return parametroRepository.save(parametroDB);
     }

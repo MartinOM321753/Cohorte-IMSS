@@ -4,11 +4,14 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.OpcionParamet
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.OpcionParametroEstudioMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
@@ -23,57 +26,54 @@ public class OpcionParametroEstudioMuestraService {
 
     /**
      * Reemplaza completamente las opciones del parámetro con los valores dados.
-     * El orden se asigna secuencialmente (1-indexed).
+     * Trabaja a través de la colección del padre para que Hibernate gestione
+     * el ciclo de vida (cascade + orphanRemoval) sin conflictos.
      */
     @Transactional(rollbackFor = Exception.class)
-    public List<OpcionParametroEstudioMuestra> replaceAll(ParametroEstudioMuestra parametro, List<String> valores) {
-        repository.deleteAllByParametro_Id(parametro.getId());
-        repository.flush();
-        // El borrado anterior va directo por repositorio y no actualiza la coleccion
-        // en memoria de `parametro` (EAGER + cascade=ALL). Si no se limpia aqui, al
-        // hacer flush del padre al final de la transaccion Hibernate intenta volver
-        // a guardar esas opciones ya eliminadas -> "deleted object would be re-saved
-        // by cascade" (500).
-        parametro.getOpciones().clear();
+    public void replaceAll(ParametroEstudioMuestra parametro, List<String> valores) {
+        Set<String> vistos = new LinkedHashSet<>();
+        for (String valor : valores) {
+            String val = valor.trim();
+            if (val.isEmpty()) continue;
+            if (!vistos.add(val.toLowerCase())) {
+                throw new ValidationException("La opción \"" + val + "\" está repetida");
+            }
+        }
 
-        for (int i = 0; i < valores.size(); i++) {
-            String val = valores.get(i).trim();
+        parametro.getOpciones().clear();
+        repository.flush();
+
+        int orden = 1;
+        for (String valor : valores) {
+            String val = valor.trim();
             if (val.isEmpty()) continue;
             OpcionParametroEstudioMuestra op = new OpcionParametroEstudioMuestra();
             op.setParametro(parametro);
             op.setValor(val);
-            op.setOrden(i + 1);
-            repository.save(op);
+            op.setOrden(orden++);
+            parametro.getOpciones().add(op);
         }
-        return repository.findAllByParametro_IdOrderByOrdenAsc(parametro.getId());
     }
 
-    /**
-     * Agrega una nueva opción al final de la lista.
-     */
     @Transactional(rollbackFor = Exception.class)
     public OpcionParametroEstudioMuestra addOpcion(ParametroEstudioMuestra parametro, String valor) {
-        List<OpcionParametroEstudioMuestra> actuales =
-                repository.findAllByParametro_IdOrderByOrdenAsc(parametro.getId());
         OpcionParametroEstudioMuestra op = new OpcionParametroEstudioMuestra();
         op.setParametro(parametro);
         op.setValor(valor.trim());
-        op.setOrden(actuales.size() + 1);
-        return repository.save(op);
+        op.setOrden(parametro.getOpciones().size() + 1);
+        parametro.getOpciones().add(op);
+        return op;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteOpcion(Long opcionId) {
         OpcionParametroEstudioMuestra op = repository.findById(opcionId)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la opción"));
-        Long parametroId = op.getParametro().getId();
-        repository.delete(op);
-        // Renumerar restantes
-        List<OpcionParametroEstudioMuestra> restantes =
-                repository.findAllByParametro_IdOrderByOrdenAsc(parametroId);
-        for (int i = 0; i < restantes.size(); i++) {
-            restantes.get(i).setOrden(i + 1);
-            repository.save(restantes.get(i));
+        ParametroEstudioMuestra parametro = op.getParametro();
+        parametro.getOpciones().remove(op);
+        int orden = 1;
+        for (OpcionParametroEstudioMuestra restante : parametro.getOpciones()) {
+            restante.setOrden(orden++);
         }
     }
 }

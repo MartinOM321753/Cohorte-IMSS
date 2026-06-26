@@ -78,8 +78,6 @@ public class GestionEstudiosApplicationService {
         ParametroEstudio creado = parametroService.create(parametroEstudio);
         if (creado.getTipo() == TipoParametro.TEXTO_OPCIONES && opciones != null && !opciones.isEmpty()) {
             opcionService.replaceAll(creado, opciones);
-            // Reload to return updated opciones
-            creado = parametroService.getOne(creado.getId());
         }
         return creado;
     }
@@ -92,7 +90,6 @@ public class GestionEstudiosApplicationService {
         ParametroEstudio actualizado = parametroService.update(parametroEstudio);
         if (actualizado.getTipo() == TipoParametro.TEXTO_OPCIONES) {
             opcionService.replaceAll(actualizado, opciones != null ? opciones : List.of());
-            actualizado = parametroService.getOne(actualizado.getId());
         }
         return actualizado;
     }

@@ -9,6 +9,4 @@ import java.util.List;
 public interface OpcionParametroRepository extends JpaRepository<OpcionParametro, Long> {
 
     List<OpcionParametro> findAllByParametro_IdOrderByOrdenAsc(Long parametroId);
-
-    void deleteAllByParametro_Id(Long parametroId);
 }

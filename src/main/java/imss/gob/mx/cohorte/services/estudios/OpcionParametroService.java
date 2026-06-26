@@ -4,11 +4,14 @@ import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametro;
 import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametroRepository;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
@@ -23,57 +26,54 @@ public class OpcionParametroService {
 
     /**
      * Reemplaza todas las opciones de un parámetro con la lista proporcionada.
-     * Se borran las existentes y se insertan las nuevas respetando el orden.
+     * Trabaja a través de la colección del padre para que Hibernate gestione
+     * el ciclo de vida (cascade + orphanRemoval) sin conflictos.
      */
     @Transactional(rollbackFor = Exception.class)
-    public List<OpcionParametro> replaceAll(ParametroEstudio parametro, List<String> valores) {
-        opcionRepository.deleteAllByParametro_Id(parametro.getId());
-        opcionRepository.flush();
-        // El borrado anterior va directo por repositorio y no actualiza la coleccion
-        // en memoria de `parametro` (EAGER + cascade=ALL). Si no se limpia aqui, al
-        // hacer flush del padre al final de la transaccion Hibernate intenta volver
-        // a guardar esas opciones ya eliminadas -> "deleted object would be re-saved
-        // by cascade" (500).
-        parametro.getOpciones().clear();
+    public void replaceAll(ParametroEstudio parametro, List<String> valores) {
+        Set<String> vistos = new LinkedHashSet<>();
+        for (String valor : valores) {
+            String val = valor.trim();
+            if (val.isEmpty()) continue;
+            if (!vistos.add(val.toLowerCase())) {
+                throw new ValidationException("La opción \"" + val + "\" está repetida");
+            }
+        }
 
-        for (int i = 0; i < valores.size(); i++) {
-            String val = valores.get(i).trim();
+        parametro.getOpciones().clear();
+        opcionRepository.flush();
+
+        int orden = 1;
+        for (String valor : valores) {
+            String val = valor.trim();
             if (val.isEmpty()) continue;
             OpcionParametro op = new OpcionParametro();
             op.setParametro(parametro);
             op.setValor(val);
-            op.setOrden(i + 1);
-            opcionRepository.save(op);
+            op.setOrden(orden++);
+            parametro.getOpciones().add(op);
         }
-        return opcionRepository.findAllByParametro_IdOrderByOrdenAsc(parametro.getId());
     }
 
     @Transactional(rollbackFor = Exception.class)
     public OpcionParametro addOpcion(ParametroEstudio parametro, String valor) {
-        List<OpcionParametro> actuales = opcionRepository.findAllByParametro_IdOrderByOrdenAsc(parametro.getId());
         OpcionParametro op = new OpcionParametro();
         op.setParametro(parametro);
         op.setValor(valor.trim());
-        op.setOrden(actuales.size() + 1);
-        return opcionRepository.save(op);
+        op.setOrden(parametro.getOpciones().size() + 1);
+        parametro.getOpciones().add(op);
+        return op;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteOpcion(Long opcionId) {
         OpcionParametro op = opcionRepository.findById(opcionId)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la opción"));
-        opcionRepository.delete(op);
-        // Re-numerar opciones restantes del mismo parámetro
-        List<OpcionParametro> restantes = opcionRepository.findAllByParametro_IdOrderByOrdenAsc(
-                op.getParametro().getId());
-        for (int i = 0; i < restantes.size(); i++) {
-            restantes.get(i).setOrden(i + 1);
+        ParametroEstudio parametro = op.getParametro();
+        parametro.getOpciones().remove(op);
+        int orden = 1;
+        for (OpcionParametro restante : parametro.getOpciones()) {
+            restante.setOrden(orden++);
         }
-        opcionRepository.saveAll(restantes);
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public void clearByParametro(Long parametroId) {
-        opcionRepository.deleteAllByParametro_Id(parametroId);
     }
 }
