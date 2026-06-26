@@ -53,7 +53,9 @@ public class ExamenApplicationService {
     public Examen update(Examen examen) {
         Examen existente = examenService.getExamen(examen.getId());
         institucionContextService.verificarPertenece(existente.getInstitucion());
-        examen.setInstitucion(resolverInstitucion(examen.getInstitucion()));
+        // La institución propietaria no es editable desde el DTO de edición (el
+        // frontend no la envía al actualizar, solo al crear) — se conserva la actual.
+        examen.setInstitucion(existente.getInstitucion());
         return examenService.updateExamen(examen);
     }
 
