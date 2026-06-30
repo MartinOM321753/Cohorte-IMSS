@@ -46,7 +46,7 @@ public class InitialConfig implements CommandLineRunner {
             return;
         }
 
-        Persona persona = personaRepository.findByEmail("admin@cohorte.local")
+        Persona persona = personaRepository.findByEmail("garciawalit@gmail.com")
                 .orElseGet(() -> {
                     Persona nuevaPersona = new Persona();
                     nuevaPersona.setNombre("Admin");
@@ -55,7 +55,7 @@ public class InitialConfig implements CommandLineRunner {
                     nuevaPersona.setFechaNacimiento(LocalDate.of(1990, 1, 1));
                     nuevaPersona.setSexo(Persona.Sexo.M);
                     nuevaPersona.setTelefono("7772589476");
-                    nuevaPersona.setEmail("admin@cohorte.local");
+                    nuevaPersona.setEmail("garciawalit@gmail.com");
                     nuevaPersona.setFechaRegistro(LocalDateTime.now());
                     nuevaPersona.setFechaActualizacion(LocalDateTime.now());
                     return personaRepository.save(nuevaPersona);
