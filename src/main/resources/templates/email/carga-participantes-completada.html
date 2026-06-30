@@ -45,6 +45,10 @@
                         <td style="padding:4px 0;font-size:14px;font-weight:600;color:#b45309;" th:text="${duplicados}">30</td>
                       </tr>
                       <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">CURP repetido (advertencia):</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#b45309;" th:text="${advertencias}">5</td>
+                      </tr>
+                      <tr>
                         <td style="padding:4px 0;font-size:14px;color:#6b7280;">Con errores:</td>
                         <td style="padding:4px 0;font-size:14px;font-weight:600;color:#b3261e;" th:text="${errores}">20</td>
                       </tr>
@@ -70,7 +74,24 @@
                 </table>
               </div>
 
-              <p th:if="${detalleErrores == null or detalleErrores.isEmpty()}" style="margin:0;font-size:14px;color:#15803d;line-height:1.6;">
+              <div th:if="${detalleAdvertencias != null and !detalleAdvertencias.isEmpty()}">
+                <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0d1411;">Registros importados con CURP repetido (revisar)</p>
+                <table width="100%" cellpadding="0" cellspacing="0"
+                       style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;font-size:13px;">
+                  <tr style="background:#fffbeb;">
+                    <th style="padding:10px 12px;text-align:left;color:#92400e;font-weight:600;border-bottom:1px solid #e5e7eb;">Fila</th>
+                    <th style="padding:10px 12px;text-align:left;color:#92400e;font-weight:600;border-bottom:1px solid #e5e7eb;">Folio</th>
+                    <th style="padding:10px 12px;text-align:left;color:#92400e;font-weight:600;border-bottom:1px solid #e5e7eb;">Motivo</th>
+                  </tr>
+                  <tr th:each="adv : ${detalleAdvertencias}">
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;" th:text="${adv.fila}">5</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;font-family:monospace;" th:text="${adv.folio != null and adv.folio != '' ? adv.folio : '—'}">000010</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b45309;" th:text="${adv.motivo}">El CURP ya existe</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p th:if="${(detalleErrores == null or detalleErrores.isEmpty()) and (detalleAdvertencias == null or detalleAdvertencias.isEmpty())}" style="margin:0;font-size:14px;color:#15803d;line-height:1.6;">
                 Todos los registros se importaron correctamente.
               </p>
             </td>

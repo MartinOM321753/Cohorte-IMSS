@@ -17,7 +17,9 @@ public class ImportResultDTO {
     private int exitosos;
     private int errores;
     private int duplicados;
+    private int advertencias;
     private List<FilaError> detalleErrores;
+    private List<FilaError> detalleAdvertencias;
 
     @Data
     @Builder

@@ -42,7 +42,7 @@ public class Persona {
     @Column(name = "telefono", length = 10)
     private String telefono;
 
-    @Column(name = "curp", length = 18, unique = true)
+    @Column(name = "curp", length = 18)
     private String curp;
 
     @Column(name = "email", length = 50)

@@ -27,7 +27,7 @@ public class PacienteImportService {
 
     private static final List<String> COLUMNAS_ESPERADAS = List.of(
             "folio", "nombre", "segundoNombre", "tercerNombre", "apellidoPaterno", "apellidoMaterno",
-            "curp", "fechaNacimiento", "sexo", "telefono", "email"
+            "curp", "fechaNacimiento", "sexo", "telefono", "email", "estado"
     );
 
     /**
@@ -61,6 +61,8 @@ public class PacienteImportService {
         alias.put("email", "email");
         alias.put("correo", "email");
         alias.put("correo electronico", "email");
+        alias.put("estado", "estado");
+        alias.put("estatus", "estado");
         return alias;
     }
 
@@ -90,8 +92,10 @@ public class PacienteImportService {
         }
 
         List<ImportResultDTO.FilaError> errores = new ArrayList<>();
+        List<ImportResultDTO.FilaError> advertenciasList = new ArrayList<>();
         int exitosos = 0;
         int duplicados = 0;
+        int advertencias = 0;
 
         for (int i = 0; i < filas.size(); i++) {
             Map<String, String> fila = filas.get(i);
@@ -106,6 +110,14 @@ public class PacienteImportService {
                 PacienteImportRowService.Resultado resultado = pacienteImportRowService.guardarFila(fila, institucion);
                 switch (resultado.estado()) {
                     case EXITOSO -> exitosos++;
+                    case ADVERTENCIA -> {
+                        exitosos++;
+                        advertencias++;
+                        advertenciasList.add(ImportResultDTO.FilaError.builder()
+                                .fila(numFila).folio(resultado.folio())
+                                .motivo(resultado.motivo())
+                                .build());
+                    }
                     case DUPLICADO -> {
                         duplicados++;
                         errores.add(ImportResultDTO.FilaError.builder()
@@ -131,7 +143,9 @@ public class PacienteImportService {
                 .exitosos(exitosos)
                 .errores(errores.size())
                 .duplicados(duplicados)
+                .advertencias(advertencias)
                 .detalleErrores(errores)
+                .detalleAdvertencias(advertenciasList)
                 .build();
     }
 

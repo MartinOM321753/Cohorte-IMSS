@@ -34,8 +34,8 @@ public class ImportacionParticipantesAsyncService {
             enviarCorreoError(emailDestino, nombreDestino, e.getMessage());
             return;
         }
-        log.info("Importación masiva de participantes finalizada: {} exitosos, {} errores, {} duplicados",
-                resultado.getExitosos(), resultado.getErrores(), resultado.getDuplicados());
+        log.info("Importación masiva de participantes finalizada: {} exitosos, {} errores, {} duplicados, {} advertencias",
+                resultado.getExitosos(), resultado.getErrores(), resultado.getDuplicados(), resultado.getAdvertencias());
         enviarCorreoCompletado(emailDestino, nombreDestino, resultado);
     }
 
@@ -51,6 +51,8 @@ public class ImportacionParticipantesAsyncService {
         ctx.setVariable("errores", resultado.getErrores());
         ctx.setVariable("duplicados", resultado.getDuplicados());
         ctx.setVariable("detalleErrores", resultado.getDetalleErrores());
+        ctx.setVariable("advertencias", resultado.getAdvertencias());
+        ctx.setVariable("detalleAdvertencias", resultado.getDetalleAdvertencias());
         emailService.enviar(email, "Carga de participantes completada", "email/carga-participantes-completada", ctx);
     }
 

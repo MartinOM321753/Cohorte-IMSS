@@ -25,7 +25,7 @@ public class PacienteImportRowService {
     private final PersonaRepository personaRepository;
     private final FolioGeneratorService folioGeneratorService;
 
-    public enum Estado { EXITOSO, DUPLICADO, ERROR }
+    public enum Estado { EXITOSO, DUPLICADO, ERROR, ADVERTENCIA }
 
     public record Resultado(Estado estado, String folio, String motivo) {}
 
@@ -69,8 +69,12 @@ public class PacienteImportRowService {
         }
 
         String curp = fila.getOrDefault("curp", "").trim().toUpperCase();
-        if (!curp.isEmpty() && personaRepository.existsByCurp(curp)) {
-            return new Resultado(Estado.DUPLICADO, folio, "El CURP '" + curp + "' ya existe");
+        boolean curpDuplicadoEnBD = false;
+        if (!curp.isEmpty()) {
+            if (curp.length() > 18) {
+                return new Resultado(Estado.ERROR, folio, "El CURP '" + curp + "' excede los 18 caracteres permitidos");
+            }
+            curpDuplicadoEnBD = personaRepository.existsByCurp(curp);
         }
 
         String emailVal = fila.getOrDefault("email", "").trim();
@@ -102,6 +106,9 @@ public class PacienteImportRowService {
             persona.setSexo(Persona.Sexo.valueOf(sexoStr));
         }
 
+        String estadoStr = fila.getOrDefault("estado", "").trim();
+        boolean activo = "ACTIVO".equalsIgnoreCase(estadoStr);
+
         persona.setFechaRegistro(LocalDateTime.now());
         persona.setFechaActualizacion(LocalDateTime.now());
         persona = personaRepository.save(persona);
@@ -110,12 +117,15 @@ public class PacienteImportRowService {
         paciente.setFolio(folio);
         paciente.setPersona(persona);
         paciente.setInstitucion(institucion);
-        paciente.setActivo(true);
+        paciente.setActivo(activo);
         paciente.setFechaRegistro(LocalDateTime.now());
         paciente.setFechaActualizacion(LocalDateTime.now());
         paciente.setUuid(UUID.randomUUID().toString());
         pacienteRepository.save(paciente);
 
+        if (curpDuplicadoEnBD) {
+            return new Resultado(Estado.ADVERTENCIA, folio, "El CURP '" + curp + "' ya existe en otro registro");
+        }
         return new Resultado(Estado.EXITOSO, folio, null);
     }
 
