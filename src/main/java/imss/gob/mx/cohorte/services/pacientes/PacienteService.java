@@ -20,7 +20,7 @@ public class PacienteService {
     private final FolioGeneratorService folioGeneratorService;
 
     public List<Paciente> findAllByInstitucion(Long idInstitucion) {
-        return pacienteRepository.findAllByInstitucion_Id(idInstitucion);
+        return pacienteRepository.findAllByActivoAndInstitucion_IdOrderByFolioAsc(true, idInstitucion);
     }
 
     public Page<Paciente> findAllPaginadoByInstitucion(Long idInstitucion, Pageable pageable) {
@@ -28,7 +28,7 @@ public class PacienteService {
     }
 
     public List<Paciente> findAllStatusByInstitucion(Boolean activo, Long idInstitucion) {
-        return pacienteRepository.findAllByActivoAndInstitucion_Id(activo, idInstitucion);
+        return pacienteRepository.findAllByActivoAndInstitucion_IdOrderByFolioAsc(activo, idInstitucion);
     }
 
     public Paciente getPatient(Long idPaciente, Long idInstitucion) {
@@ -128,19 +128,19 @@ public class PacienteService {
     // ── Variantes multi-institución (jerarquía) ──
 
     public List<Paciente> findAllByInstituciones(List<Long> ids) {
-        return pacienteRepository.findAllByInstitucion_IdIn(ids);
+        return pacienteRepository.findAllByActivoAndInstitucion_IdInOrderByFolioAsc(true, ids);
     }
 
     public Page<Paciente> findAllPaginadoByInstituciones(List<Long> ids, Pageable pageable) {
         return pacienteRepository.findAllByInstitucion_IdIn(ids, pageable);
     }
 
-    public Page<Paciente> buscarPaginado(Long idInstitucion, String buscar, Pageable pageable) {
-        return pacienteRepository.buscarPaginado(idInstitucion, buscar, pageable);
+    public Page<Paciente> buscarPaginado(Long idInstitucion, String buscar, Boolean soloActivos, Pageable pageable) {
+        return pacienteRepository.buscarPaginado(idInstitucion, buscar, soloActivos, pageable);
     }
 
-    public Page<Paciente> buscarPaginadoEnInstituciones(List<Long> ids, String buscar, Pageable pageable) {
-        return pacienteRepository.buscarPaginadoEnInstituciones(ids, buscar, pageable);
+    public Page<Paciente> buscarPaginadoEnInstituciones(List<Long> ids, String buscar, Boolean soloActivos, Pageable pageable) {
+        return pacienteRepository.buscarPaginadoEnInstituciones(ids, buscar, soloActivos, pageable);
     }
 
     public Paciente getByUUID(String uuid, List<Long> idsInstituciones) {

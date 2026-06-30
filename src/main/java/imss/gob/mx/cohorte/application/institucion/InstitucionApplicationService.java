@@ -76,4 +76,9 @@ public class InstitucionApplicationService {
     public Set<Long> getIdsConEstadoGestionable() {
         return institucionService.getIdsConEstadoGestionable();
     }
+
+    @Transactional(readOnly = true)
+    public List<Institucion> getVisiblesParaJerarquia() {
+        return institucionService.getVisiblesParaJerarquia();
+    }
 }

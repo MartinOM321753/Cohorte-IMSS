@@ -97,6 +97,16 @@ public class InstitucionController {
         return ResponseEntity.ok(new APIResponse("Instituciones encontradas", body, false, HttpStatus.OK));
     }
 
+    @GetMapping("/visibles")
+    @Operation(summary = "Instituciones visibles para el usuario actual según jerarquía",
+            description = "Retorna la propia institución, sus descendientes y las ancestras que le otorgaron " +
+                    "acceso — usado para alimentar el selector de institución del filtro de participantes " +
+                    "cuando el modo jerarquía está activo.")
+    public ResponseEntity<APIResponse> getVisibles() {
+        List<Institucion> list = institucionApplicationService.getVisiblesParaJerarquia();
+        return ResponseEntity.ok(new APIResponse("Instituciones visibles", InstitucionMapper.toResponseDTOList(list), false, HttpStatus.OK));
+    }
+
     @GetMapping("/activas")
     @Operation(summary = "Listar instituciones activas", description = "Lista completa de instituciones activas. Usar sólo en catálogos pequeños — para selects grandes usar /buscar.")
     public ResponseEntity<APIResponse> getAllActivas() {

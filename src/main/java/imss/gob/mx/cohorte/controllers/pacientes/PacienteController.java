@@ -76,11 +76,13 @@ public class PacienteController {
     public ResponseEntity<APIResponse> getAllPaginado(
             Pageable pageable,
             @RequestParam(value = "buscar", required = false) String buscar,
-            @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia) {
+            @RequestParam(value = "soloActivos", required = false) Boolean soloActivos,
+            @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia,
+            @RequestParam(value = "idInstitucionFiltro", required = false) Long idInstitucionFiltro) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Page<Paciente> pacientes = incluirJerarquia
-                ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, pageable)
-                : pacienteApplicationService.buscarPaginado(buscar, pageable);
+                ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, soloActivos, idInstitucionFiltro, pageable)
+                : pacienteApplicationService.buscarPaginado(buscar, soloActivos, pageable);
         Map<String, Object> body = Map.of(
             "content", PacienteMapper.toResponseDTOList(pacientes.getContent(), idInstActual),
             "page", pacientes.getNumber(),

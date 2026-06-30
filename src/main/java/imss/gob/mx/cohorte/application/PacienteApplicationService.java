@@ -62,15 +62,22 @@ public class PacienteApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Paciente> buscarPaginado(String buscar, Pageable pageable) {
-        return pacienteService.buscarPaginado(institucionContextService.getIdInstitucionActual(), buscar, pageable);
+    public Page<Paciente> buscarPaginado(String buscar, Boolean soloActivos, Pageable pageable) {
+        return pacienteService.buscarPaginado(institucionContextService.getIdInstitucionActual(), buscar, soloActivos, pageable);
     }
 
     @Transactional(readOnly = true)
-    public Page<Paciente> buscarPaginadoConJerarquia(String buscar, Pageable pageable) {
+    public Page<Paciente> buscarPaginadoConJerarquia(String buscar, Boolean soloActivos, Long idInstitucionFiltro, Pageable pageable) {
         List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
                 institucionContextService.getIdInstitucionActual());
-        return pacienteService.buscarPaginadoEnInstituciones(ids, buscar, pageable);
+        if (idInstitucionFiltro != null) {
+            if (!ids.contains(idInstitucionFiltro)) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "La institución solicitada no es visible para tu institución actual");
+            }
+            return pacienteService.buscarPaginado(idInstitucionFiltro, buscar, soloActivos, pageable);
+        }
+        return pacienteService.buscarPaginadoEnInstituciones(ids, buscar, soloActivos, pageable);
     }
 
     public Long getIdInstitucionActual() {

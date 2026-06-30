@@ -29,6 +29,19 @@ public class InstitucionService {
     private final TipoInstitucionRepository tipoInstitucionRepository;
     private final UserRepository userRepository;
     private final InstitucionContextService institucionContextService;
+    private final InstitucionJerarquiaService institucionJerarquiaService;
+
+    /**
+     * Instituciones visibles para el usuario actual según la jerarquía (propias,
+     * descendientes y ancestras con permiso otorgado) — alimenta el selector de
+     * institución del frontend cuando el modo "jerarquía" está activo.
+     */
+    @Transactional(readOnly = true)
+    public List<Institucion> getVisiblesParaJerarquia() {
+        Long idActual = institucionContextService.getIdInstitucionActual();
+        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(idActual);
+        return institucionRepository.findAllById(ids);
+    }
 
     @Transactional(readOnly = true)
     public Page<Institucion> getAllPaginado(Pageable pageable) {

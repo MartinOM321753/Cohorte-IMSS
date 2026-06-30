@@ -123,7 +123,7 @@ public class CoberturaController {
         }
 
         // Todos los pacientes activos
-        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
+        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_IdOrderByFolioAsc(true, idInstitucion);
 
         // Frecuencia de cada k
         Map<Integer, Long> freq = new TreeMap<>();
@@ -195,7 +195,7 @@ public class CoberturaController {
                     : estudioMedicoRepository.countDistinctTipoByPacienteActivo(idInstitucion)
                               .stream().map(r -> ((Number) r[0]).longValue()).collect(Collectors.toList());
             Set<Long> conAlgunoSet = new HashSet<>(conAlguno);
-            ids = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
+            ids = pacienteRepository.findAllByActivoAndInstitucion_IdOrderByFolioAsc(true, idInstitucion).stream()
                     .map(Paciente::getId)
                     .filter(pid -> !conAlgunoSet.contains(pid))
                     .collect(Collectors.toList());
@@ -248,7 +248,7 @@ public class CoberturaController {
         }
 
         // Tomar los primeros `limit` pacientes activos ordenados por menor cobertura
-        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion).stream()
+        List<Paciente> pacientesActivos = pacienteRepository.findAllByActivoAndInstitucion_IdOrderByFolioAsc(true, idInstitucion).stream()
                 .sorted(Comparator.comparingLong(p -> conteoMap.getOrDefault(p.getId(), 0L)))
                 .limit(limit)
                 .collect(Collectors.toList());

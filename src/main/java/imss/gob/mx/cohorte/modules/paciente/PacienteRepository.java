@@ -36,21 +36,19 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     Optional<Paciente> findByIdAndInstitucion_Id(Long id, Long idInstitucion);
 
-    List<Paciente> findAllByInstitucion_Id(Long idInstitucion);
-
     Page<Paciente> findAllByInstitucion_Id(Long idInstitucion, Pageable pageable);
 
-    List<Paciente> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
+    List<Paciente> findAllByActivoAndInstitucion_IdOrderByFolioAsc(Boolean activo, Long idInstitucion);
 
     long countByActivoAndInstitucion_Id(boolean activo, Long idInstitucion);
 
     // ── Variantes multi-institución (jerarquía) ──
 
-    List<Paciente> findAllByInstitucion_IdIn(List<Long> ids);
-
     Page<Paciente> findAllByInstitucion_IdIn(List<Long> ids, Pageable pageable);
 
     List<Paciente> findAllByActivoAndInstitucion_IdIn(Boolean activo, List<Long> ids);
+
+    List<Paciente> findAllByActivoAndInstitucion_IdInOrderByFolioAsc(Boolean activo, List<Long> ids);
 
     Optional<Paciente> findByUuidAndInstitucion_IdIn(String uuid, List<Long> ids);
 
@@ -69,9 +67,12 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
          + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%'))) "
+         + "AND (:soloActivos IS NULL OR p.activo = :soloActivos) "
+         + "ORDER BY p.activo DESC, p.folio ASC")
     Page<Paciente> buscarPaginado(@Param("idInstitucion") Long idInstitucion,
                                   @Param("buscar") String buscar,
+                                  @Param("soloActivos") Boolean soloActivos,
                                   Pageable pageable);
 
     @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id IN :ids "
@@ -83,8 +84,11 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
          + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%'))) "
+         + "AND (:soloActivos IS NULL OR p.activo = :soloActivos) "
+         + "ORDER BY p.activo DESC, p.folio ASC")
     Page<Paciente> buscarPaginadoEnInstituciones(@Param("ids") List<Long> ids,
                                                  @Param("buscar") String buscar,
+                                                 @Param("soloActivos") Boolean soloActivos,
                                                  Pageable pageable);
 }
