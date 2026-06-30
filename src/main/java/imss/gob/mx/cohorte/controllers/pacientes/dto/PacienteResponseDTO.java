@@ -1,6 +1,5 @@
 package imss.gob.mx.cohorte.controllers.pacientes.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
 import imss.gob.mx.cohorte.controllers.reclutamiento.dto.ReclutamientoParticipanteResponseDTO;
 import lombok.AllArgsConstructor;
@@ -16,8 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PacienteResponseDTO {
     private Long id;
-    @JsonProperty("UUID")
-    private String UUID;
+    private String uuid;
     private String folio;
     private Boolean activo;
     private LocalDateTime fechaRegistro;
