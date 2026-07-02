@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "Tipo_Estudio")
+@Table(name = "Tipo_Estudio",
+       uniqueConstraints = @UniqueConstraint(
+               name = "uk_tipo_estudio_nombre_inst",
+               columnNames = {"nombre", "id_institucion"}))
 @Getter
 @Setter
 @NoArgsConstructor
