@@ -5,6 +5,7 @@ import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteRequestDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteResponseDTO;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
+import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.http.HttpStatus;
@@ -25,8 +27,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/pacientes")
@@ -36,6 +40,7 @@ import java.util.Map;
 public class PacienteController {
 
     private final PacienteApplicationService pacienteApplicationService;
+    private final UserRepository userRepository;
 
     @GetMapping
     @Operation(summary = "Listar todos los pacientes", description = "Obtiene una lista completa de todos los pacientes registrados en la cohorte")
@@ -83,8 +88,17 @@ public class PacienteController {
         Page<Paciente> pacientes = incluirJerarquia
                 ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, soloActivos, idInstitucionFiltro, pageable)
                 : pacienteApplicationService.buscarPaginado(buscar, soloActivos, pageable);
+
+        List<Long> personaIds = pacientes.getContent().stream()
+                .filter(p -> p.getPersona() != null)
+                .map(p -> p.getPersona().getId())
+                .toList();
+        Set<Long> conAcceso = personaIds.isEmpty()
+                ? Collections.emptySet()
+                : userRepository.findPersonaIdsWithUserAccount(personaIds);
+
         Map<String, Object> body = Map.of(
-            "content", PacienteMapper.toResponseDTOList(pacientes.getContent(), idInstActual),
+            "content", PacienteMapper.toResponseDTOList(pacientes.getContent(), idInstActual, conAcceso),
             "page", pacientes.getNumber(),
             "size", pacientes.getSize(),
             "totalElements", pacientes.getTotalElements(),
@@ -133,7 +147,8 @@ public class PacienteController {
         Paciente paciente = pacienteApplicationService.findUser(id);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
+        Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
     @GetMapping("/uuid/{uuid}")
@@ -158,7 +173,8 @@ public class PacienteController {
         Paciente paciente = pacienteApplicationService.findByUUID(uuid);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
+        Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
     @GetMapping("/folio/{folio}")
@@ -183,7 +199,8 @@ public class PacienteController {
         Paciente paciente = pacienteApplicationService.findByFolio(folio);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
-        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual), false, HttpStatus.OK));
+        Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
     @PostMapping
@@ -229,6 +246,20 @@ public class PacienteController {
         pacienteApplicationService.importarPacientesAsync(archivo);
         String msg = "Archivo recibido. Se está procesando en segundo plano — recibirás un correo cuando termine.";
         return ResponseEntity.accepted().body(new APIResponse(msg, false, HttpStatus.ACCEPTED));
+    }
+
+    @PostMapping("/uuid/{uuid}/crear-acceso")
+    @Operation(summary = "Crear cuenta de acceso para participante",
+               description = "Crea una cuenta de usuario con rol PACIENTE para un participante activo que aún no tiene acceso. " +
+                       "El username será el email del participante. Se envía correo de invitación con las credenciales.")
+    @PreAuthorize("hasAuthority('PACIENTES_CREAR_ACCESO')")
+    public ResponseEntity<APIResponse> crearAcceso(@PathVariable String uuid) {
+        Paciente paciente = pacienteApplicationService.crearAccesoPaciente(uuid);
+        var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(new APIResponse("Cuenta de acceso creada exitosamente. Se envió un correo de invitación al participante.",
+                    PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, true), false, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}")

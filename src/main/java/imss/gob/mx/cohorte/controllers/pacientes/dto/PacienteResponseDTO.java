@@ -26,4 +26,5 @@ public class PacienteResponseDTO {
     private Long institucionId;
     private String institucionNombre;
     private Boolean propiaInstitucion;
+    private Boolean tieneAcceso;
 }

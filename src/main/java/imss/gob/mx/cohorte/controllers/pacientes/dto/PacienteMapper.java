@@ -8,6 +8,8 @@ import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.reclutamiento.ReclutamientoParticipante;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PacienteMapper {
 
@@ -39,6 +41,10 @@ public class PacienteMapper {
     }
 
     public static PacienteResponseDTO toResponseDTO(Paciente p, ReclutamientoParticipante reclutamiento, Long idInstitucionActual) {
+        return toResponseDTO(p, reclutamiento, idInstitucionActual, null);
+    }
+
+    public static PacienteResponseDTO toResponseDTO(Paciente p, ReclutamientoParticipante reclutamiento, Long idInstitucionActual, Boolean tieneAcceso) {
         PersonaResponseDTO personaDTO = null;
         if (p.getPersona() != null) {
             Persona per = p.getPersona();
@@ -74,6 +80,7 @@ public class PacienteMapper {
             .institucionId(instId)
             .institucionNombre(instNombre)
             .propiaInstitucion(propia)
+            .tieneAcceso(tieneAcceso)
             .build();
     }
 
@@ -100,5 +107,14 @@ public class PacienteMapper {
 
     public static List<PacienteResponseDTO> toResponseDTOList(List<Paciente> list, Long idInstitucionActual) {
         return list.stream().map(p -> toResponseDTO(p, null, idInstitucionActual)).toList();
+    }
+
+    public static List<PacienteResponseDTO> toResponseDTOList(List<Paciente> list, Long idInstitucionActual, Set<Long> personaIdsConAcceso) {
+        return list.stream().map(p -> {
+            Boolean tieneAcceso = (p.getPersona() != null && personaIdsConAcceso != null)
+                    ? personaIdsConAcceso.contains(p.getPersona().getId())
+                    : false;
+            return toResponseDTO(p, null, idInstitucionActual, tieneAcceso);
+        }).toList();
     }
 }
