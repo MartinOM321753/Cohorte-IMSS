@@ -30,10 +30,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -51,6 +49,7 @@ public class AuthController {
     private final PasswordResetService   passwordResetService;
     private final JWTUtils               jwtUtils;
     private final UserRepository         userRepository;
+    private final imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService permisoEvaluationService;
 
     @Value("${app.cookie-secure:false}")
     private boolean cookieSecure;
@@ -103,9 +102,14 @@ public class AuthController {
 
         boolean mustChangePassword = readMustChangePasswordFromCookie(request);
 
+        List<String> roles = permisoEvaluationService.getRoleNames(user);
+        Set<String> permisos = permisoEvaluationService.getPermisosEfectivos(user);
+
         Map<String, Object> body = new HashMap<>();
         body.put("user", userDTO);
         body.put("mustChangePassword", mustChangePassword);
+        body.put("roles", roles);
+        body.put("permisos", permisos.stream().sorted().collect(Collectors.toList()));
 
         return ResponseEntity.ok(new APIResponse("Sesión vigente", body, false, HttpStatus.OK));
     }

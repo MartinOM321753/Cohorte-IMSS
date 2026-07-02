@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.application;
 
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRol;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRolRepository;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
@@ -9,6 +11,7 @@ import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import imss.gob.mx.cohorte.services.auth.PasswordResetService;
+import imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -35,6 +39,8 @@ public class UserApplicationService {
     private final InstitucionRepository institucionRepository;
     private final PasswordResetService passwordResetService;
     private final InstitucionContextService institucionContextService;
+    private final UsuarioRolRepository usuarioRolRepository;
+    private final PermisoEvaluationService permisoEvaluationService;
 
     @Transactional(readOnly = true)
     public List<BeanUser> findAllByInstitucion() {
@@ -95,6 +101,7 @@ public class UserApplicationService {
         return userService.getAdministradoresDisponiblesParaInstitucion(uuidInstitucion);
     }
 
+    @SuppressWarnings("deprecation")
     @Transactional
     public BeanUser saveUser(BeanUser beanUser) {
         Persona persona = beanUser.getPersona();
@@ -114,11 +121,19 @@ public class UserApplicationService {
         beanUser.setDebeResetear(true);
 
         BeanUser saved = userService.save(beanUser);
+
+        UsuarioRol ur = new UsuarioRol();
+        ur.setUsuario(saved);
+        ur.setRol(findRole);
+        ur.setFechaAsignacion(LocalDateTime.now());
+        usuarioRolRepository.save(ur);
+
         passwordResetService.enviarInvitacion(saved);
 
         return saved;
     }
 
+    @SuppressWarnings("deprecation")
     @Transactional
     public BeanUser updateUser(BeanUser beanUser) {
         BeanUser existing = userService.getUser(beanUser.getId());
@@ -132,7 +147,17 @@ public class UserApplicationService {
         beanUser.setRol(updatedRole);
         beanUser.setInstitucion(updatedInstitucion);
         beanUser.setActivo(existing.getActivo());
-        return userService.updateUser(beanUser);
+        BeanUser saved = userService.updateUser(beanUser);
+
+        usuarioRolRepository.deleteAllByUsuario(saved);
+        usuarioRolRepository.flush();
+        UsuarioRol ur = new UsuarioRol();
+        ur.setUsuario(saved);
+        ur.setRol(updatedRole);
+        ur.setFechaAsignacion(LocalDateTime.now());
+        usuarioRolRepository.save(ur);
+
+        return saved;
     }
 
     @Transactional
@@ -186,8 +211,7 @@ public class UserApplicationService {
         }
 
         BeanUser actual = institucionContextService.getUsuarioActual();
-        String rolActual = actual.getRol() != null ? actual.getRol().getRole() : "";
-        if (!"ADMINISTRADOR".equals(rolActual)) {
+        if (!permisoEvaluationService.tienePermiso(actual, "USUARIOS_CREAR")) {
             throw new AccessDeniedException("No tienes permiso para reenviar esta invitacion");
         }
     }
@@ -266,31 +290,6 @@ public class UserApplicationService {
     }
 
     private String generarPasswordSeguro() {
-        final String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        final String lower = "abcdefghijklmnopqrstuvwxyz";
-        final String digits = "0123456789";
-        final String special = "!@#$%&*";
-        final String all = upper + lower + digits + special;
-
-        SecureRandom rng = new SecureRandom();
-        char[] pw = new char[16];
-
-        pw[0] = upper.charAt(rng.nextInt(upper.length()));
-        pw[1] = lower.charAt(rng.nextInt(lower.length()));
-        pw[2] = digits.charAt(rng.nextInt(digits.length()));
-        pw[3] = special.charAt(rng.nextInt(special.length()));
-
-        for (int i = 4; i < pw.length; i++) {
-            pw[i] = all.charAt(rng.nextInt(all.length()));
-        }
-
-        for (int i = pw.length - 1; i > 0; i--) {
-            int j = rng.nextInt(i + 1);
-            char tmp = pw[i];
-            pw[i] = pw[j];
-            pw[j] = tmp;
-        }
-
-        return new String(pw);
+        return imss.gob.mx.cohorte.utils.CredentialGenerator.generarPasswordSeguro();
     }
 }

@@ -37,7 +37,7 @@ public class InstitucionModuloController {
     }
 
     @PutMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Otorgar o actualizar un permiso de módulo",
             description = "Sólo procede si la institución indicada en `idOtorgante` es ancestra (padre directo o de nivel superior) " +
                     "de la institución destino — el servicio valida la jerarquía y rechaza la operación en caso contrario.")
@@ -51,7 +51,7 @@ public class InstitucionModuloController {
     }
 
     @DeleteMapping("/{modulo}")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Revocar un permiso de módulo",
             description = "Equivalente a deshabilitar el módulo (no elimina el registro — preserva la auditoría de quién otorgó/revocó).")
     public ResponseEntity<APIResponse> revocar(

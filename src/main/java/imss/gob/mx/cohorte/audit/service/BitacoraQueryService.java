@@ -96,7 +96,7 @@ public class BitacoraQueryService {
                 u.getUUID(),
                 u.getPersona().getNombre(),
                 u.getPersona().getApellidoPaterno(),
-                u.getRol().getRole()
+                u.getRol() != null ? u.getRol().getRole() : "SIN_ROL"
         );
     }
 

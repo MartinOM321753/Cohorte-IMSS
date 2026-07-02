@@ -9,6 +9,7 @@ import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.documentos.DocumentoAccessTokenService;
+import imss.gob.mx.cohorte.services.documentos.DocumentoPermisosConfig;
 import imss.gob.mx.cohorte.services.documentos.DocumentoService;
 import imss.gob.mx.cohorte.services.impresion.ConfiguracionEtiquetaService;
 import imss.gob.mx.cohorte.services.impresion.DirectPrintService;
@@ -20,9 +21,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -63,6 +61,7 @@ public class DocumentoController {
     private final ConfiguracionEtiquetaService configuracionEtiquetaService;
     private final InstitucionContextService institucionCtx;
     private final DocumentoAccessTokenService accessTokenService;
+    private final DocumentoPermisosConfig permisosConfig;
 
     public DocumentoController(DocumentoService documentoService,
                                 MinioStorageService minioStorageService,
@@ -70,7 +69,8 @@ public class DocumentoController {
                                 DirectPrintService directPrintService,
                                 ConfiguracionEtiquetaService configuracionEtiquetaService,
                                 InstitucionContextService institucionCtx,
-                                DocumentoAccessTokenService accessTokenService) {
+                                DocumentoAccessTokenService accessTokenService,
+                                DocumentoPermisosConfig permisosConfig) {
         this.documentoService = documentoService;
         this.minioStorageService = minioStorageService;
         this.zplLabelService = zplLabelService;
@@ -78,6 +78,7 @@ public class DocumentoController {
         this.configuracionEtiquetaService = configuracionEtiquetaService;
         this.institucionCtx = institucionCtx;
         this.accessTokenService = accessTokenService;
+        this.permisosConfig = permisosConfig;
     }
 
     // ─── Helper: mapeo TipoDocumentoPaciente → TipoEntidadDocumento ───────────
@@ -91,23 +92,6 @@ public class DocumentoController {
         };
     }
 
-    // ─── Helper: extrae el rol del SecurityContext ────────────────────────────────
-
-    /**
-     * Extrae el nombre del rol activo (sin prefijo ROLE_) del token JWT actual.
-     * Ejemplo: "ROLE_ADMINISTRADOR" → "ADMINISTRADOR"
-     */
-    private String getCurrentRole() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return "";
-        return auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(a -> a.startsWith("ROLE_"))
-                .map(a -> a.substring(5))
-                .findFirst()
-                .orElse("");
-    }
-
     // ─── Upload para Estudio ──────────────────────────────────────────────────────
 
     @PostMapping(value = "/estudio/{estudioId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -118,7 +102,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID,
             @RequestParam(value = "orden", defaultValue = "0") int orden
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.ESTUDIO);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaEstudio(file, estudioId, descripcion, usuarioUUID, orden);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -135,7 +119,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
         TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
-        documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaPaciente(file, uuid, tipoDoc, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -149,7 +133,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
         TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
-        documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.crearDocumentoSinArchivo(uuid, tipoDoc, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Registro creado — etiqueta generada", dto, false, HttpStatus.CREATED));
@@ -173,7 +157,7 @@ public class DocumentoController {
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.MUESTRA);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaMuestra(file, muestraId, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -188,7 +172,7 @@ public class DocumentoController {
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.RESULTADO_EXAMEN);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaResultadoExamen(file, resultadoId, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -266,7 +250,7 @@ public class DocumentoController {
         }
 
         Documento doc = documentoService.getDocumentoById(id);
-        documentoService.verificarPuedeVer(getCurrentRole(), doc.getTipoEntidad());
+        documentoService.verificarPuedeDescargar();
 
         if (!doc.isArchivoSubido() || doc.getObjectKey() == null) {
             throw new ObjNotFoundException("Este documento aún no tiene archivo adjunto");
@@ -357,10 +341,9 @@ public class DocumentoController {
 
     @PostMapping("/etiqueta/{etiqueta}/token")
     public ResponseEntity<APIResponse> generarTokenAcceso(@PathVariable String etiqueta) {
-        String role = getCurrentRole();
-        if (!"ADMINISTRADOR".equals(role)) {
+        if (!permisosConfig.puedeDescargar()) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Solo el rol ADMINISTRADOR puede generar tokens de visualización de documentos");
+                    "No tiene permiso para generar tokens de visualización de documentos");
         }
         DocumentoAccessToken token = accessTokenService.generarToken(etiqueta);
         Map<String, Object> response = Map.of(
@@ -430,7 +413,7 @@ public class DocumentoController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<APIResponse> delete(@PathVariable Long id) {
-        documentoService.verificarPuedeEliminar(getCurrentRole());
+        documentoService.verificarPuedeEliminar();
         documentoService.deleteDocumento(id);
         return ResponseEntity.ok(new APIResponse("Documento eliminado correctamente", null, false, HttpStatus.OK));
     }

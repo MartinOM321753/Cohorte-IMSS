@@ -32,7 +32,7 @@ public class UserService {
     }
 
     public List<BeanUser> getAllByInstitucionConInvitacionesPendientes(Long idInstitucion) {
-        return userRepository.findAllByInstitucionOrInvitacionPendiente(idInstitucion);
+        return userRepository.findAllByInstitucionExcluyendoPacientes(idInstitucion);
     }
 
     public List<BeanUser> getAllActiveByInstitucion(Long idInstitucion) {
@@ -40,7 +40,7 @@ public class UserService {
     }
 
     public Page<BeanUser> buscarPaginadoConInvitacionesPendientes(Long idInstitucion, String buscar, Pageable pageable) {
-        return userRepository.buscarPaginadoConInvitacionesPendientes(idInstitucion, buscar, pageable);
+        return userRepository.buscarPaginadoExcluyendoPacientes(idInstitucion, buscar, pageable);
     }
 
     public BeanUser getUser(Long idUser) {

@@ -6,6 +6,8 @@ import imss.gob.mx.cohorte.modules.institucion.TipoInstitucion;
 import imss.gob.mx.cohorte.modules.institucion.TipoInstitucionRepository;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRol;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRolRepository;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
@@ -31,6 +33,7 @@ public class InitialConfig implements CommandLineRunner {
     private final InstitucionRepository institucionRepository;
     private final TipoInstitucionRepository tipoInstitucionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioRolRepository usuarioRolRepository;
 
     @Override
     public void run(String... args) {
@@ -71,7 +74,13 @@ public class InitialConfig implements CommandLineRunner {
         admin.setFechaCreacion(LocalDateTime.now());
         admin.setFechaActualizacion(LocalDateTime.now());
 
-        userRepository.save(admin);
+        BeanUser saved = userRepository.save(admin);
+
+        UsuarioRol ur = new UsuarioRol();
+        ur.setUsuario(saved);
+        ur.setRol(rolAdmin);
+        ur.setFechaAsignacion(LocalDateTime.now());
+        usuarioRolRepository.save(ur);
     }
 
     private Role ensureRole(String roleName) {

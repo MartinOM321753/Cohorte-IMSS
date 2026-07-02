@@ -78,82 +78,91 @@ public class MainSecurity {
                         // DEBE ir ANTES de las reglas generales de /api/users/**
                         .requestMatchers(HttpMethod.PUT, "/api/users/me/**").authenticated()
 
-                        // Gestión de usuarios: solo ADMINISTRADOR puede crear/modificar
-                        .requestMatchers(HttpMethod.GET, "/api/users/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA", "ENCARGADO")
-                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PUT, "/api/users/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMINISTRADOR")
+                        // Gestión de usuarios
+                        .requestMatchers(HttpMethod.GET, "/api/users/**").hasAuthority("USUARIOS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasAuthority("USUARIOS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/users/**").hasAuthority("USUARIOS_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/users/**").hasAuthority("USUARIOS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasAuthority("USUARIOS_ELIMINAR")
 
-                        // Pacientes: lectura para RECEPCIONISTA y ADMINISTRADOR, escritura solo ADMINISTRADOR
-                        .requestMatchers(HttpMethod.GET, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/pacientes/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PUT, "/api/pacientes/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PATCH, "/api/pacientes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/pacientes/**").hasRole("ADMINISTRADOR")
+                        // Pacientes — crear-acceso DEBE ir ANTES de la regla general de POST
+                        .requestMatchers(HttpMethod.POST, "/api/pacientes/uuid/*/crear-acceso").hasAuthority("PACIENTES_CREAR_ACCESO")
+                        .requestMatchers(HttpMethod.GET, "/api/pacientes/**").hasAuthority("PACIENTES_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/pacientes/**").hasAuthority("PACIENTES_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/pacientes/**").hasAuthority("PACIENTES_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/pacientes/**").hasAuthority("PACIENTES_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/pacientes/**").hasAuthority("PACIENTES_ELIMINAR")
 
-                        // Configuración de horario de citas: escritura solo ADMINISTRADOR
-                        .requestMatchers(HttpMethod.GET, "/api/citas/configuracion-horario/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PUT, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.PATCH, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/citas/configuracion-horario/**").hasRole("ADMINISTRADOR")
+                        // Configuración de horario de citas
+                        .requestMatchers(HttpMethod.GET, "/api/citas/configuracion-horario/**").hasAuthority("CITAS_CONFIGURACION_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/citas/configuracion-horario/**").hasAuthority("CITAS_CONFIGURACION_EDITAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/citas/configuracion-horario/**").hasAuthority("CITAS_CONFIGURACION_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/citas/configuracion-horario/**").hasAuthority("CITAS_CONFIGURACION_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/citas/configuracion-horario/**").hasAuthority("CITAS_CONFIGURACION_EDITAR")
 
-                        // Citas: lectura y creación para RECEPCIONISTA y ADMINISTRADOR
-                        .requestMatchers(HttpMethod.GET, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PATCH, "/api/citas/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/citas/**").hasRole("ADMINISTRADOR")
+                        // Citas
+                        .requestMatchers(HttpMethod.GET, "/api/citas/**").hasAuthority("CITAS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/citas/**").hasAuthority("CITAS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/citas/**").hasAuthority("CITAS_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/citas/**").hasAuthority("CITAS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/citas/**").hasAuthority("CITAS_ELIMINAR")
 
                         // Estudios médicos
-                        .requestMatchers(HttpMethod.GET, "/api/estudios/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/estudios/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/estudios/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/estudios/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/estudios/**").hasAuthority("ESTUDIOS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/estudios/**").hasAuthority("ESTUDIOS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/estudios/**").hasAuthority("ESTUDIOS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/estudios/**").hasAuthority("ESTUDIOS_ELIMINAR")
 
                         // Exámenes
-                        .requestMatchers(HttpMethod.GET, "/api/examenes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/examenes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/examenes/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/examenes/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/examenes/**").hasAuthority("EXAMENES_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/examenes/**").hasAuthority("EXAMENES_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/examenes/**").hasAuthority("EXAMENES_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/examenes/**").hasAuthority("EXAMENES_ELIMINAR")
 
-                        // Traslados y almacén propio: el ENCARGADO puede consultar y gestionar sus muestras.
-                        // DEBE ir ANTES de la regla general de /api/almacenamiento/**.
-                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/traslados/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA", "ENCARGADO")
-                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/almacenes/encargado/**").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
-                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/confirmar-recepcion").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
-                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/iniciar-devolucion").hasAnyRole("ADMINISTRADOR", "ENCARGADO")
+                        // Traslados — DEBE ir ANTES de /api/almacenamiento/**
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/traslados/**").hasAuthority("TRASLADOS_VER")
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/almacenes/encargado/**").hasAuthority("TRASLADOS_VER")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/confirmar-recepcion").hasAuthority("TRASLADOS_CONFIRMAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/iniciar-devolucion").hasAuthority("TRASLADOS_DEVOLVER")
 
                         // Almacenamiento general (refrigeradores, cajas, muestras, almacenes)
-                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PATCH, "/api/almacenamiento/**").hasRole("ADMINISTRADOR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/almacenamiento/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/**").hasAuthority("BIOBANCO_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/almacenamiento/**").hasAuthority("BIOBANCO_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/**").hasAuthority("BIOBANCO_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/almacenamiento/**").hasAuthority("BIOBANCO_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/almacenamiento/**").hasAuthority("BIOBANCO_ELIMINAR")
 
                         // Prueba escalón
-                        .requestMatchers(HttpMethod.GET, "/api/prueba-escalon/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/prueba-escalon/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_ELIMINAR")
 
-                        // Somatometria
-                        .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.PUT, "/api/somatometria/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/somatometria/**").hasRole("ADMINISTRADOR")
+                        // Somatometría
+                        .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_ELIMINAR")
 
                         // Visualización por token temporal (escaneo QR) — público porque el token ES la autenticación
                         .requestMatchers(HttpMethod.GET, "/api/documentos/ver/**").permitAll()
 
-                        // Documentos (archivos en MinIO): lectura y subida para RECEPCIONISTA y ADMINISTRADOR, borrado solo ADMINISTRADOR
-                        .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.POST, "/api/documentos/**").hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-                        .requestMatchers(HttpMethod.DELETE, "/api/documentos/**").hasRole("ADMINISTRADOR")
+                        // Documentos (archivos en MinIO)
+                        .requestMatchers(HttpMethod.GET, "/api/documentos/**").hasAuthority("DOCUMENTOS_VER_METADATA")
+                        .requestMatchers(HttpMethod.POST, "/api/documentos/**").hasAuthority("DOCUMENTOS_SUBIR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/documentos/**").hasAuthority("DOCUMENTOS_ELIMINAR")
 
-                        // Bitácora: solo ADMINISTRADOR puede consultar los registros de auditoría
-                        .requestMatchers("/api/bitacora/**").hasRole("ADMINISTRADOR")
+                        // Bitácora
+                        .requestMatchers(HttpMethod.GET, "/api/bitacora/**").hasAnyAuthority("BITACORA_ACCESOS_VER", "BITACORA_ACCIONES_VER")
+
+                        // Copia de catálogos
+                        .requestMatchers(HttpMethod.POST, "/api/catalogos/copiar/**").hasAuthority("CATALOGOS_EDITAR")
+
+                        // Permisos admin API
+                        .requestMatchers(HttpMethod.GET, "/api/permisos/**").hasAuthority("PERMISOS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/permisos/**").hasAuthority("PERMISOS_EDITAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/permisos/**").hasAuthority("PERMISOS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/permisos/**").hasAuthority("PERMISOS_EDITAR")
 
                         // Dashboard: accesible para cualquier usuario autenticado
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/**").authenticated()

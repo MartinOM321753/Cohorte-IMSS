@@ -65,8 +65,10 @@ public class ApplicationServiceAuditAspect {
         String username = user != null ? user.getUsername() : uuid;
         String nombreCompleto = user != null ? buildNombre(user) : uuid;
         String rol = auth.getAuthorities().stream()
-                .findFirst()
-                .map(a -> a.getAuthority().replace("ROLE_", ""))
+                .map(a -> a.getAuthority())
+                .filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.replace("ROLE_", ""))
+                .reduce((a, b) -> a + "," + b)
                 .orElse("DESCONOCIDO");
 
         String valoresAnteriores = null;

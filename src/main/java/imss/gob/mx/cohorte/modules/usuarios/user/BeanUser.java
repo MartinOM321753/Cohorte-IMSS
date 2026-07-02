@@ -51,8 +51,9 @@ public class BeanUser {
     @JoinColumn(name = "id_persona", nullable = false, unique = true)
     private Persona persona;
 
+    @Deprecated
     @ManyToOne
-    @JoinColumn(name = "id_rol", nullable = false)
+    @JoinColumn(name = "id_rol", nullable = true)
     @JsonIgnore
     private Role rol;
 
