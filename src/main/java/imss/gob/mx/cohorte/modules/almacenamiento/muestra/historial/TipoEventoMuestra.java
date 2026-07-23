@@ -18,5 +18,7 @@ public enum TipoEventoMuestra {
     /** Se registró un EstudioMuestra sobre esta muestra. */
     ESTUDIO_REALIZADO,
     /** Préstamo cancelado por la institución origen antes de recepción confirmada. */
-    PRESTAMO_CANCELADO
+    PRESTAMO_CANCELADO,
+    /** Muestra dada de baja de manera irreversible por su institución propietaria. */
+    MUESTRA_DADA_BAJA
 }

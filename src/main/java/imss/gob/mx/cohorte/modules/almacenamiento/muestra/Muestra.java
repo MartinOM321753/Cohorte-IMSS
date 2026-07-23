@@ -18,6 +18,21 @@ import java.util.List;
 // institucion       = propietaria original (quién la registró, inmutable)
 // institucionActual = tenedor actual       (cambia en cada préstamo/devolución)
 // estadoMuestra     = estado físico desde la perspectiva de institucionActual
+//
+// Semántica asimétrica de `institucionActual` en el ciclo de préstamo:
+//   • iniciarPrestamo   → institucionActual se ADELANTA al destino inmediatamente
+//                         (se anticipa la transferencia; estado = PRESTADA).
+//   • confirmarRecepcion → institucionActual NO cambia (ya está en destino);
+//                         el estado transiciona a EN_BIOBANCO/SIN_POSICION.
+//   • iniciarDevolucion  → institucionActual NO cambia (queda en el tenedor
+//                         actual = destino); estado = PRESTADA.
+//   • confirmarDevolucion → institucionActual RETROCEDE al origen (o al atajo
+//                         elegido en la cadena de custodia); estado = SIN_POSICION.
+// La asimetría es intencional: al iniciar un préstamo el origen ya "soltó" la
+// muestra, mientras que al iniciar una devolución el destino aún la tiene
+// físicamente. Esto acopla la vista "biobanco actual" (`findAllByInstitucionActual_Id`)
+// con la posesión real en cada momento y evita que la muestra aparezca duplicada
+// en ambos biobancos durante el tránsito.
 // ───────────────────────────────────────────────────────────────────────────────
 
 
@@ -32,6 +47,10 @@ public class Muestra {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_muestra")
     private Long Id;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     @Column(name = "etiqueta", nullable = false, length = 100)
     private String etiqueta;

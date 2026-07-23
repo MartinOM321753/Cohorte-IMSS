@@ -25,6 +25,9 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     boolean existsByUuid(String uuid);
 
+    /** Resuelve el expediente propio de un usuario PACIENTE a partir de su Persona vinculada. */
+    Optional<Paciente> findByPersona_Id(Long personaId);
+
     /** Cuenta pacientes según su estado activo/inactivo (para el dashboard). */
     long countByActivo(boolean activo);
 

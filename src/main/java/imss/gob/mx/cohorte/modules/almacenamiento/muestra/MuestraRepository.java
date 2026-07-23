@@ -35,14 +35,27 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
     /** Alícuotas de un padre creadas en una institución específica. */
     List<Muestra> findAllByMuestraPadre_IdAndInstitucion_Id(Long idMuestraPadre, Long idInstitucion);
 
-    /** Muestras propias + en posesión actual + historial de préstamos (visibilidad permanente). */
+    /**
+     * Vista default: muestras "actuales" — propias o en posesión.
+     * Excluye muestras que solo tuve prestadas en el pasado y ya devolví, para
+     * evitar que la lista crezca indefinidamente con el uso a lo largo del tiempo.
+     * Para acceder al histórico completo, usar {@link #findAllVisiblesConHistoricoPorInstitucion}.
+     */
+    @Query("SELECT DISTINCT m FROM Muestra m WHERE m.institucion.id = :idInst "
+         + "OR m.institucionActual.id = :idInst")
+    List<Muestra> findAllVisiblesPorInstitucion(@Param("idInst") Long idInstitucion);
+
+    /**
+     * Vista extendida: propias + en posesión + histórico como destino de traslados no cancelados.
+     * Se activa cuando el usuario pide explícitamente "mostrar histórico" (toggle en la UI).
+     */
     @Query("SELECT DISTINCT m FROM Muestra m WHERE m.institucion.id = :idInst "
          + "OR m.institucionActual.id = :idInst "
          + "OR EXISTS (SELECT 1 FROM imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra t "
          + "WHERE t.muestra.id = m.id "
          + "AND t.institucionDestino.id = :idInst "
          + "AND t.estado <> imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.CANCELADO)")
-    List<Muestra> findAllVisiblesPorInstitucion(@Param("idInst") Long idInstitucion);
+    List<Muestra> findAllVisiblesConHistoricoPorInstitucion(@Param("idInst") Long idInstitucion);
 
     @Query("SELECT COALESCE(MAX(m.numeroLote), 0) FROM Muestra m "
          + "WHERE m.paciente.folio = :folio "

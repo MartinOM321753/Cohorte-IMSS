@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,6 +183,43 @@ public class PacienteApplicationService {
     @Transactional(readOnly = true)
     public ReclutamientoParticipante getReclutamiento(Long idPaciente) {
         return reclutamientoService.findByPaciente(idPaciente).orElse(null);
+    }
+
+    /**
+     * Resuelve el expediente del participante vinculado al usuario autenticado
+     * (rol PACIENTE). Nunca acepta un UUID de entrada — siempre resuelve "el
+     * propio" a partir de la Persona vinculada al BeanUser de la sesión, para
+     * que un participante no pueda consultar el expediente de otro.
+     */
+    @Transactional(readOnly = true)
+    public Paciente obtenerPacientePropio() {
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        if (usuario.getPersona() == null) {
+            throw new ObjNotFoundException("Tu cuenta no tiene un participante vinculado");
+        }
+        return pacienteService.getByPersonaId(usuario.getPersona().getId());
+    }
+
+    /**
+     * Reutilizada por los endpoints de expediente (paciente, citas, estudios,
+     * exámenes, documentos) que un usuario con rol PACIENTE puede consultar en
+     * modo lectura vía la misma página del staff (Expediente 360). Si el
+     * usuario NO tiene rol PACIENTE, no hace nada (comportamiento de staff sin
+     * cambios — el aislamiento por institución ya se aplica en cada servicio).
+     * Si SÍ tiene rol PACIENTE, exige que el UUID solicitado sea el suyo.
+     */
+    @Transactional(readOnly = true)
+    public void verificarAccesoPropioSiEsPaciente(String uuidSolicitado) {
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        boolean esPaciente = usuarioRolRepository.findAllByUsuario(usuario).stream()
+                .anyMatch(ur -> "PACIENTE".equals(ur.getRol().getRole()));
+        if (!esPaciente) {
+            return;
+        }
+        Paciente propio = obtenerPacientePropio();
+        if (!propio.getUuid().equals(uuidSolicitado)) {
+            throw new AccessDeniedException("No tienes acceso a este expediente");
+        }
     }
 
     @Transactional

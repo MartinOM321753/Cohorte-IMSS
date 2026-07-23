@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -170,11 +171,48 @@ public class PacienteController {
     public ResponseEntity<APIResponse> getByUUID(
             @Parameter(description = "UUID del paciente", required = true)
             @PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         Paciente paciente = pacienteApplicationService.findByUUID(uuid);
         var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
         return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/mi-uuid")
+    @Operation(summary = "Obtener mi propio UUID de paciente",
+               description = "Para el rol PACIENTE: resuelve el UUID de su propio expediente a partir de la sesión, " +
+                       "sin necesidad de conocerlo de antemano. Usado por Expediente 360 cuando el participante " +
+                       "llega sin un UUID en el estado de navegación (login directo).")
+    public ResponseEntity<APIResponse> getMiUuid() {
+        Paciente propio = pacienteApplicationService.obtenerPacientePropio();
+        return ResponseEntity.ok(new APIResponse("UUID propio", Map.of("uuid", propio.getUuid()), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/buscar")
+    @Operation(summary = "Buscar participantes (lookup para selects cross-modulo)",
+               description = "Endpoint lookup ligero. Usado por PacienteSearchCombobox en Estudios, " +
+                       "Examenes, Citas y Somatometria cuando el usuario NO tiene acceso a la pantalla " +
+                       "propia de Participantes pero necesita elegir uno para un formulario. " +
+                       "Requiere PACIENTES_LOOKUP o PACIENTES_ACCEDER. Devuelve maximo 20 resultados " +
+                       "de participantes activos con jerarquia institucional aplicada.")
+    public ResponseEntity<APIResponse> buscarParaLookup(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia) {
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Paciente> page = incluirJerarquia
+                ? pacienteApplicationService.buscarPaginadoConJerarquia(q, true, null, pageable)
+                : pacienteApplicationService.buscarPaginado(q, true, pageable);
+
+        Map<String, Object> body = Map.of(
+            "content", PacienteMapper.toResponseDTOList(page.getContent(), idInstActual),
+            "page", page.getNumber(),
+            "size", page.getSize(),
+            "totalElements", page.getTotalElements(),
+            "totalPages", page.getTotalPages()
+        );
+        return ResponseEntity.ok(new APIResponse("Resultados de busqueda", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/folio/{folio}")

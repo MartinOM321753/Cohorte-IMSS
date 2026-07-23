@@ -98,6 +98,7 @@ public class PacienteMapper {
             .folio(p.getFolio())
             .nombreCompleto(nombreCompleto.trim())
             .sexo(p.getPersona() != null && p.getPersona().getSexo() != null ? p.getPersona().getSexo().name() : null)
+            .activo(p.getActivo())
             .build();
     }
 

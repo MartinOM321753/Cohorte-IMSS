@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.HistorialCambioMuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.MuestraTipoInstitucionRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestraRepository;
 import imss.gob.mx.cohorte.modules.documentos.MuestraDocumentoRepository;
@@ -43,6 +44,7 @@ public class MuestraService {
     private final MuestraDocumentoRepository muestraDocumentoRepository;
     private final MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
     private final TrasladoMuestraRepository trasladoMuestraRepository;
+    private final HistorialCambioMuestraService historialCambioMuestraService;
 
     // ── Consultas ────────────────────────────────────────────────────────────
 
@@ -74,7 +76,20 @@ public class MuestraService {
 
     @Transactional(readOnly = true)
     public List<Muestra> getAllVisibles() {
-        return muestraRepository.findAllVisiblesPorInstitucion(institucionContextService.getIdInstitucionActual());
+        return getAllVisibles(false);
+    }
+
+    /**
+     * @param incluirHistorico si true, incluye también las muestras donde la institución
+     *                        fue destino de un traslado en el pasado (aunque ya devuelto).
+     *                        Si false (default), solo devuelve las muestras propias o en posesión actual.
+     */
+    @Transactional(readOnly = true)
+    public List<Muestra> getAllVisibles(boolean incluirHistorico) {
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        return incluirHistorico
+                ? muestraRepository.findAllVisiblesConHistoricoPorInstitucion(idInst)
+                : muestraRepository.findAllVisiblesPorInstitucion(idInst);
     }
 
     @Transactional(readOnly = true)
@@ -194,7 +209,9 @@ public class MuestraService {
     public Muestra createAlicuota(Muestra alicuota) {
         Long idInst = institucionContextService.getIdInstitucionActual();
         if (muestraRepository.findByEtiquetaIgnoreCaseAndInstitucion_Id(alicuota.getEtiqueta(), idInst).isPresent()) {
-            alicuota.setEtiqueta(alicuota.getEtiqueta() + "-dup");
+            throw new ObjConflictException(
+                    "Ya existe una muestra con la etiqueta '" + alicuota.getEtiqueta()
+                    + "'. Verifique que no se haya generado previamente.");
         }
         alicuota.setPosicionCaja(null);
         alicuota.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
@@ -265,10 +282,11 @@ public class MuestraService {
             throw new ObjConflictException("No se puede eliminar una muestra en tránsito hacia otra institución.");
         }
 
-        // Verificar que no haya traslados activos (ENVIADA, RECIBIDA, EN_DEVOLUCION)
-        if (trasladoMuestraRepository.existsTrasladoActivoByMuestra(id)) {
+        // Bloquear eliminación si la muestra tiene historial de traslados (cadena de custodia)
+        if (trasladoMuestraRepository.existsByMuestra_Id(id)) {
             throw new ObjConflictException(
-                    "No se puede eliminar la muestra porque tiene préstamos activos (enviados, recibidos o en devolución).");
+                    "No se puede eliminar la muestra porque tiene historial de préstamos. "
+                    + "La cadena de custodia debe preservarse.");
         }
 
         Long idInst = institucionContextService.getIdInstitucionActual();
@@ -281,11 +299,10 @@ public class MuestraService {
                             "No se puede eliminar la muestra porque la alícuota '"
                                     + alicuota.getEtiqueta() + "' está en préstamo activo.");
                 }
-                // No permitir eliminar si alguna alícuota tiene traslados activos
-                if (trasladoMuestraRepository.existsTrasladoActivoByMuestra(alicuota.getId())) {
+                if (trasladoMuestraRepository.existsByMuestra_Id(alicuota.getId())) {
                     throw new ObjConflictException(
                             "No se puede eliminar la muestra porque la alícuota '"
-                                    + alicuota.getEtiqueta() + "' tiene préstamos activos.");
+                                    + alicuota.getEtiqueta() + "' tiene historial de préstamos.");
                 }
                 // No permitir eliminar si alguna alícuota pertenece a otra institución
                 if (!alicuota.getInstitucion().getId().equals(idInst)) {
@@ -331,7 +348,6 @@ public class MuestraService {
         estudioMuestraRepository.deleteAllByMuestra_Id(idMuestra);
         muestraDocumentoRepository.deleteAllByMuestra_Id(idMuestra);
         muestraTipoInstitucionRepository.deleteAllByMuestra_Id(idMuestra);
-        trasladoMuestraRepository.deleteAllByMuestra_Id(idMuestra);
     }
 
     /**
@@ -393,6 +409,12 @@ public class MuestraService {
         Muestra muestra = muestraRepository.findById(idMuestra)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
 
+        if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+            throw new ObjConflictException("No se puede liberar la posición de una muestra en préstamo.");
+        }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
+            throw new ObjConflictException("No se puede liberar la posición de una muestra dada de baja.");
+        }
         if (muestra.getPosicionCaja() == null) {
             throw new ObjConflictException("La muestra no tiene posición asignada.");
         }
@@ -409,5 +431,63 @@ public class MuestraService {
         muestra.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
 
         return muestraRepository.save(muestra);
+    }
+
+    /**
+     * Marca la muestra como {@link EstadoMuestra#BAJA} de manera irreversible.
+     * Solo la institución propietaria puede darla de baja. Libera la posición
+     * si tenía una asignada y registra el evento en el historial. No se puede
+     * dar de baja una muestra en tránsito (PRESTADA) — hay que devolverla o
+     * cancelar el préstamo primero.
+     */
+    @Transactional
+    public Muestra darDeBaja(Long idMuestra, String motivo, String uuidUsuario) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new ValidationException("El motivo de la baja es obligatorio.");
+        }
+        Muestra muestra = muestraRepository.findById(idMuestra)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        if (muestra.getInstitucion() == null || !idInst.equals(muestra.getInstitucion().getId())) {
+            throw new ObjConflictException(
+                    "Solo la institución propietaria puede dar de baja esta muestra.");
+        }
+
+        if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
+            throw new ObjConflictException("La muestra ya está dada de baja.");
+        }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+            throw new ObjConflictException(
+                    "No se puede dar de baja una muestra en tránsito. "
+                    + "Cancela o completa el préstamo primero.");
+        }
+
+        BeanUser usuario = userRepository.findByUUID(uuidUsuario)
+                .orElseThrow(() -> new ObjNotFoundException("Usuario no encontrado: " + uuidUsuario));
+
+        // Liberar la posición física si tenía una asignada
+        if (muestra.getPosicionCaja() != null) {
+            PosicionCaja pos = posicionCajaRepository.findById(muestra.getPosicionCaja().getId())
+                    .orElse(null);
+            if (pos != null) {
+                pos.setOcupada(false);
+                posicionCajaRepository.save(pos);
+            }
+            muestra.setPosicionCaja(null);
+        }
+
+        EstadoMuestra estadoAnterior = muestra.getEstadoMuestra();
+        muestra.setEstadoMuestra(EstadoMuestra.BAJA);
+        muestra.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
+        Muestra saved = muestraRepository.save(muestra);
+
+        historialCambioMuestraService.registrarEvento(saved, usuario,
+                TipoEventoMuestra.MUESTRA_DADA_BAJA,
+                estadoAnterior != null ? estadoAnterior.name() : null,
+                EstadoMuestra.BAJA.name(),
+                motivo, null);
+
+        return saved;
     }
 }

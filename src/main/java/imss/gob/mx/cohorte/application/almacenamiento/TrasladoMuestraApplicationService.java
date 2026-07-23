@@ -6,13 +6,16 @@ import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.traslado.TrasladoMuestraService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -22,12 +25,8 @@ public class TrasladoMuestraApplicationService {
 
     private final TrasladoMuestraService trasladoService;
     private final MuestraRepository muestraRepository;
+    private final MuestraService muestraService;
     private final InstitucionContextService institucionContextService;
-
-    @Transactional(readOnly = true)
-    public List<TrasladoMuestra> getAllTraslados() {
-        return trasladoService.getAll();
-    }
 
     @Transactional(readOnly = true)
     public TrasladoMuestra getTraslado(Long id) {
@@ -36,6 +35,10 @@ public class TrasladoMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<TrasladoMuestra> getHistorialByMuestra(Long idMuestra) {
+        // Validar que el usuario tenga acceso a la muestra (dueña, tenedor actual,
+        // o participó en la cadena de custodia). Sin este chequeo, cualquiera
+        // con el módulo BIOBANCO podría enumerar el historial de cualquier muestra por ID.
+        muestraService.getByIdConAccesoHistorico(idMuestra);
         return trasladoService.getHistorialByMuestra(idMuestra);
     }
 
@@ -71,23 +74,28 @@ public class TrasladoMuestraApplicationService {
                                                   Long idInstitucionDestino,
                                                   String uuidAutoriza,
                                                   String motivo,
-                                                  String observaciones) {
+                                                  String observaciones,
+                                                  LocalDateTime fechaLimite) {
         return trasladoService.iniciarPrestamo(
                 idsMuestras,
                 institucionContextService.getIdInstitucionActual(),
                 idInstitucionDestino,
-                uuidAutoriza, motivo, observaciones);
+                uuidAutoriza, motivo, observaciones, fechaLimite);
     }
 
     @Transactional
     public TrasladoMuestra confirmarRecepcion(Long idTraslado, String uuidConfirma, Long idPosicionCaja) {
+        requireInstitucion(idTraslado, true);
         return trasladoService.confirmarRecepcion(idTraslado, uuidConfirma, idPosicionCaja);
     }
 
     @Transactional
     public List<TrasladoMuestra> iniciarDevolucion(Long idTraslado, String uuidInicia,
-                                                    String observaciones, List<Long> idsAlicuotasDevolver) {
-        return trasladoService.iniciarDevolucion(idTraslado, uuidInicia, observaciones, idsAlicuotasDevolver);
+                                                    String observaciones, List<Long> idsAlicuotasDevolver,
+                                                    Long idInstitucionDestinoDevolucion) {
+        requireInstitucion(idTraslado, true);
+        return trasladoService.iniciarDevolucion(idTraslado, uuidInicia, observaciones,
+                idsAlicuotasDevolver, idInstitucionDestinoDevolucion);
     }
 
     @Transactional(readOnly = true)
@@ -99,12 +107,50 @@ public class TrasladoMuestraApplicationService {
     }
 
     @Transactional
-    public TrasladoMuestra confirmarDevolucion(Long idTraslado, String uuidConfirma, String observaciones) {
+    public List<TrasladoMuestra> confirmarDevolucion(Long idTraslado, String uuidConfirma, String observaciones) {
+        requireInstitucionParaConfirmarDevolucion(idTraslado);
         return trasladoService.confirmarDevolucion(idTraslado, uuidConfirma, observaciones);
     }
 
     @Transactional
-    public TrasladoMuestra cancelarPrestamo(Long idTraslado, String uuidUsuario, String motivo) {
+    public List<TrasladoMuestra> cancelarPrestamo(Long idTraslado, String uuidUsuario, String motivo) {
+        requireInstitucion(idTraslado, false);
         return trasladoService.cancelarPrestamo(idTraslado, uuidUsuario, motivo);
+    }
+
+    /**
+     * Verifica que la institución del usuario autenticado coincide con la institución
+     * esperada para la operación sobre el traslado.
+     *
+     * @param requireDestino true → debe ser institucionDestino (confirmarRecepcion, iniciarDevolucion);
+     *                       false → debe ser institucionOrigen (confirmarDevolucion, cancelarPrestamo).
+     */
+    private void requireInstitucion(Long idTraslado, boolean requireDestino) {
+        TrasladoMuestra traslado = trasladoService.getById(idTraslado);
+        Long myInstId = institucionContextService.getIdInstitucionActual();
+        Long expectedId = requireDestino
+                ? traslado.getInstitucionDestino().getId()
+                : traslado.getInstitucionOrigen().getId();
+        if (!myInstId.equals(expectedId)) {
+            throw new AccessDeniedException(
+                    "Su institución no tiene autorización para esta operación sobre este préstamo");
+        }
+    }
+
+    /**
+     * Al confirmar la devolución, la institución esperada es la que recibirá la muestra:
+     * {@code idInstitucionDestinoDevolucion} si el traslado usó un atajo en la cadena,
+     * o {@code institucionOrigen} si el flujo es estándar.
+     */
+    private void requireInstitucionParaConfirmarDevolucion(Long idTraslado) {
+        TrasladoMuestra traslado = trasladoService.getById(idTraslado);
+        Long myInstId = institucionContextService.getIdInstitucionActual();
+        Long expectedId = traslado.getIdInstitucionDestinoDevolucion() != null
+                ? traslado.getIdInstitucionDestinoDevolucion()
+                : traslado.getInstitucionOrigen().getId();
+        if (!myInstId.equals(expectedId)) {
+            throw new AccessDeniedException(
+                    "Su institución no tiene autorización para confirmar esta devolución");
+        }
     }
 }
