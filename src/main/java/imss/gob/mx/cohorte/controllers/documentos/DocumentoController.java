@@ -1,6 +1,10 @@
 package imss.gob.mx.cohorte.controllers.documentos;
 
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.controllers.documentos.dto.DocumentoResponseDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.ConfiguracionEtiquetaMapper;
+import imss.gob.mx.cohorte.controllers.impresion.dto.LabelDataDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.PrintableLabelBatchDTO;
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.documentos.Documento;
 import imss.gob.mx.cohorte.modules.documentos.DocumentoAccessToken;
@@ -62,6 +66,7 @@ public class DocumentoController {
     private final InstitucionContextService institucionCtx;
     private final DocumentoAccessTokenService accessTokenService;
     private final DocumentoPermisosConfig permisosConfig;
+    private final PacienteApplicationService pacienteApplicationService;
 
     public DocumentoController(DocumentoService documentoService,
                                 MinioStorageService minioStorageService,
@@ -70,7 +75,8 @@ public class DocumentoController {
                                 ConfiguracionEtiquetaService configuracionEtiquetaService,
                                 InstitucionContextService institucionCtx,
                                 DocumentoAccessTokenService accessTokenService,
-                                DocumentoPermisosConfig permisosConfig) {
+                                DocumentoPermisosConfig permisosConfig,
+                                PacienteApplicationService pacienteApplicationService) {
         this.documentoService = documentoService;
         this.minioStorageService = minioStorageService;
         this.zplLabelService = zplLabelService;
@@ -79,6 +85,7 @@ public class DocumentoController {
         this.institucionCtx = institucionCtx;
         this.accessTokenService = accessTokenService;
         this.permisosConfig = permisosConfig;
+        this.pacienteApplicationService = pacienteApplicationService;
     }
 
     // ─── Helper: mapeo TipoDocumentoPaciente → TipoEntidadDocumento ───────────
@@ -193,6 +200,7 @@ public class DocumentoController {
 
     @GetMapping("/paciente/{uuid}")
     public ResponseEntity<APIResponse> getByPaciente(@PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPaciente(uuid);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -202,6 +210,7 @@ public class DocumentoController {
             @PathVariable String uuid,
             @PathVariable TipoDocumentoPaciente tipoDoc
     ) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPacienteYTipo(uuid, tipoDoc);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -310,6 +319,21 @@ public class DocumentoController {
         return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).body(zpl);
     }
 
+    @GetMapping("/{id}/etiqueta/datos")
+    public ResponseEntity<APIResponse> getDatosEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+    ) {
+        Documento doc = documentoService.getDocumentoById(id);
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        LabelDataDTO labelData = zplLabelService.extraerDatosDocumento(doc);
+        PrintableLabelBatchDTO batch = PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(java.util.List.of(labelData))
+                .build();
+        return ResponseEntity.ok(new APIResponse("Datos de etiqueta", batch, false, HttpStatus.OK));
+    }
+
     @PostMapping("/{id}/etiqueta/imprimir")
     public ResponseEntity<APIResponse> imprimirEtiqueta(
             @PathVariable Long id,
@@ -339,8 +363,8 @@ public class DocumentoController {
 
     // ─── Visualización por etiqueta (escaneo QR/barcode) ─────────────────────────
 
-    @PostMapping("/etiqueta/{etiqueta}/token")
-    public ResponseEntity<APIResponse> generarTokenAcceso(@PathVariable String etiqueta) {
+    @PostMapping("/etiqueta/token")
+    public ResponseEntity<APIResponse> generarTokenAcceso(@RequestParam String etiqueta) {
         if (!permisosConfig.puedeDescargar()) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "No tiene permiso para generar tokens de visualización de documentos");
@@ -394,8 +418,8 @@ public class DocumentoController {
                 .body(stream);
     }
 
-    @GetMapping("/etiqueta/{etiqueta}/info")
-    public ResponseEntity<APIResponse> getInfoPorEtiqueta(@PathVariable String etiqueta) {
+    @GetMapping("/etiqueta/info")
+    public ResponseEntity<APIResponse> getInfoPorEtiqueta(@RequestParam String etiqueta) {
         Documento doc = documentoService.getDocumentoPorEtiqueta(etiqueta);
         Map<String, Object> info = Map.of(
                 "id", doc.getId(),

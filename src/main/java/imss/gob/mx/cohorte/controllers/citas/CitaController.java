@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.citas;
 
 import imss.gob.mx.cohorte.application.CitaApplicationService;
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.controllers.citas.dto.*;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.modules.cita.Cita;
@@ -31,6 +32,7 @@ public class CitaController {
 
     private final CitaApplicationService citaApplicationService;
     private final InstitucionContextService institucionContextService;
+    private final PacienteApplicationService pacienteApplicationService;
 
     @GetMapping
     @Operation(summary = "Listar citas", description = "Obtiene una lista de citas, opcionalmente filtrada por rango de fechas (ISO-8601 UTC)")
@@ -51,6 +53,7 @@ public class CitaController {
     @Operation(summary = "Resumen de citas por UUID de paciente",
                description = "Devuelve solo fecha (en zona local), tipo (observaciones) y estado de cada cita del paciente")
     public ResponseEntity<APIResponse> getResumenByPacienteUuid(@PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<Cita> citas = citaApplicationService.findAllByPacienteUuid(uuid);
         return ResponseEntity.ok(new APIResponse(
                 "Citas del paciente", CitaResumenMapper.toResumenDTOList(citas), false, HttpStatus.OK));

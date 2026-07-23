@@ -14,6 +14,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -27,14 +29,20 @@ public class BitacoraController {
 
     private final BitacoraQueryService queryService;
 
+    private boolean isCallerRoot(Authentication auth) {
+        return auth != null && auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ROOT"::equals);
+    }
+
     // ── Usuarios con registros ─────────────────────────────────────────────
 
     @GetMapping("/accesos/usuarios")
     @RequireModulo(ModuloSistema.BITACORA_ACCESOS)
     @Operation(summary = "Usuarios con registros en bitácora de accesos",
                description = "Devuelve los usuarios de la institución actual que tienen al menos un registro en la bitácora de accesos.")
-    public ResponseEntity<APIResponse> getUsuariosConAccesos() {
-        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAccesos();
+    public ResponseEntity<APIResponse> getUsuariosConAccesos(Authentication auth) {
+        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAccesos(isCallerRoot(auth));
         return ResponseEntity.ok(new APIResponse(
                 "Usuarios con accesos", usuarios, false, HttpStatus.OK));
     }
@@ -43,8 +51,8 @@ public class BitacoraController {
     @RequireModulo(ModuloSistema.BITACORA_ACCIONES)
     @Operation(summary = "Usuarios con registros en bitácora de acciones",
                description = "Devuelve los usuarios de la institución actual que tienen al menos un registro en la bitácora de acciones.")
-    public ResponseEntity<APIResponse> getUsuariosConAcciones() {
-        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAcciones();
+    public ResponseEntity<APIResponse> getUsuariosConAcciones(Authentication auth) {
+        List<UsuarioBitacoraDTO> usuarios = queryService.usuariosConAcciones(isCallerRoot(auth));
         return ResponseEntity.ok(new APIResponse(
                 "Usuarios con acciones", usuarios, false, HttpStatus.OK));
     }
@@ -61,10 +69,11 @@ public class BitacoraController {
             @RequestParam(required = false) String usuarioUuid,
             @RequestParam(required = false) String tipoEvento,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            Authentication auth) {
 
         Page<BitacoraAccesoResponseDTO> resultado =
-                queryService.consultarAccesos(desde, hasta, usuarioUuid, tipoEvento, page, size);
+                queryService.consultarAccesos(desde, hasta, usuarioUuid, tipoEvento, isCallerRoot(auth), page, size);
 
         return ResponseEntity.ok(new APIResponse(
                 "Bitácora de accesos", resultado, false, HttpStatus.OK));
@@ -83,10 +92,11 @@ public class BitacoraController {
             @RequestParam(required = false) String tipoAccion,
             @RequestParam(required = false) String entidad,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            Authentication auth) {
 
         Page<BitacoraAccionResponseDTO> resultado =
-                queryService.consultarAcciones(desde, hasta, usuarioUuid, tipoAccion, entidad, page, size);
+                queryService.consultarAcciones(desde, hasta, usuarioUuid, tipoAccion, entidad, isCallerRoot(auth), page, size);
 
         return ResponseEntity.ok(new APIResponse(
                 "Bitácora de acciones", resultado, false, HttpStatus.OK));

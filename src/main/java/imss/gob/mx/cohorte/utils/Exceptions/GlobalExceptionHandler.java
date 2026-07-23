@@ -8,6 +8,7 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -65,6 +66,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new APIResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, true));
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<APIResponse> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new APIResponse(
+                        "El registro fue modificado por otro usuario. Por favor, recargue e intente de nuevo.",
+                        HttpStatus.CONFLICT, true));
     }
 
     @ExceptionHandler(MinioUnavailableException.class)
