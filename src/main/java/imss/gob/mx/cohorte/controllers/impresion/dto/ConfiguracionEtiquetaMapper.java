@@ -37,6 +37,11 @@ public class ConfiguracionEtiquetaMapper {
                 .fechaActualizacion(entity.getFechaActualizacion())
                 .anchoDots(entity.getAnchoDots())
                 .altoDots(entity.getAltoDots())
+                .filasPorPagina(entity.getFilasPorPagina())
+                .espacioHorizontalMm(entity.getEspacioHorizontalMm())
+                .espacioVerticalMm(entity.getEspacioVerticalMm())
+                .margenPaginaSuperiorMm(entity.getMargenPaginaSuperiorMm())
+                .margenPaginaIzquierdoMm(entity.getMargenPaginaIzquierdoMm())
                 .build();
     }
 
@@ -65,6 +70,11 @@ public class ConfiguracionEtiquetaMapper {
         entity.setMostrarCodigo(dto.getMostrarCodigo() != null ? dto.getMostrarCodigo() : true);
         entity.setMostrarEtiqueta(dto.getMostrarEtiqueta() != null ? dto.getMostrarEtiqueta() : true);
         entity.setDisposicion(DisposicionEtiqueta.valueOf(dto.getDisposicion()));
+        entity.setFilasPorPagina(dto.getFilasPorPagina() != null ? dto.getFilasPorPagina() : 10);
+        entity.setEspacioHorizontalMm(dto.getEspacioHorizontalMm() != null ? dto.getEspacioHorizontalMm() : 3.0);
+        entity.setEspacioVerticalMm(dto.getEspacioVerticalMm() != null ? dto.getEspacioVerticalMm() : 2.0);
+        entity.setMargenPaginaSuperiorMm(dto.getMargenPaginaSuperiorMm() != null ? dto.getMargenPaginaSuperiorMm() : 12.7);
+        entity.setMargenPaginaIzquierdoMm(dto.getMargenPaginaIzquierdoMm() != null ? dto.getMargenPaginaIzquierdoMm() : 4.8);
         return entity;
     }
 }

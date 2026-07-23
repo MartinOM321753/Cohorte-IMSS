@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.MuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.*;
+import imss.gob.mx.cohorte.controllers.impresion.dto.PrintableLabelBatchDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
@@ -50,8 +51,10 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> getAll() {
-        List<Muestra> list = muestraApplicationService.getAllMuestras();
+    public ResponseEntity<APIResponse> getAll(
+            @Parameter(description = "Si true, incluye también muestras que solo estuvieron prestadas en el pasado (default: false).")
+            @RequestParam(value = "incluirHistorico", defaultValue = "false") boolean incluirHistorico) {
+        List<Muestra> list = muestraApplicationService.getAllMuestras(incluirHistorico);
         return ResponseEntity.ok(new APIResponse("Muestras encontradas", MuestraMapper.toResponseDTOList(list), false, HttpStatus.OK));
     }
 
@@ -257,6 +260,22 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("Muestra eliminada exitosamente", null, false, HttpStatus.OK));
     }
 
+    @PostMapping("/{id}/baja")
+    @Operation(summary = "Dar de baja muestra",
+               description = "Marca la muestra como BAJA de manera irreversible. Solo la institución propietaria puede hacerlo. "
+                           + "Requiere motivo obligatorio. Libera la posición si tenía. Queda registrado en el historial.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Muestra dada de baja"),
+        @ApiResponse(responseCode = "409", description = "Muestra ya de baja, en tránsito, o no pertenece a la institución del usuario")
+    })
+    public ResponseEntity<APIResponse> darDeBaja(
+            @PathVariable Long id,
+            @Validated @RequestBody imss.gob.mx.cohorte.controllers.almacenamiento.dto.DarDeBajaRequestDTO dto) {
+        Muestra baja = muestraApplicationService.darDeBajaMuestra(id, dto.getMotivo());
+        return ResponseEntity.ok(new APIResponse("Muestra dada de baja",
+            MuestraMapper.toResponseDTO(baja), false, HttpStatus.OK));
+    }
+
     @PostMapping("/{id}/generar-alicuotas")
     @Operation(summary = "Generar alícuotas en institución receptora",
                description = "Genera alícuotas de una muestra padre recibida usando un tipo+tubo seleccionado por la institución receptora.")
@@ -347,6 +366,35 @@ public class  MuestraController {
             @RequestParam(required = false) Long configuracionId) {
         ZplLoteResponseDTO zpl = muestraApplicationService.generarZplLoteCompleto(id, configuracionId);
         return ResponseEntity.ok(new APIResponse("ZPL generado para lote completo", zpl, false, HttpStatus.OK));
+    }
+
+    // ── Datos para impresión por navegador ─────────────────────────────────
+
+    @GetMapping("/{id}/etiqueta/datos")
+    @Operation(summary = "Obtener datos estructurados para etiqueta de muestra")
+    public ResponseEntity<APIResponse> getDatosEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosEtiqueta(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiqueta", datos, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas/etiquetas/datos")
+    @Operation(summary = "Obtener datos estructurados para etiquetas de alícuotas")
+    public ResponseEntity<APIResponse> getDatosAlicuotas(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosAlicuotas(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiquetas de alícuotas", datos, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/lote-completo/datos")
+    @Operation(summary = "Obtener datos estructurados para etiquetas de lote completo")
+    public ResponseEntity<APIResponse> getDatosLoteCompleto(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosLoteCompleto(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiquetas de lote completo", datos, false, HttpStatus.OK));
     }
 
     // ── Impresión directa ───────────────────────────────────────────────────

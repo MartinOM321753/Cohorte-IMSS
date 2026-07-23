@@ -2,7 +2,11 @@ package imss.gob.mx.cohorte.application.almacenamiento;
 
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.MuestraRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ZplLoteResponseDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.ConfiguracionEtiquetaMapper;
+import imss.gob.mx.cohorte.controllers.impresion.dto.LabelDataDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.PrintableLabelBatchDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.MuestraTipoInstitucion;
@@ -57,7 +61,12 @@ public class MuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<Muestra> getAllMuestras() {
-        return muestraService.getAllVisibles();
+        return muestraService.getAllVisibles(false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Muestra> getAllMuestras(boolean incluirHistorico) {
+        return muestraService.getAllVisibles(incluirHistorico);
     }
 
     @Transactional(readOnly = true)
@@ -84,10 +93,16 @@ public class MuestraApplicationService {
 
     @Transactional
     public Muestra createMuestra(Muestra muestra) {
-        Paciente paciente = pacienteService.getByUUID(muestra.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
+        // La institución propietaria de la muestra la determina el contexto del
+        // usuario logueado, no el paciente. pacienteService.getByUUID ya valida
+        // que el paciente pertenece a la institución del contexto, así que en la
+        // práctica coinciden — pero asignarla explícitamente desde el contexto
+        // desacopla ambos y hace la propiedad explícita en el código.
+        Institucion miInstitucion = institucionContextService.getInstitucionActual();
+        Paciente paciente = pacienteService.getByUUID(muestra.getPaciente().getUuid(), miInstitucion.getId());
         muestra.setPaciente(paciente);
-        muestra.setInstitucion(paciente.getInstitucion());
-        muestra.setInstitucionActual(paciente.getInstitucion());
+        muestra.setInstitucion(miInstitucion);
+        muestra.setInstitucionActual(miInstitucion);
 
         BeanUser usuario = userService.getByUUID(muestra.getUsuarioRecolecta().getUUID());
         muestra.setUsuarioRecolecta(usuario);
@@ -189,6 +204,16 @@ public class MuestraApplicationService {
         muestraService.delete(id);
     }
 
+    /**
+     * Dar de baja una muestra de forma irreversible. Solo la institución propietaria
+     * puede hacerlo. Requiere motivo obligatorio y quedará registrado en el historial.
+     */
+    @Transactional
+    public Muestra darDeBajaMuestra(Long id, String motivo) {
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        return muestraService.darDeBaja(id, motivo, usuario.getUUID());
+    }
+
     /** Muestras cuyo tenedor actual es la institución del usuario (biobanco propio). */
     @Transactional(readOnly = true)
     public List<Muestra> getMuestrasEnBiobanco() {
@@ -276,6 +301,18 @@ public class MuestraApplicationService {
         if (padre.getMuestraPadre() != null) {
             throw new ValidationException("Solo se pueden generar alícuotas de muestras padre.");
         }
+        if (padre.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
+            throw new ObjConflictException(
+                    "No se pueden generar alícuotas de una muestra en tránsito (PRESTADA). "
+                    + "Confirma primero la recepción o espera a que la devolución se complete.");
+        }
+        if (padre.getEstadoMuestra() == EstadoMuestra.BAJA) {
+            throw new ObjConflictException("La muestra está dada de baja; no se pueden generar más alícuotas.");
+        }
+
+        // Cuarentena: bloquear si el participante está inactivo
+        imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
+                .requirePacienteActivo(padre, "generar alícuotas");
 
         TipoMuestra tipo = tipoMuestraService.getById(idTipoMuestra);
         TuboMuestra tubo = tipoMuestraService.getTuboById(idTuboMuestra);
@@ -342,6 +379,12 @@ public class MuestraApplicationService {
     }
 
     private void generarAlicuotas(Muestra primaria, int cantidad) {
+        // Cuarentena: bloquear si el participante está inactivo (defensa en profundidad;
+        // createMuestra ya lo valida vía pacienteService.getByUUID, pero mantener el
+        // chequeo explícito aquí evita futuras regresiones si se agregan más llamadores).
+        imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
+                .requirePacienteActivo(primaria, "generar alícuotas");
+
         TuboMuestra tubo = primaria.getTuboMuestra();
         String unidad = (tubo.getUnidadVolumen() != null && !tubo.getUnidadVolumen().isBlank())
                 ? tubo.getUnidadVolumen() : primaria.getUnidad();
@@ -415,6 +458,50 @@ public class MuestraApplicationService {
         aImprimir.addAll(alicuotas);
         String zpl = zplLabelService.generarZplLote(aImprimir, config);
         return new ZplLoteResponseDTO(zpl, aImprimir.size());
+    }
+
+    // ── Datos estructurados para impresión por navegador ──────────────────
+
+    @Transactional(readOnly = true)
+    public PrintableLabelBatchDTO obtenerDatosEtiqueta(Long idMuestra, Long configuracionId) {
+        Muestra muestra = muestraService.getById(idMuestra);
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        return PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(List.of(zplLabelService.extraerDatosMuestra(muestra)))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PrintableLabelBatchDTO obtenerDatosAlicuotas(Long idMuestraPadre, Long configuracionId) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        List<Muestra> alicuotas = muestraService.getAlicuotas(idMuestraPadre);
+        return PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(zplLabelService.extraerDatosMuestras(alicuotas))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PrintableLabelBatchDTO obtenerDatosLoteCompleto(Long idMuestraPadre, Long configuracionId) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        Muestra padre = muestraService.getByIdConAcceso(idMuestraPadre);
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        boolean padreEnMiBiobanco = padre.getInstitucionActual().getId().equals(idInst);
+        List<Muestra> alicuotas = muestraRepository.findAllByMuestraPadre_IdAndInstitucionActual_Id(
+                idMuestraPadre, idInst);
+        if (!padreEnMiBiobanco && alicuotas.isEmpty()) {
+            throw new ObjConflictException("No tiene muestras de este lote en su biobanco.");
+        }
+        List<Muestra> aImprimir = new java.util.ArrayList<>();
+        if (padreEnMiBiobanco) {
+            aImprimir.add(padre);
+        }
+        aImprimir.addAll(alicuotas);
+        return PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(zplLabelService.extraerDatosMuestras(aImprimir))
+                .build();
     }
 
     // ── Impresión directa ───────────────────────────────────────────────────

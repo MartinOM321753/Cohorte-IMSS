@@ -82,4 +82,24 @@ public class ConfiguracionEtiquetaRequestDTO {
 
     @NotBlank(message = "La disposición es obligatoria")
     private String disposicion;
+
+    @Min(value = 1, message = "Mínimo 1 fila por página")
+    @Max(value = 30, message = "Máximo 30 filas por página")
+    private Integer filasPorPagina = 10;
+
+    @DecimalMin(value = "0.0", message = "El espacio no puede ser negativo")
+    @DecimalMax(value = "50.0", message = "El espacio máximo es 50mm")
+    private Double espacioHorizontalMm = 3.0;
+
+    @DecimalMin(value = "0.0", message = "El espacio no puede ser negativo")
+    @DecimalMax(value = "50.0", message = "El espacio máximo es 50mm")
+    private Double espacioVerticalMm = 2.0;
+
+    @DecimalMin(value = "0.0", message = "El margen no puede ser negativo")
+    @DecimalMax(value = "50.0", message = "El margen máximo es 50mm")
+    private Double margenPaginaSuperiorMm = 12.7;
+
+    @DecimalMin(value = "0.0", message = "El margen no puede ser negativo")
+    @DecimalMax(value = "50.0", message = "El margen máximo es 50mm")
+    private Double margenPaginaIzquierdoMm = 4.8;
 }
