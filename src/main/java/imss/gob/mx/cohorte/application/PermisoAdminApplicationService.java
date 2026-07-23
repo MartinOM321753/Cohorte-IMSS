@@ -14,6 +14,9 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,11 +38,22 @@ public class PermisoAdminApplicationService {
     private final InstitucionContextService institucionCtx;
     private final PermisoEvaluationService evaluationService;
 
+    private static final String ROOT_ROLE = "ROOT";
+
+    private boolean isCallerRoot() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ROOT"::equals);
+    }
+
     // ── Catálogo de permisos ────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public Map<String, List<PermisoDTO>> getCatalogoAgrupado() {
         return permisoRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActivo()))
                 .map(this::toPermisoDTO)
                 .collect(Collectors.groupingBy(
                         PermisoDTO::getModulo,
@@ -51,8 +65,11 @@ public class PermisoAdminApplicationService {
 
     @Transactional(readOnly = true)
     public List<RolConPermisosDTO> getRolesConPermisos() {
+        boolean callerIsRoot = isCallerRoot();
         List<Role> roles = roleRepository.findAll();
-        return roles.stream().map(rol -> {
+        return roles.stream()
+            .filter(rol -> callerIsRoot || !ROOT_ROLE.equals(rol.getRole()))
+            .map(rol -> {
             List<PermisoDTO> permisos = rolPermisoRepository.findAllByRol(rol).stream()
                     .map(rp -> toPermisoDTO(rp.getPermiso()))
                     .collect(Collectors.toList());
@@ -70,7 +87,12 @@ public class PermisoAdminApplicationService {
         Role rol = roleRepository.findById(idRol)
                 .orElseThrow(() -> new ObjNotFoundException("Rol no encontrado con id: " + idRol));
 
+        if (ROOT_ROLE.equals(rol.getRole()) && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para modificar este rol");
+        }
+
         rolPermisoRepository.deleteAllByRol(rol);
+        rolPermisoRepository.flush();
 
         List<PermisoDTO> nuevosPermisos = new ArrayList<>();
         for (String codigo : codigosPermisos) {
@@ -150,6 +172,10 @@ public class PermisoAdminApplicationService {
         Role rol = roleRepository.findById(idRol)
                 .orElseThrow(() -> new ObjNotFoundException("Rol no encontrado con id: " + idRol));
 
+        if (ROOT_ROLE.equals(rol.getRole()) && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para asignar este rol");
+        }
+
         if (usuarioRolRepository.existsByUsuarioAndRol(usuario, rol)) {
             throw new ObjConflictException("El usuario ya tiene el rol " + rol.getRole());
         }
@@ -183,6 +209,10 @@ public class PermisoAdminApplicationService {
         BeanUser usuario = findUsuario(uuid);
         Role rol = roleRepository.findById(idRol)
                 .orElseThrow(() -> new ObjNotFoundException("Rol no encontrado con id: " + idRol));
+
+        if (ROOT_ROLE.equals(rol.getRole()) && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para modificar este rol");
+        }
 
         if (!usuarioRolRepository.existsByUsuarioAndRol(usuario, rol)) {
             throw new ObjNotFoundException("El usuario no tiene el rol " + rol.getRole());

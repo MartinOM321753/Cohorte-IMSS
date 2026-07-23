@@ -11,4 +11,5 @@ import java.util.List;
 public interface UsuarioPermisoRepository extends JpaRepository<UsuarioPermiso, Long> {
     List<UsuarioPermiso> findAllByUsuarioAndActivoTrue(BeanUser usuario);
     List<UsuarioPermiso> findAllByActivoTrueAndFechaFinBeforeAndFechaFinIsNotNull(LocalDateTime now);
+    List<UsuarioPermiso> findAllByPermiso(Permiso permiso);
 }

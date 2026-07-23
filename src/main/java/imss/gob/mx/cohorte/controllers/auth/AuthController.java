@@ -105,11 +105,14 @@ public class AuthController {
         List<String> roles = permisoEvaluationService.getRoleNames(user);
         Set<String> permisos = permisoEvaluationService.getPermisosEfectivos(user);
 
+        boolean isRoot = roles.contains("ROOT");
+
         Map<String, Object> body = new HashMap<>();
         body.put("user", userDTO);
         body.put("mustChangePassword", mustChangePassword);
         body.put("roles", roles);
         body.put("permisos", permisos.stream().sorted().collect(Collectors.toList()));
+        body.put("isRoot", isRoot);
 
         return ResponseEntity.ok(new APIResponse("Sesión vigente", body, false, HttpStatus.OK));
     }

@@ -20,6 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -101,6 +104,16 @@ public class UserApplicationService {
         return userService.getAdministradoresDisponiblesParaInstitucion(uuidInstitucion);
     }
 
+    private static final String ROOT_ROLE = "ROOT";
+
+    private boolean isCallerRoot() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ROOT"::equals);
+    }
+
     @SuppressWarnings("deprecation")
     @Transactional
     public BeanUser saveUser(BeanUser beanUser) {
@@ -108,6 +121,10 @@ public class UserApplicationService {
         Persona savePersona = personaService.createPerson(persona);
         Role findRole = roleRepository.findByUuid(beanUser.getRol().getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el rol solicitado"));
+
+        if (ROOT_ROLE.equals(findRole.getRole()) && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para asignar este rol");
+        }
         Institucion institucion = resolverInstitucion(beanUser.getInstitucion());
 
         String username = generarUsername(persona.getNombre(), persona.getApellidoPaterno());
@@ -137,10 +154,27 @@ public class UserApplicationService {
     @Transactional
     public BeanUser updateUser(BeanUser beanUser) {
         BeanUser existing = userService.getUser(beanUser.getId());
+
+        boolean targetIsRoot = existing.getRol() != null && ROOT_ROLE.equals(existing.getRol().getRole());
+        if (targetIsRoot && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para modificar este usuario");
+        }
+        if (targetIsRoot && isCallerRoot()) {
+            BeanUser actual = institucionContextService.getUsuarioActual();
+            if (!existing.getUUID().equals(actual.getUUID())) {
+                throw new ValidationException("Un usuario ROOT no puede editar a otro usuario ROOT.");
+            }
+        }
+
         beanUser.getPersona().setId(existing.getPersona().getId());
         Persona updatePersona = personaService.update(beanUser.getPersona());
         Role updatedRole = roleRepository.findByUuid(beanUser.getRol().getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el rol solicitado"));
+
+        if (ROOT_ROLE.equals(updatedRole.getRole()) && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para asignar este rol");
+        }
+
         Institucion updatedInstitucion = resolverInstitucion(beanUser.getInstitucion());
 
         beanUser.setPersona(updatePersona);
@@ -160,9 +194,16 @@ public class UserApplicationService {
         return saved;
     }
 
+    @SuppressWarnings("deprecation")
     @Transactional
     public BeanUser toggleActivo(Long id) {
         BeanUser user = userService.getUser(id);
+
+        boolean targetIsRoot = user.getRol() != null && ROOT_ROLE.equals(user.getRol().getRole());
+        if (targetIsRoot && !isCallerRoot()) {
+            throw new ValidationException("No tiene permisos para modificar este usuario");
+        }
+
         boolean nuevoEstado = !Boolean.TRUE.equals(user.getActivo());
         verificarPuedeCambiarEstadoUsuario(user, nuevoEstado);
         return userService.setActivo(id, nuevoEstado);

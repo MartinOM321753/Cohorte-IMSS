@@ -1,6 +1,5 @@
 package imss.gob.mx.cohorte.controllers.roles;
 
-import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +8,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,14 +23,21 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 public class RoleController {
 
+    static final String ROOT_ROLE = "ROOT";
+
     private final RoleRepository roleRepository;
 
     public record RoleResponseDTO(String uuid, String nombre) {}
 
     @GetMapping
     @Operation(summary = "Listar todos los roles", description = "Retorna el catálogo de roles disponibles en el sistema")
-    public ResponseEntity<APIResponse> getAll() {
+    public ResponseEntity<APIResponse> getAll(Authentication auth) {
+        boolean isRoot = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ROOT"::equals);
+
         List<RoleResponseDTO> roles = roleRepository.findAll().stream()
+                .filter(r -> isRoot || !ROOT_ROLE.equals(r.getRole()))
                 .map(r -> new RoleResponseDTO(r.getUuid(), r.getRole()))
                 .toList();
         return ResponseEntity.ok(new APIResponse("Roles encontrados", roles, false, HttpStatus.OK));

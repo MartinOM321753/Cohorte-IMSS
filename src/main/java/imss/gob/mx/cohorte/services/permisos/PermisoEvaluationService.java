@@ -15,14 +15,28 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PermisoEvaluationService {
 
+    private static final String ROOT_ROLE = "ROOT";
+
     private final UsuarioRolRepository usuarioRolRepository;
     private final RolPermisoRepository rolPermisoRepository;
     private final UsuarioPermisoRepository usuarioPermisoRepository;
+    private final PermisoRepository permisoRepository;
 
     @Transactional(readOnly = true)
     public Set<String> getPermisosEfectivos(BeanUser usuario) {
         if (!Boolean.TRUE.equals(usuario.getActivo())) {
             return Collections.emptySet();
+        }
+
+        List<UsuarioRol> rolesUsuario = usuarioRolRepository.findAllByUsuario(usuario);
+
+        boolean isRoot = rolesUsuario.stream()
+                .anyMatch(ur -> ROOT_ROLE.equals(ur.getRol().getRole()));
+        if (isRoot) {
+            return permisoRepository.findAll().stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getActivo()))
+                    .map(Permiso::getCodigo)
+                    .collect(Collectors.toSet());
         }
 
         List<UsuarioPermiso> individuales = usuarioPermisoRepository
@@ -42,7 +56,6 @@ public class PermisoEvaluationService {
                 .map(up -> up.getPermiso().getCodigo())
                 .collect(Collectors.toSet());
 
-        List<UsuarioRol> rolesUsuario = usuarioRolRepository.findAllByUsuario(usuario);
         List<Role> roles = rolesUsuario.stream()
                 .map(UsuarioRol::getRol)
                 .collect(Collectors.toList());
