@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.estudios;
 
 import imss.gob.mx.cohorte.application.EstudiosApplicationService;
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.controllers.estudios.dto.*;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
@@ -37,6 +38,7 @@ public class EstudioMedicoController {
 
     private final EstudiosApplicationService estudiosApplicationService;
     private final InstitucionContextService institucionContextService;
+    private final PacienteApplicationService pacienteApplicationService;
 
     @GetMapping
     @Operation(summary = "Listar todos los estudios médicos", description = "Obtiene una lista completa de todos los estudios médicos registrados en el sistema")
@@ -152,6 +154,13 @@ public class EstudioMedicoController {
         return ResponseEntity.ok(new APIResponse(responseDTO, "Estudio actualizado correctamente", HttpStatus.OK, false));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar estudio médico", description = "Elimina un estudio médico y todos sus resultados y documentos adjuntos")
+    public ResponseEntity<APIResponse> deleteEstudio(@PathVariable Long id) {
+        estudiosApplicationService.deleteEstudio(id);
+        return ResponseEntity.ok(new APIResponse("Estudio eliminado correctamente", HttpStatus.OK, false));
+    }
+
     @GetMapping("/paciente/{uuid}")
     @Operation(summary = "Listar estudios médicos por paciente", description = "Obtiene todos los estudios médicos registrados para un paciente identificado por su UUID")
     @ApiResponses(value = {
@@ -168,6 +177,7 @@ public class EstudioMedicoController {
     public ResponseEntity<APIResponse> getByPaciente(
         @Parameter(description = "UUID del paciente", required = true)
         @PathVariable @NotBlank String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPaciente(uuid);
         List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios del participante obtenidos correctamente", HttpStatus.OK, false));

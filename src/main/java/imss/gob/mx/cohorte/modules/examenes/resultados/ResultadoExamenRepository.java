@@ -99,4 +99,6 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
      */
     @Query("SELECT DISTINCT r.examen.Id FROM ResultadoExamen r WHERE r.paciente.Id = :pacienteId")
     List<Long> findExamenesCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
+
+    boolean existsByExamen_Id(Long id);
 }

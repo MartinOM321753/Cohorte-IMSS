@@ -61,6 +61,14 @@ public class EstudioService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void delete(Long id) {
+        EstudioMedico estudio = estudioMedicoRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el estudio medico"));
+        institucionContextService.verificarPertenece(estudio.getInstitucion());
+        estudioMedicoRepository.delete(estudio);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public EstudioMedico update(EstudioMedico estudioMedico) {
         EstudioMedico estudioBD = estudioMedicoRepository.findById(estudioMedico.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el estudio medico"));

@@ -97,4 +97,6 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
      */
     @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e WHERE e.paciente.Id = :pacienteId")
     List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
+
+    boolean existsByTipoEstudio_Id(Long id);
 }

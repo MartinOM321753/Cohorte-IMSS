@@ -41,6 +41,14 @@ public class ExamenService {
     }
 
     @Transactional
+    public void deleteExamen(Long id) {
+        Examen examen = examenRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + id));
+        institucionContextService.verificarPertenece(examen.getInstitucion());
+        examenRepository.delete(examen);
+    }
+
+    @Transactional
     public Examen updateExamen(Examen examen) {
         Examen examenBD = examenRepository.findById(examen.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el examen con id: " + examen.getId()));

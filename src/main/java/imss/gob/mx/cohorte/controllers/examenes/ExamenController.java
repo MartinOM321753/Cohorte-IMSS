@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.examenes;
 
 import imss.gob.mx.cohorte.application.ExamenApplicationService;
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.controllers.examenes.dto.ExamenMapper;
 import imss.gob.mx.cohorte.controllers.examenes.dto.ExamenRequestDTO;
@@ -39,6 +40,7 @@ public class ExamenController {
 
     private final ExamenApplicationService examenApplicationService;
     private final InstitucionContextService institucionContextService;
+    private final PacienteApplicationService pacienteApplicationService;
 
     @GetMapping
     @Operation(summary = "Listar todos los exámenes activos", description = "Obtiene una lista completa de todos los exámenes activos registrados en el sistema")
@@ -128,9 +130,17 @@ public class ExamenController {
         return ResponseEntity.ok(new APIResponse("Examen actualizado", ExamenMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar examen", description = "Elimina un examen del catálogo. Solo es posible si no tiene resultados registrados.")
+    public ResponseEntity<APIResponse> deleteExamen(@PathVariable Long id) {
+        examenApplicationService.deleteExamen(id);
+        return ResponseEntity.ok(new APIResponse("Examen eliminado", null, false, HttpStatus.OK));
+    }
+
     @GetMapping("/resultados/paciente/uuid/{uuid}/count")
     @Operation(summary = "Contar resultados de examen por UUID del paciente")
     public ResponseEntity<APIResponse> countResultadosByPacienteUUID(@PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         long count = examenApplicationService.countResultadosByPacienteUuid(uuid);
         return ResponseEntity.ok(new APIResponse("Conteo de resultados", count, false, HttpStatus.OK));
     }
@@ -154,6 +164,7 @@ public class ExamenController {
     public ResponseEntity<APIResponse> getResultadosByPacienteUUID(
         @Parameter(description = "UUID único del paciente", required = true)
         @PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<ResultadoExamen> resultados = examenApplicationService.findAllResultadoByUUID(uuid);
         return ResponseEntity.ok(new APIResponse("Resultados encontrados", ResultadoExamenMapper.toResponseDTOList(resultados), false, HttpStatus.OK));
     }
@@ -227,6 +238,13 @@ public class ExamenController {
         ResultadoExamenResponseDTO responseDTO = ResultadoExamenMapper.toResponseDTO(saved, examenDTO, dentroDeRango);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Resultado registrado exitosamente", responseDTO, false, HttpStatus.CREATED));
+    }
+
+    @DeleteMapping("/resultados/{id}")
+    @Operation(summary = "Eliminar resultado de examen", description = "Elimina un resultado de examen y sus documentos adjuntos")
+    public ResponseEntity<APIResponse> deleteResultado(@PathVariable Long id) {
+        examenApplicationService.deleteResultado(id);
+        return ResponseEntity.ok(new APIResponse("Resultado eliminado", null, false, HttpStatus.OK));
     }
 
     @PutMapping("/resultados/{id}")

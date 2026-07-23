@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.services.estudios;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudioRepository;
 import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
+import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudioRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.Optional;
 public class ParametroEstudioService {
 
     private final ParametroEstudioRepository parametroRepository;
+    private final ResultadoEstudioRepository resultadoEstudioRepository;
 
     @Transactional(readOnly = true)
     public List<ParametroEstudio> getAll() {
@@ -59,7 +61,11 @@ public class ParametroEstudioService {
             throw new ObjConflictException("Ya existe un parametro con ese nombre para el tipo de estudio");
         }
 
-        // Si el tipo cambia a uno que no es TEXTO_OPCIONES, limpiar las opciones
+        if (parametroEstudio.getTipo() != parametroDB.getTipo()
+                && resultadoEstudioRepository.existsByParametro_Id(parametroDB.getId())) {
+            throw new ObjConflictException("No se puede cambiar el tipo del parámetro porque tiene resultados registrados");
+        }
+
         if (parametroEstudio.getTipo() != TipoParametro.TEXTO_OPCIONES
                 && parametroDB.getTipo() == TipoParametro.TEXTO_OPCIONES) {
             parametroDB.getOpciones().clear();

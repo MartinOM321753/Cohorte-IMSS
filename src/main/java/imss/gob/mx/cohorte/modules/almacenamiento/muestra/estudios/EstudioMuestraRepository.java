@@ -9,4 +9,6 @@ public interface EstudioMuestraRepository extends JpaRepository<EstudioMuestra, 
     List<EstudioMuestra> findAllByMuestra_IdOrderByFechaEstudioDescIdDesc(Long idMuestra);
 
     void deleteAllByMuestra_Id(Long idMuestra);
+
+    boolean existsByTipoEstudioMuestra_Id(Long id);
 }

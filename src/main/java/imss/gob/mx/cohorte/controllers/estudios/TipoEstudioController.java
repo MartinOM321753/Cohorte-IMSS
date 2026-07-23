@@ -148,6 +148,13 @@ public class TipoEstudioController {
         return ResponseEntity.ok(new APIResponse(activo, "Estado del tipo de estudio actualizado correctamente", HttpStatus.OK, false));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar tipo de estudio", description = "Elimina un tipo de estudio y todos sus parámetros. Solo es posible si no tiene estudios registrados.")
+    public ResponseEntity<APIResponse> deleteTipo(@PathVariable Long id) {
+        gestionEstudiosApplicationService.deleteTipo(id);
+        return ResponseEntity.ok(new APIResponse("Plantilla eliminada", HttpStatus.OK, false));
+    }
+
     @GetMapping("/{id}/parametros")
     @Operation(summary = "Listar parámetros de un tipo de estudio", description = "Obtiene todos los parámetros asociados a un tipo de estudio identificado por su ID")
     @ApiResponses(value = {

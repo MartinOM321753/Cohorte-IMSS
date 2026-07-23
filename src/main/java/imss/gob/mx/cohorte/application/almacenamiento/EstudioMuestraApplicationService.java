@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.application.almacenamiento;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ResultadoEstudioMuestra;
@@ -65,6 +66,9 @@ public class EstudioMuestraApplicationService {
     public EstudioMuestra create(Long idMuestra, EstudioMuestra estudio) {
         Muestra muestra = muestraService.getByIdComoTenedor(idMuestra);
 
+        // Cuarentena: bloquear si el participante está inactivo
+        PacienteEstadoValidator.requirePacienteActivo(muestra, "aplicar estudio");
+
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException(
                     "No se puede registrar un estudio en una muestra en tránsito hacia otra institución.");
@@ -105,6 +109,19 @@ public class EstudioMuestraApplicationService {
 
         Double consumoAnterior = existente.getCantidadConsumida() != null ? existente.getCantidadConsumida() : 0.0;
         Double consumoNuevo = datos.getCantidadConsumida() != null ? datos.getCantidadConsumida() : 0.0;
+
+        // Si la muestra ya no está en la institución del editor (fue devuelta o
+        // re-prestada), bloquear cambios que mutarían muestra.valor. Solo se permite
+        // editar campos que no afectan al recurso físico (observaciones, resultados
+        // sin cambio de consumo).
+        boolean muestraSigueEnMiInstitucion =
+                muestra.getInstitucionActual() != null
+                && idInst.equals(muestra.getInstitucionActual().getId());
+        if (!muestraSigueEnMiInstitucion && !Objects.equals(consumoAnterior, consumoNuevo)) {
+            throw new ObjConflictException(
+                    "La cantidad consumida no puede modificarse: la muestra ya no está en su institución. "
+                    + "Solo puede actualizar resultados y observaciones.");
+        }
 
         // Recalcular: valor actual + consumo anterior = valor antes del estudio
         // Luego: valor antes del estudio - consumo nuevo = nuevo valor

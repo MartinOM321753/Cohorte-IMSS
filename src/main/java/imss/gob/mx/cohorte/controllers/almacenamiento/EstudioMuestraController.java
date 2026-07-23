@@ -80,6 +80,13 @@ public class EstudioMuestraController {
                 "Tipo de estudio de muestra actualizado", HttpStatus.OK, false));
     }
 
+    @DeleteMapping("/estudios/tipos/{id}")
+    @Operation(summary = "Eliminar tipo de estudio de muestra", description = "Elimina un tipo y sus parámetros. Solo si no tiene estudios registrados.")
+    public ResponseEntity<APIResponse> deleteTipo(@PathVariable Long id) {
+        gestionAppService.deleteTipo(id);
+        return ResponseEntity.ok(new APIResponse("Tipo de estudio de muestra eliminado", HttpStatus.OK, false));
+    }
+
     @PutMapping("/estudios/tipos/{id}/toggle")
     @Operation(summary = "Activar o desactivar tipo de estudio de muestra")
     public ResponseEntity<APIResponse> toggleTipo(@PathVariable Long id) {

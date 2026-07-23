@@ -1,12 +1,15 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.OpcionParametroEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ResultadoEstudioMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.TipoEstudioMuestra;
 import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.OpcionParametroEstudioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.ParametroEstudioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.TipoEstudioMuestraService;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ public class GestionEstudioMuestraApplicationService {
     private final TipoEstudioMuestraService tipoService;
     private final ParametroEstudioMuestraService parametroService;
     private final OpcionParametroEstudioMuestraService opcionService;
+    private final EstudioMuestraRepository estudioMuestraRepository;
+    private final ResultadoEstudioMuestraRepository resultadoEstudioMuestraRepository;
 
     // ─── Tipos ───────────────────────────────────────────────────────────────
 
@@ -55,6 +60,15 @@ public class GestionEstudioMuestraApplicationService {
     @Transactional
     public boolean toggleTipo(Long id) {
         return tipoService.toggleActivo(id);
+    }
+
+    @Transactional
+    public void deleteTipo(Long id) {
+        tipoService.getById(id);
+        if (estudioMuestraRepository.existsByTipoEstudioMuestra_Id(id)) {
+            throw new ObjConflictException("No se puede eliminar: tiene estudios de muestra registrados");
+        }
+        tipoService.delete(id);
     }
 
     // ─── Parámetros ──────────────────────────────────────────────────────────
@@ -89,6 +103,9 @@ public class GestionEstudioMuestraApplicationService {
 
     @Transactional
     public void deleteParametro(Long id) {
+        if (resultadoEstudioMuestraRepository.existsByParametro_Id(id)) {
+            throw new ObjConflictException("No se puede eliminar el parámetro porque tiene resultados registrados");
+        }
         parametroService.delete(id);
     }
 

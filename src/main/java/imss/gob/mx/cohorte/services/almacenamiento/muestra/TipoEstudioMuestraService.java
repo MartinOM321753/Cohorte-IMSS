@@ -77,6 +77,12 @@ public class TipoEstudioMuestraService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void delete(Long id) {
+        TipoEstudioMuestra tipo = getById(id);
+        repository.delete(tipo);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public boolean toggleActivo(Long id) {
         TipoEstudioMuestra tipo = getById(id);
         tipo.setActivo(!tipo.getActivo());
