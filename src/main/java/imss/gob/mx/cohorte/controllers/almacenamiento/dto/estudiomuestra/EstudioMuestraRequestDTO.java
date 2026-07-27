@@ -7,7 +7,7 @@ import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -21,7 +21,7 @@ public class EstudioMuestraRequestDTO {
 
     @NotNull(message = "La fecha del estudio es requerida")
     @PastOrPresent(message = "La fecha del estudio no puede ser futura")
-    private LocalDate fechaEstudio;
+    private LocalDateTime fechaEstudio;
 
     @Size(max = 500)
     private String observaciones;

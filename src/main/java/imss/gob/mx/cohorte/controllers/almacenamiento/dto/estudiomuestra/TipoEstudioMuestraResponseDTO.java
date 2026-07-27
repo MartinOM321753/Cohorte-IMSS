@@ -14,7 +14,9 @@ public class TipoEstudioMuestraResponseDTO {
     private Long id;
     private String nombre;
     private String descripcion;
+    private String tipoCapturaDefecto;
     private Boolean activo;
+    private Boolean tieneResultados;
     private LocalDateTime fechaCreacion;
     private List<ParametroEstudioMuestraResponseDTO> parametros;
 }

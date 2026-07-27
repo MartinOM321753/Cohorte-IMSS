@@ -3,11 +3,10 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 import imss.gob.mx.cohorte.application.almacenamiento.EstudioMuestraApplicationService;
 import imss.gob.mx.cohorte.application.almacenamiento.GestionEstudioMuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.estudiomuestra.*;
-import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.EstudioMuestra;
-import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
-import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.TipoEstudioMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.HistorialCambioMuestra;
 import imss.gob.mx.cohorte.utils.APIResponse;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +30,7 @@ public class EstudioMuestraController {
 
     private final EstudioMuestraApplicationService estudioAppService;
     private final GestionEstudioMuestraApplicationService gestionAppService;
+    private final EstudioMuestraRepository estudioMuestraRepository;
 
     // ═══════════════════════════════════════════════════════════════════════════
     //  TIPOS DE ESTUDIO DE MUESTRA — Catálogo
@@ -41,7 +41,11 @@ public class EstudioMuestraController {
     public ResponseEntity<APIResponse> getTiposActivos() {
         List<TipoEstudioMuestra> tipos = gestionAppService.getAllActivos();
         List<TipoEstudioMuestraResponseDTO> dtos = tipos.stream()
-                .map(t -> EstudioMuestraMapper.toTipoResponseDTO(t, true))
+                .map(t -> {
+                    TipoEstudioMuestraResponseDTO dto = EstudioMuestraMapper.toTipoResponseDTO(t, true);
+                    dto.setTieneResultados(estudioMuestraRepository.existsByTipoEstudioMuestra_Id(t.getId()));
+                    return dto;
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio de muestra obtenidos", HttpStatus.OK, false));
     }
@@ -51,7 +55,11 @@ public class EstudioMuestraController {
     public ResponseEntity<APIResponse> getAllTipos() {
         List<TipoEstudioMuestra> tipos = gestionAppService.getAll();
         List<TipoEstudioMuestraResponseDTO> dtos = tipos.stream()
-                .map(t -> EstudioMuestraMapper.toTipoResponseDTO(t, true))
+                .map(t -> {
+                    TipoEstudioMuestraResponseDTO dto = EstudioMuestraMapper.toTipoResponseDTO(t, true);
+                    dto.setTieneResultados(estudioMuestraRepository.existsByTipoEstudioMuestra_Id(t.getId()));
+                    return dto;
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new APIResponse(dtos, "Tipos de estudio de muestra obtenidos", HttpStatus.OK, false));
     }
@@ -62,22 +70,32 @@ public class EstudioMuestraController {
         TipoEstudioMuestra tipo = new TipoEstudioMuestra();
         tipo.setNombre(dto.getNombre());
         tipo.setDescripcion(dto.getDescripcion());
+        tipo.setTipoCapturaDefecto(dto.getTipoCapturaDefecto() != null ? dto.getTipoCapturaDefecto() : "NORMAL");
         TipoEstudioMuestra creado = gestionAppService.createTipo(tipo);
+        TipoEstudioMuestraResponseDTO responseDTO = EstudioMuestraMapper.toTipoResponseDTO(creado, false);
+        responseDTO.setTieneResultados(false);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new APIResponse(EstudioMuestraMapper.toTipoResponseDTO(creado, false),
-                        "Tipo de estudio de muestra creado", HttpStatus.CREATED, false));
+                .body(new APIResponse(responseDTO, "Tipo de estudio de muestra creado", HttpStatus.CREATED, false));
     }
 
     @PutMapping("/estudios/tipos/{id}")
     @Operation(summary = "Actualizar tipo de estudio de muestra")
     public ResponseEntity<APIResponse> updateTipo(@PathVariable Long id,
                                                    @Valid @RequestBody TipoEstudioMuestraRequestDTO dto) {
+        TipoEstudioMuestra existente = gestionAppService.getById(id);
+        if (dto.getTipoCapturaDefecto() != null
+                && !dto.getTipoCapturaDefecto().equals(existente.getTipoCapturaDefecto())
+                && estudioMuestraRepository.existsByTipoEstudioMuestra_Id(id)) {
+            throw new ObjConflictException("No se puede cambiar el modo de captura porque la plantilla tiene estudios registrados");
+        }
         TipoEstudioMuestra datos = new TipoEstudioMuestra();
         datos.setNombre(dto.getNombre());
         datos.setDescripcion(dto.getDescripcion());
+        datos.setTipoCapturaDefecto(dto.getTipoCapturaDefecto() != null ? dto.getTipoCapturaDefecto() : existente.getTipoCapturaDefecto());
         TipoEstudioMuestra actualizado = gestionAppService.updateTipo(id, datos);
-        return ResponseEntity.ok(new APIResponse(EstudioMuestraMapper.toTipoResponseDTO(actualizado, true),
-                "Tipo de estudio de muestra actualizado", HttpStatus.OK, false));
+        TipoEstudioMuestraResponseDTO responseDTO = EstudioMuestraMapper.toTipoResponseDTO(actualizado, true);
+        responseDTO.setTieneResultados(estudioMuestraRepository.existsByTipoEstudioMuestra_Id(actualizado.getId()));
+        return ResponseEntity.ok(new APIResponse(responseDTO, "Tipo de estudio de muestra actualizado", HttpStatus.OK, false));
     }
 
     @DeleteMapping("/estudios/tipos/{id}")

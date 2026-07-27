@@ -73,6 +73,9 @@ public class TipoEstudioMuestraService {
             tipoBD.setNombre(datos.getNombre());
         }
         tipoBD.setDescripcion(datos.getDescripcion());
+        if (datos.getTipoCapturaDefecto() != null) {
+            tipoBD.setTipoCapturaDefecto(datos.getTipoCapturaDefecto());
+        }
         return repository.save(tipoBD);
     }
 
