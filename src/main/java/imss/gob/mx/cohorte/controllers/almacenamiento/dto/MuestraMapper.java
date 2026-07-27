@@ -40,7 +40,7 @@ public class MuestraMapper {
             usuarioDTO = UsuarioResumenDTO.builder()
                 .id(u.getId())
                 .username(u.getUsername())
-                .UUID(u.getUUID())
+                .uuid(u.getUUID())
                 .nombreCompleto(nombreCompleto.trim())
                 .build();
         }

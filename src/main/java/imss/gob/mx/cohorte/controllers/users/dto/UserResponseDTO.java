@@ -1,6 +1,5 @@
 package imss.gob.mx.cohorte.controllers.users.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import imss.gob.mx.cohorte.controllers.DTO.PersonaResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,8 +15,7 @@ import java.time.LocalDateTime;
 public class UserResponseDTO {
     private Long id;
     private String username;
-    @JsonProperty("UUID")
-    private String UUID;
+    private String uuid;
     private Boolean activo;
     private Boolean debeResetear;
     private RolDTO rol;
