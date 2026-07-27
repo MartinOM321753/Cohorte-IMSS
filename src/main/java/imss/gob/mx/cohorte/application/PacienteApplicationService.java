@@ -172,7 +172,7 @@ public class PacienteApplicationService {
                 uuidRecluta,
                 reclutamientoDto.getObservaciones(),
                 reclutamientoDto.getFechaContacto() != null
-                        ? java.sql.Timestamp.valueOf(reclutamientoDto.getFechaContacto().atStartOfDay())
+                        ? java.sql.Timestamp.valueOf(reclutamientoDto.getFechaContacto())
                         : null
         );
 
