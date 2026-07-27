@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.controllers.examenes.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class ResultadoExamenRequestDTO {
     @NotNull(message = "El valor obtenido es obligatorio")
     private Double valorObtenido;
 
+    @Size(max = 1000)
     private String observaciones;
 
     @NotNull(message = "La fecha del resultado es obligatoria")

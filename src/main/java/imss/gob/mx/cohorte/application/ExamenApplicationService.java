@@ -38,11 +38,11 @@ public class ExamenApplicationService {
     private final InstitucionRepository institucionRepository;
     private final InstitucionContextService institucionContextService;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Examen> findAll() {
         return examenService.getAllExamenes();
     }
-    @Transactional
+    @Transactional(readOnly = true)
     public Examen findOne(Long id) {
         Examen examen = examenService.getExamen(id);
         institucionContextService.verificarPertenece(examen.getInstitucion());
@@ -88,12 +88,12 @@ public class ExamenApplicationService {
         resultadoExamenService.deleteResultado(id);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ResultadoExamen> findAllResultadoByFolio(String folio) {
         return resultadoExamenService.findAllByFolio(folio);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ResultadoExamen> findAllResultadoByUUID(String uuid) {
         return resultadoExamenService.findAllByUUID(uuid);
     }

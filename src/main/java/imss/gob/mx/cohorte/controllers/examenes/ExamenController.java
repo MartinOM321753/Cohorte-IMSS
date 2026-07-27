@@ -25,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,6 +56,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('EXAMENES_LOOKUP', 'EXAMENES_LLENADO_ACCEDER', 'EXAMENES_CATALOGO_ACCEDER')")
     public ResponseEntity<APIResponse> getAll() {
         List<Examen> examenes = examenApplicationService.findAll();
         return ResponseEntity.ok(new APIResponse("Exámenes encontrados", ExamenMapper.toResponseDTOList(examenes), false, HttpStatus.OK));
@@ -76,6 +78,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('EXAMENES_LOOKUP', 'EXAMENES_LLENADO_ACCEDER', 'EXAMENES_CATALOGO_ACCEDER')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "Identificador único del examen", required = true)
         @PathVariable Long id) {
@@ -96,6 +99,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_CATALOGO_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
         examen.setInstitucion(institucionContextService.getInstitucionActual());
@@ -120,6 +124,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_CATALOGO_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "Identificador único del examen a actualizar", required = true)
         @PathVariable Long id,
@@ -132,6 +137,7 @@ public class ExamenController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar examen", description = "Elimina un examen del catálogo. Solo es posible si no tiene resultados registrados.")
+    @PreAuthorize("hasAuthority('EXAMENES_CATALOGO_ELIMINAR')")
     public ResponseEntity<APIResponse> deleteExamen(@PathVariable Long id) {
         examenApplicationService.deleteExamen(id);
         return ResponseEntity.ok(new APIResponse("Examen eliminado", null, false, HttpStatus.OK));
@@ -139,6 +145,7 @@ public class ExamenController {
 
     @GetMapping("/resultados/paciente/uuid/{uuid}/count")
     @Operation(summary = "Contar resultados de examen por UUID del paciente")
+    @PreAuthorize("hasAnyAuthority('EXAMENES_LLENADO_ACCEDER', 'EXPEDIENTE_VER')")
     public ResponseEntity<APIResponse> countResultadosByPacienteUUID(@PathVariable String uuid) {
         pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         long count = examenApplicationService.countResultadosByPacienteUuid(uuid);
@@ -161,6 +168,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('EXAMENES_LLENADO_ACCEDER', 'EXPEDIENTE_VER')")
     public ResponseEntity<APIResponse> getResultadosByPacienteUUID(
         @Parameter(description = "UUID único del paciente", required = true)
         @PathVariable String uuid) {
@@ -179,6 +187,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getResultadosByPacienteUUIDPaginado(
         @Parameter(description = "UUID único del paciente", required = true)
         @PathVariable String uuid,
@@ -210,6 +219,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getResultadosByPacienteFolio(
         @Parameter(description = "Folio del paciente", required = true)
         @PathVariable String folio) {
@@ -230,6 +240,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_CREAR')")
     public ResponseEntity<APIResponse> saveResultado(@Validated @RequestBody ResultadoExamenRequestDTO dto) {
         ResultadoExamen resultado = ResultadoExamenMapper.toEntity(dto);
         ResultadoExamen saved = examenApplicationService.createResultado(resultado);
@@ -242,6 +253,7 @@ public class ExamenController {
 
     @DeleteMapping("/resultados/{id}")
     @Operation(summary = "Eliminar resultado de examen", description = "Elimina un resultado de examen y sus documentos adjuntos")
+    @PreAuthorize("hasAuthority('EXAMENES_ELIMINAR')")
     public ResponseEntity<APIResponse> deleteResultado(@PathVariable Long id) {
         examenApplicationService.deleteResultado(id);
         return ResponseEntity.ok(new APIResponse("Resultado eliminado", null, false, HttpStatus.OK));
@@ -263,6 +275,7 @@ public class ExamenController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('EXAMENES_EDITAR')")
     public ResponseEntity<APIResponse> updateResultado(
         @Parameter(description = "Identificador único del resultado de examen a actualizar", required = true)
         @PathVariable Long id,
