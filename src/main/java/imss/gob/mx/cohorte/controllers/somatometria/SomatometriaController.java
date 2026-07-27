@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +31,7 @@ public class SomatometriaController {
     @GetMapping("/paciente/{uuid}")
     @Operation(summary = "Historial de somatometría del paciente",
                description = "Devuelve todos los registros ordenados del más reciente al más antiguo")
+    @PreAuthorize("hasAnyAuthority('SOMATOMETRIA_VER', 'EXPEDIENTE_SOMATOMETRIA')")
     public ResponseEntity<APIResponse> getByPaciente(@PathVariable String uuid) {
         List<SomatometriaResponseDTO> list = appService.getHistorialByPaciente(uuid)
                 .stream()
@@ -42,6 +44,7 @@ public class SomatometriaController {
     @GetMapping("/paciente/{uuid}/latest")
     @Operation(summary = "Última medición del paciente",
                description = "Devuelve el registro más reciente, o 404 si no hay ninguno")
+    @PreAuthorize("hasAnyAuthority('SOMATOMETRIA_VER', 'EXPEDIENTE_SOMATOMETRIA')")
     public ResponseEntity<APIResponse> getLatest(@PathVariable String uuid) {
         return appService.getLatest(uuid)
                 .map(SomatometriaMapper::toDTO)
@@ -53,6 +56,7 @@ public class SomatometriaController {
     // ── GET /api/somatometria/{id} ────────────────────────────────────────────
     @GetMapping("/{id}")
     @Operation(summary = "Obtener registro por ID")
+    @PreAuthorize("hasAuthority('SOMATOMETRIA_VER')")
     public ResponseEntity<APIResponse> getById(@PathVariable Long id) {
         Somatometria s = appService.getById(id);
         return ResponseEntity.ok(new APIResponse("Registro encontrado", SomatometriaMapper.toDTO(s), false, HttpStatus.OK));
@@ -62,6 +66,7 @@ public class SomatometriaController {
     @PostMapping
     @Operation(summary = "Registrar medición",
                description = "Crea un nuevo registro de somatometría. El IMC se calcula automáticamente si se proporcionan peso y talla.")
+    @PreAuthorize("hasAuthority('SOMATOMETRIA_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody SomatometriaRequestDTO dto) {
         Somatometria saved = appService.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -71,6 +76,7 @@ public class SomatometriaController {
     // ── PUT /api/somatometria/{id} ────────────────────────────────────────────
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar registro de somatometría")
+    @PreAuthorize("hasAuthority('SOMATOMETRIA_EDITAR')")
     public ResponseEntity<APIResponse> update(@PathVariable Long id,
                                               @Validated @RequestBody SomatometriaRequestDTO dto) {
         Somatometria updated = appService.update(id, dto);
@@ -80,6 +86,7 @@ public class SomatometriaController {
     // ── DELETE /api/somatometria/{id} ─────────────────────────────────────────
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar registro de somatometría")
+    @PreAuthorize("hasAuthority('SOMATOMETRIA_ELIMINAR')")
     public ResponseEntity<APIResponse> delete(@PathVariable Long id) {
         appService.delete(id);
         return ResponseEntity.ok(new APIResponse("Medición eliminada", null, false, HttpStatus.OK));

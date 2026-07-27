@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +37,7 @@ public class CitaController {
 
     @GetMapping
     @Operation(summary = "Listar citas", description = "Obtiene una lista de citas, opcionalmente filtrada por rango de fechas (ISO-8601 UTC)")
+    @PreAuthorize("hasAuthority('CITAS_VER')")
     public ResponseEntity<APIResponse> getAll(
             @RequestParam(required = false) String start,
             @RequestParam(required = false) String end) {
@@ -52,6 +54,7 @@ public class CitaController {
     @GetMapping("/paciente/{uuid}/resumen")
     @Operation(summary = "Resumen de citas por UUID de paciente",
                description = "Devuelve solo fecha (en zona local), tipo (observaciones) y estado de cada cita del paciente")
+    @PreAuthorize("hasAnyAuthority('CITAS_VER', 'EXPEDIENTE_VER')")
     public ResponseEntity<APIResponse> getResumenByPacienteUuid(@PathVariable String uuid) {
         pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<Cita> citas = citaApplicationService.findAllByPacienteUuid(uuid);
@@ -61,6 +64,7 @@ public class CitaController {
 
     @GetMapping("/{uuid}")
     @Operation(summary = "Obtener cita por UUID")
+    @PreAuthorize("hasAuthority('CITAS_VER')")
     public ResponseEntity<APIResponse> getByUuid(@PathVariable String uuid) {
         Cita cita = citaApplicationService.findByUuid(uuid);
         return ResponseEntity.ok(new APIResponse("Cita encontrada", CitaMapper.toResponseDTO(cita), false, HttpStatus.OK));
@@ -68,6 +72,7 @@ public class CitaController {
 
     @PostMapping
     @Operation(summary = "Registrar nueva cita")
+    @PreAuthorize("hasAuthority('CITAS_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody CitaRequestDTO dto) {
         Cita cita = CitaMapper.toEntity(dto);
         cita.setInstitucion(institucionContextService.getInstitucionActual());
@@ -78,6 +83,7 @@ public class CitaController {
 
     @PatchMapping("/{uuid}")
     @Operation(summary = "Actualización parcial (PATCH) para drag&drop y ediciones")
+    @PreAuthorize("hasAuthority('CITAS_EDITAR')")
     public ResponseEntity<APIResponse> patch(
             @PathVariable String uuid,
             @Validated @RequestBody CitaPatchDTO dto) {
@@ -87,6 +93,7 @@ public class CitaController {
 
     @DeleteMapping("/{uuid}/cancelar")
     @Operation(summary = "Cancelar cita por UUID")
+    @PreAuthorize("hasAuthority('CITAS_ELIMINAR')")
     public ResponseEntity<APIResponse> cancelar(@PathVariable String uuid) {
         citaApplicationService.cancelar(uuid);
         return ResponseEntity.ok(new APIResponse("Cita cancelada", null, false, HttpStatus.OK));
