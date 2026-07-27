@@ -70,6 +70,7 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
     List<BeanUser> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
     Optional<BeanUser> findByUsername(String username);
     Optional<BeanUser> findByUUID(String username);
+    List<BeanUser> findAllByUUIDIn(Set<String> uuids);
     boolean existsByUUID(String uuid);
 
     /**

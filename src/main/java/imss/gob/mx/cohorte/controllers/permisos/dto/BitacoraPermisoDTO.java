@@ -14,8 +14,10 @@ import java.time.LocalDateTime;
 public class BitacoraPermisoDTO {
     private Long id;
     private String usuarioAfectadoUuid;
+    private String usuarioAfectadoNombre;
     private String accion;
     private String detalle;
     private String realizadoPorUuid;
+    private String realizadoPorNombre;
     private LocalDateTime timestamp;
 }

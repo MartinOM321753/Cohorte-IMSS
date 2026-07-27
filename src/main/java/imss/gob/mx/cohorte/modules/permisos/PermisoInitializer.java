@@ -266,7 +266,7 @@ public class PermisoInitializer {
             "EXPEDIENTE_VER", "EXPEDIENTE_DATOS_PERSONALES",
             "EXPEDIENTE_CITAS", "EXPEDIENTE_ESTUDIOS",
             "EXPEDIENTE_EXAMENES", "EXPEDIENTE_DOCUMENTOS",
-            "DOCUMENTOS_VER_METADATA"
+            "DOCUMENTOS_VER_METADATA","CITAS_VER"
     );
 
     private static final Map<String, Set<String>> ROL_PERMISOS_MAP = Map.of(

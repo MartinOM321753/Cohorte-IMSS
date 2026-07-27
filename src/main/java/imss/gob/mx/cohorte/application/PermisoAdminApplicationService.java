@@ -270,13 +270,39 @@ public class PermisoAdminApplicationService {
 
     @Transactional(readOnly = true)
     public Page<BitacoraPermisoDTO> getBitacora(String uuidUsuario, Pageable pageable) {
+        Page<BitacoraPermisos> page;
         if (uuidUsuario != null && !uuidUsuario.isBlank()) {
-            return bitacoraRepository
-                    .findAllByUsuarioAfectadoUuidOrderByTimestampDesc(uuidUsuario, pageable)
-                    .map(this::toBitacoraDTO);
+            page = bitacoraRepository
+                    .findAllByUsuarioAfectadoUuidOrderByTimestampDesc(uuidUsuario, pageable);
+        } else {
+            page = bitacoraRepository.findAllByOrderByTimestampDesc(pageable);
         }
-        return bitacoraRepository.findAllByOrderByTimestampDesc(pageable)
-                .map(this::toBitacoraDTO);
+
+        Set<String> uuids = new HashSet<>();
+        page.getContent().forEach(b -> {
+            if (b.getUsuarioAfectadoUuid() != null) uuids.add(b.getUsuarioAfectadoUuid());
+            if (b.getRealizadoPorUuid() != null && !"SISTEMA".equals(b.getRealizadoPorUuid()))
+                uuids.add(b.getRealizadoPorUuid());
+        });
+
+        Map<String, String> nombresPorUuid = new HashMap<>();
+        if (!uuids.isEmpty()) {
+            userRepository.findAllByUUIDIn(uuids).forEach(u ->
+                    nombresPorUuid.put(u.getUUID(), buildNombre(u)));
+        }
+
+        return page.map(b -> BitacoraPermisoDTO.builder()
+                .id(b.getId())
+                .usuarioAfectadoUuid(b.getUsuarioAfectadoUuid())
+                .usuarioAfectadoNombre(nombresPorUuid.getOrDefault(b.getUsuarioAfectadoUuid(), null))
+                .accion(b.getAccion())
+                .detalle(b.getDetalle())
+                .realizadoPorUuid(b.getRealizadoPorUuid())
+                .realizadoPorNombre("SISTEMA".equals(b.getRealizadoPorUuid())
+                        ? "Sistema"
+                        : nombresPorUuid.getOrDefault(b.getRealizadoPorUuid(), null))
+                .timestamp(b.getTimestamp())
+                .build());
     }
 
     // ── Helpers privados ────────────────────────────────────────────────────────
