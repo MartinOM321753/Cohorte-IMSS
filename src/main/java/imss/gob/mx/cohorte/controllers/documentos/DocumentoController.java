@@ -358,7 +358,12 @@ public class DocumentoController {
         if (configuracionId != null) {
             return configuracionEtiquetaService.obtenerPorId(configuracionId, idInst);
         }
-        return configuracionEtiquetaService.obtenerPredeterminada(idInst);
+        ConfiguracionEtiqueta pred = configuracionEtiquetaService.obtenerPredeterminada(idInst);
+        if (pred == null) {
+            throw new IllegalArgumentException(
+                    "No hay configuración de etiqueta predeterminada. Cree una en Configuración > Etiquetas.");
+        }
+        return pred;
     }
 
     // ─── Visualización por etiqueta (escaneo QR/barcode) ─────────────────────────

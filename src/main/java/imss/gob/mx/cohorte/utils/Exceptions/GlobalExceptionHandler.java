@@ -84,6 +84,13 @@ public class GlobalExceptionHandler {
                 .body(new APIResponse(ex.getMessage(), HttpStatus.SERVICE_UNAVAILABLE, true));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<APIResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new APIResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, true));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<APIResponse> handleGeneral(Exception ex){
         log.error("Error interno no controlado", ex);

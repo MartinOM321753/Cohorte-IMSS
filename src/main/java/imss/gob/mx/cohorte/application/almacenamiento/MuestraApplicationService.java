@@ -421,7 +421,7 @@ public class MuestraApplicationService {
         }
         ConfiguracionEtiqueta pred = configuracionEtiquetaService.obtenerPredeterminada(idInst);
         if (pred == null) {
-            throw new RuntimeException("No hay configuración de etiqueta predeterminada. Cree una en Configuración > Etiquetas y márquela como predeterminada.");
+            throw new IllegalArgumentException("No hay configuración de etiqueta predeterminada. Cree una en Configuración > Etiquetas y márquela como predeterminada.");
         }
         return pred;
     }
