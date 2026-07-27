@@ -87,6 +87,14 @@ public class CajaCriojenicaService {
     }
 
     @Transactional
+    public void delete(Long id) {
+        CajaCriogenica caja = cajaCriogenicaRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró la caja criogénica con id: " + id));
+        institucionContextService.verificarPertenece(caja.getInstitucion());
+        cajaCriogenicaRepository.delete(caja);
+    }
+
+    @Transactional
     public CajaCriogenica update(CajaCriogenica caja) {
         CajaCriogenica cajaBD = cajaCriogenicaRepository.findById(caja.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la caja criogénica con id: " + caja.getId()));

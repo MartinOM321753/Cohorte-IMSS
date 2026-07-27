@@ -40,7 +40,7 @@ public class Refrigerador {
     @JsonIgnore
     private Institucion institucion;
 
-    @OneToMany(mappedBy = "refrigerador")
+    @OneToMany(mappedBy = "refrigerador", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<PisoRefrigerador> pisos;
 

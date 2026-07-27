@@ -143,12 +143,34 @@ public class CajasApplicationService {
         return cajaCriojenicaService.update(caja);
     }
 
+    @Transactional
+    public void deleteCaja(Long id) {
+        CajaCriogenica caja = cajaCriojenicaService.getById(id);
+
+        long ocupadas = posicionCajaService.countOcupadasByCajaId(id);
+        if (ocupadas > 0) {
+            throw new ObjConflictException(
+                    "No se puede eliminar la caja: tiene posiciones ocupadas con muestras almacenadas");
+        }
+
+        Long idPosicionPiso = caja.getPosicionPiso() != null
+                ? caja.getPosicionPiso().getId() : null;
+
+        caja.setPosicionPiso(null);
+
+        posicionCajaService.deleteAllByCajaId(id);
+
+        cajaCriojenicaService.delete(id);
+
+        if (idPosicionPiso != null) {
+            marcarPosicionPisoOcupada(idPosicionPiso, false);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<PosicionCaja> getPosicionesByCaja(Long idCaja) {
         cajaCriojenicaService.getById(idCaja);
-        return posicionCajaService.getAll().stream()
-            .filter(p -> p.getCaja().getId().equals(idCaja))
-            .toList();
+        return posicionCajaService.getPositionsByCaja(idCaja);
     }
 
     @Transactional(readOnly = true)

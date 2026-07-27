@@ -91,6 +91,16 @@ public class PosicionCajaService {
         posicionCajaRepository.deleteAll(positions);
     }
 
+    @Transactional(readOnly = true)
+    public long countOcupadasByCajaId(Long cajaId) {
+        return posicionCajaRepository.countOcupadasByCajaId(cajaId);
+    }
+
+    @Transactional
+    public void deleteAllByCajaId(Long cajaId) {
+        posicionCajaRepository.deleteAllByCajaId(cajaId);
+    }
+
     @Transactional
     public void crearPosicionSiNoExiste(CajaCriogenica caja, int fila, int columna) {
         if (posicionCajaRepository.findByCaja_IdAndFilaAndColumna(caja.getId(), fila, columna).isEmpty()) {
