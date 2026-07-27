@@ -11,7 +11,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,7 +29,7 @@ public class EstudioMedico {
     private String observaciones;
 
     @Column(name = "fecha_estudio", nullable = false)
-    private LocalDate fechaEstudio;
+    private LocalDateTime fechaEstudio;
 
     @Column(name = "fecha_registro", nullable = false)
     private LocalDateTime fechaRegistro;

@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +18,7 @@ public class EstudioMedicoResponseDTO {
 
     private Long id;
     private String observaciones;
-    private LocalDate fechaEstudio;
+    private LocalDateTime fechaEstudio;
     private LocalDateTime fechaRegistro;
     private PacienteResumenDTO paciente;
     private UsuarioResumenDTO usuarioRealiza;

@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +54,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
         List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
@@ -69,6 +71,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
         Page<EstudioMedico> estudios = estudiosApplicationService.getAllEstudiosPaginado(pageable);
         Map<String, Object> body = Map.of(
@@ -97,6 +100,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "Identificador único del estudio médico", required = true)
         @PathVariable Long id) {
@@ -118,6 +122,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_CREAR')")
     public ResponseEntity<APIResponse> create(@Valid @RequestBody EstudioMedicoRequestDTO dto) {
         EstudioMedico entity = EstudioMapper.toEntity(dto);
         entity.setInstitucion(institucionContextService.getInstitucionActual());
@@ -144,6 +149,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "Identificador único del estudio médico a actualizar", required = true)
         @PathVariable Long id,
@@ -156,6 +162,7 @@ public class EstudioMedicoController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar estudio médico", description = "Elimina un estudio médico y todos sus resultados y documentos adjuntos")
+    @PreAuthorize("hasAuthority('ESTUDIOS_ELIMINAR')")
     public ResponseEntity<APIResponse> deleteEstudio(@PathVariable Long id) {
         estudiosApplicationService.deleteEstudio(id);
         return ResponseEntity.ok(new APIResponse("Estudio eliminado correctamente", HttpStatus.OK, false));
@@ -174,6 +181,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('ESTUDIOS_LLENADO_ACCEDER', 'EXPEDIENTE_VER')")
     public ResponseEntity<APIResponse> getByPaciente(
         @Parameter(description = "UUID del paciente", required = true)
         @PathVariable @NotBlank String uuid) {
@@ -196,6 +204,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getByPacientePaginado(
         @Parameter(description = "UUID del paciente", required = true)
         @PathVariable @NotBlank String uuid,

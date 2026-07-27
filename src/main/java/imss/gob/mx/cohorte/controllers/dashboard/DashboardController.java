@@ -93,12 +93,12 @@ public class DashboardController {
         long citasSinActualizar = citaRepository.countCitasSinActualizar(ahora, idInstitucion);
 
         // 4. Estudios con resultado este mes
-        long estudiosConResultadosMes = estudioMedicoRepository
-                .countEstudiosConResultadosEnMes(primero, ultimo, idInstitucion);
-
-        // 5. Exámenes de laboratorio este mes
         LocalDateTime inicioMesLdt = primero.atStartOfDay();
         LocalDateTime finMesLdt    = ultimo.atTime(23, 59, 59);
+        long estudiosConResultadosMes = estudioMedicoRepository
+                .countEstudiosConResultadosEnMes(inicioMesLdt, finMesLdt, idInstitucion);
+
+        // 5. Exámenes de laboratorio este mes
         long examenesLabMes = resultadoExamenRepository
                 .countByFechaResultadoBetween(inicioMesLdt, finMesLdt, idInstitucion);
 

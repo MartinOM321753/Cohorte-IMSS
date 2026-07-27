@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.estudios.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -15,6 +16,9 @@ public class TipoEstudioRequestDTO {
     @Size(max = 100)
     private String nombre;
 
-    @Size(max = 500)
+    @Size(max = 1000)
     private String descripcion;
+
+    @Pattern(regexp = "NORMAL|GRUPOS", message = "tipoCapturaDefecto debe ser NORMAL o GRUPOS")
+    private String tipoCapturaDefecto;
 }

@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -46,16 +46,16 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     @Query("SELECT COUNT(DISTINCT e.Id) FROM EstudioMedico e " +
            "WHERE SIZE(e.resultadoEstudio) > 0 " +
            "AND e.fechaEstudio >= :inicio AND e.fechaEstudio <= :fin")
-    long countEstudiosConResultadosEnMes(@Param("inicio") LocalDate inicio,
-                                         @Param("fin")    LocalDate fin);
+    long countEstudiosConResultadosEnMes(@Param("inicio") LocalDateTime inicio,
+                                         @Param("fin")    LocalDateTime fin);
 
     /** Variante de countEstudiosConResultadosEnMes acotada a la institución dada (aislamiento de datos). */
     @Query("SELECT COUNT(DISTINCT e.Id) FROM EstudioMedico e " +
            "WHERE SIZE(e.resultadoEstudio) > 0 " +
            "AND e.fechaEstudio >= :inicio AND e.fechaEstudio <= :fin " +
            "AND e.paciente.institucion.id = :idInstitucion")
-    long countEstudiosConResultadosEnMes(@Param("inicio") LocalDate inicio,
-                                         @Param("fin")    LocalDate fin,
+    long countEstudiosConResultadosEnMes(@Param("inicio") LocalDateTime inicio,
+                                         @Param("fin")    LocalDateTime fin,
                                          @Param("idInstitucion") Long idInstitucion);
 
     // ── Cobertura ────────────────────────────────────────────────────────────
