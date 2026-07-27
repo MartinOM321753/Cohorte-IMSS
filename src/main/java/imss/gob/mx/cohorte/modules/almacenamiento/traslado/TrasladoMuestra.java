@@ -39,6 +39,10 @@ public class TrasladoMuestra {
     @Column(name = "id_traslado")
     private Long id;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @ManyToOne
     @JsonIgnore
     @JoinColumn(name = "id_muestra", nullable = false)
@@ -78,6 +82,10 @@ public class TrasladoMuestra {
     @Column(name = "fecha_retorno")
     private LocalDateTime fechaRetorno;
 
+    /** Fecha límite esperada para la devolución. Null si no se establece. */
+    @Column(name = "fecha_limite")
+    private LocalDateTime fechaLimite;
+
     @Column(name = "motivo", nullable = false, length = 300)
     private String motivo;
 
@@ -101,4 +109,23 @@ public class TrasladoMuestra {
      */
     @Column(name = "id_posicion_caja_anterior")
     private Long idPosicionCajaAnterior;
+
+    /**
+     * ID de la institución destino de la devolución cuando se usa un "atajo" en
+     * la cadena de custodia (p. ej. C devuelve directo a A en lugar de a B).
+     * Null si la devolución sigue el flujo estándar (destino = {@code institucionOrigen}).
+     * Solo relevante en estado {@code EN_DEVOLUCION}/{@code DEVUELTA}.
+     */
+    @Column(name = "id_institucion_destino_devolucion")
+    private Long idInstitucionDestinoDevolucion;
+
+    /**
+     * UUID compartido entre el traslado padre y sus alícuotas cuando forman parte
+     * de la misma operación de devolución. Se popula en {@code iniciarDevolucion} y
+     * lo usa {@code confirmarDevolucion} para agrupar la confirmación en lote sin
+     * depender del {@code grupoTraslado} original del préstamo saliente.
+     * Null para traslados que no forman parte de una devolución.
+     */
+    @Column(name = "grupo_devolucion", length = 36)
+    private String grupoDevolucion;
 }

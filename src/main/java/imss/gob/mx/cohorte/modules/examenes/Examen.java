@@ -7,7 +7,10 @@ import lombok.*;
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "Examen")
+@Table(name = "Examen",
+       uniqueConstraints = @UniqueConstraint(
+               name = "uk_examen_nombre_inst",
+               columnNames = {"nombre_examen", "id_institucion"}))
 @Getter
 @Setter
 @NoArgsConstructor

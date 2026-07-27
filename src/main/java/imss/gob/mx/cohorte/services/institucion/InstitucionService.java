@@ -7,6 +7,7 @@ import imss.gob.mx.cohorte.modules.institucion.TipoInstitucionRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
@@ -30,6 +31,7 @@ public class InstitucionService {
     private final UserRepository userRepository;
     private final InstitucionContextService institucionContextService;
     private final InstitucionJerarquiaService institucionJerarquiaService;
+    private final PermisoEvaluationService permisoEvaluationService;
 
     /**
      * Instituciones visibles para el usuario actual según la jerarquía (propias,
@@ -331,10 +333,12 @@ public class InstitucionService {
             throw new ValidationException("El usuario seleccionado como encargado está inactivo.");
         }
 
-        String rol = usuario.getRol().getRole();
-        if (!"ENCARGADO".equals(rol) && !"ADMINISTRADOR".equals(rol)) {
+        List<String> roles = permisoEvaluationService.getRoleNames(usuario);
+        boolean tieneRolValido = roles.stream()
+                .anyMatch(r -> "ENCARGADO".equals(r) || "ADMINISTRADOR".equals(r));
+        if (!tieneRolValido) {
             throw new ValidationException(
-                    "El usuario '" + usuario.getUsername() + "' no tiene un rol válido para ser encargado de institución (tiene: " + rol + ").");
+                    "El usuario '" + usuario.getUsername() + "' no tiene un rol válido para ser encargado de institución (tiene: " + String.join(",", roles) + ").");
         }
 
         return usuario;

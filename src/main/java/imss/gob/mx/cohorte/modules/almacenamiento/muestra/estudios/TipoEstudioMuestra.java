@@ -26,8 +26,11 @@ public class TipoEstudioMuestra {
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
-    @Column(name = "descripcion", length = 500)
+    @Column(name = "descripcion", length = 1000)
     private String descripcion;
+
+    @Column(name = "tipo_captura_defecto", nullable = false, length = 10)
+    private String tipoCapturaDefecto = "NORMAL";
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;

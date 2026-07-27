@@ -18,6 +18,8 @@ public class TrasladoResponseDTO {
     private String estado;
     private LocalDateTime fechaTraslado;
     private LocalDateTime fechaRetorno;
+    private LocalDateTime fechaLimite;
+    private boolean vencido;
     private String motivo;
     private String observaciones;
     private String grupoTraslado;

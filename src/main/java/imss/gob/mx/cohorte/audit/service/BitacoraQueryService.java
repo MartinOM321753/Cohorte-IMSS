@@ -38,6 +38,7 @@ public class BitacoraQueryService {
             LocalDate hastaDate,
             String    usuarioUuid,
             String    tipoEventoStr,
+            boolean   incluirRoot,
             int       page,
             int       size) {
 
@@ -49,7 +50,7 @@ public class BitacoraQueryService {
 
         return accesoRepo
                 .buscarConFiltros(desde, hasta,
-                        blankToNull(usuarioUuid), tipoEvento, pageable)
+                        blankToNull(usuarioUuid), tipoEvento, incluirRoot, pageable)
                 .map(BitacoraAccesoResponseDTO::from);
     }
 
@@ -60,6 +61,7 @@ public class BitacoraQueryService {
             String    usuarioUuid,
             String    tipoAccionStr,
             String    entidad,
+            boolean   incluirRoot,
             int       page,
             int       size) {
 
@@ -71,24 +73,26 @@ public class BitacoraQueryService {
 
         return accionesRepo
                 .buscarConFiltros(desde, hasta,
-                        blankToNull(usuarioUuid), tipoAccion, blankToNull(entidad), pageable)
+                        blankToNull(usuarioUuid), tipoAccion, blankToNull(entidad), incluirRoot, pageable)
                 .map(BitacoraAccionResponseDTO::from);
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioBitacoraDTO> usuariosConAccesos() {
+    public List<UsuarioBitacoraDTO> usuariosConAccesos(boolean incluirRoot) {
         Long idInst = institucionCtx.getIdInstitucionActual();
-        return userRepository.findUsuariosConAccesos(idInst).stream()
+        List<UsuarioBitacoraDTO> lista = userRepository.findUsuariosConAccesos(idInst).stream()
                 .map(this::toUsuarioBitacoraDTO)
                 .toList();
+        return incluirRoot ? lista : lista.stream().filter(u -> !"ROOT".equals(u.rol())).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioBitacoraDTO> usuariosConAcciones() {
+    public List<UsuarioBitacoraDTO> usuariosConAcciones(boolean incluirRoot) {
         Long idInst = institucionCtx.getIdInstitucionActual();
-        return userRepository.findUsuariosConAcciones(idInst).stream()
+        List<UsuarioBitacoraDTO> lista = userRepository.findUsuariosConAcciones(idInst).stream()
                 .map(this::toUsuarioBitacoraDTO)
                 .toList();
+        return incluirRoot ? lista : lista.stream().filter(u -> !"ROOT".equals(u.rol())).toList();
     }
 
     private UsuarioBitacoraDTO toUsuarioBitacoraDTO(BeanUser u) {
@@ -96,7 +100,7 @@ public class BitacoraQueryService {
                 u.getUUID(),
                 u.getPersona().getNombre(),
                 u.getPersona().getApellidoPaterno(),
-                u.getRol().getRole()
+                u.getRol() != null ? u.getRol().getRole() : "SIN_ROL"
         );
     }
 

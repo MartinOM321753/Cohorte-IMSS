@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.controllers.auth.dto.LoginRequestDTO;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.services.auth.AuthService;
+import imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService;
 import lombok.AllArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -22,6 +23,7 @@ public class AuthApplicationService {
     private final AuthService              authService;
     private final UserRepository           userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final PermisoEvaluationService  permisoEvaluationService;
 
     /**
      * Autentica al usuario y publica el evento correspondiente.
@@ -68,7 +70,7 @@ public class AuthApplicationService {
         String uuid     = user != null ? user.getUUID()     : null;
         String username = user != null ? user.getUsername() : null;
         String nombre   = user != null ? buildNombre(user)  : null;
-        String rol      = (user != null && user.getRol() != null) ? user.getRol().getRole() : null;
+        String rol      = user != null ? permisoEvaluationService.getRolesAsString(user) : null;
 
         eventPublisher.publishEvent(new AccesoAuditEvent(
                 this, uuid, username, nombre, rol,

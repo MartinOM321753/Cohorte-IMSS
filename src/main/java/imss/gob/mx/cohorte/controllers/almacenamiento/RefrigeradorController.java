@@ -23,6 +23,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,6 +53,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
     public ResponseEntity<APIResponse> getAll() {
         return ResponseEntity.ok(new APIResponse("Refrigeradores encontrados",
             refrigeradorApplicationService.getAllRefrigeradoresConEstadisticas(), false, HttpStatus.OK));
@@ -73,6 +75,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id) {
@@ -93,6 +96,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody RefrigeradorRequestDTO dto) {
         Refrigerador entity = RefrigeradorMapper.toEntity(dto);
         Refrigerador saved = refrigeradorApplicationService.createRefrigerador(entity);
@@ -116,6 +120,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id, @Validated @RequestBody RefrigeradorRequestDTO dto) {
@@ -140,6 +145,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_ELIMINAR')")
     public ResponseEntity<APIResponse> delete(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id) {
@@ -163,6 +169,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
     public ResponseEntity<APIResponse> getPisos(
         @Parameter(description = "ID numérico del refrigerador criogénico", required = true)
         @PathVariable Long id) {
@@ -183,6 +190,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_CREAR')")
     public ResponseEntity<APIResponse> createPisos(@Validated @RequestBody PisosDTO pisosDTO) {
         List<PisoRefrigerador> pisos = pisoRefrigeradorApplicationService.createPisos(pisosDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -205,6 +213,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_EDITAR')")
     public ResponseEntity<APIResponse> updatePiso(
         @Parameter(description = "ID numérico del piso", required = true)
         @PathVariable @Positive Long id, @Validated @RequestBody PisoRefrigeradorRequestDTO piso) {
@@ -225,6 +234,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('REFRIGERADORES_ELIMINAR')")
     public ResponseEntity<APIResponse> deletePiso(
         @Parameter(description = "ID numérico del piso", required = true)
         @PathVariable Long id) {
@@ -248,6 +258,7 @@ public class RefrigeradorController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
     public ResponseEntity<APIResponse> getPosicionesByPiso(
         @Parameter(description = "ID numérico del piso", required = true)
         @PathVariable Long id) {

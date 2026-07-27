@@ -1,4 +1,4 @@
-package imss.gob.mx.cohorte.services.usuarios;
+package imss.gob.mx.cohorte.services.roles;
 
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;

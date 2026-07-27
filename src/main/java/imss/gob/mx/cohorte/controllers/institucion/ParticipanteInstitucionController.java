@@ -37,7 +37,7 @@ public class ParticipanteInstitucionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Vincular un participante a una institución")
     public ResponseEntity<APIResponse> vincular(
             @PathVariable String uuid,
@@ -48,7 +48,7 @@ public class ParticipanteInstitucionController {
     }
 
     @DeleteMapping("/{idInstitucion}")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Desvincular un participante de una institución",
             description = "No elimina el registro — lo marca como inactivo para preservar la auditoría histórica.")
     public ResponseEntity<APIResponse> desvincular(

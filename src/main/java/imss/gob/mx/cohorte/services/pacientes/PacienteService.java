@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import jakarta.validation.ValidationException;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@Slf4j
 @AllArgsConstructor
 public class PacienteService {
     private final PacienteRepository pacienteRepository;
@@ -62,6 +64,12 @@ public class PacienteService {
             throw new ObjNotFoundException("El participante no se encuentra activo");
         }
         return findPatient;
+    }
+
+    /** Resuelve el expediente propio de un usuario PACIENTE a partir de su Persona vinculada. */
+    public Paciente getByPersonaId(Long personaId) {
+        return pacienteRepository.findByPersona_Id(personaId)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró un expediente de participante vinculado a esta cuenta"));
     }
 
     public Paciente getByFolio(String folio, Long idInstitucion) {
@@ -170,12 +178,21 @@ public class PacienteService {
         return findPatient;
     }
 
-    /** Alterna el campo activo del paciente (activo ↔ inactivo) sin restricciones de estado. */
+    /**
+     * Alterna el campo activo del paciente (activo ↔ inactivo). Desactivar pone al
+     * participante en cuarentena: sus muestras siguen visibles pero se bloquean las
+     * mutaciones (prestar, alicuotar, aplicar estudios). Reactivarlo re-habilita todo.
+     */
     public Paciente toggleActivo(String uuid, Long idInstitucion) {
         Paciente paciente = pacienteRepository.findByUuidAndInstitucion_Id(uuid, idInstitucion)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el participante con uuid: " + uuid));
-        paciente.setActivo(!paciente.getActivo());
+        boolean nuevoEstado = !Boolean.TRUE.equals(paciente.getActivo());
+        paciente.setActivo(nuevoEstado);
         paciente.setFechaActualizacion(LocalDateTime.now());
-        return pacienteRepository.save(paciente);
+        Paciente saved = pacienteRepository.save(paciente);
+        log.info("Participante {} {} en institución {}", uuid,
+                nuevoEstado ? "REACTIVADO" : "DESACTIVADO (cuarentena de muestras)",
+                idInstitucion);
+        return saved;
     }
 }

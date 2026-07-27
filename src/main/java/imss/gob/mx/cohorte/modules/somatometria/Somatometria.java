@@ -8,7 +8,6 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,7 +29,7 @@ public class Somatometria {
     private Paciente paciente;
 
     @Column(name = "fecha_medicion", nullable = false)
-    private LocalDate fechaMedicion;
+    private LocalDateTime fechaMedicion;
 
     /** Peso en kilogramos (ej. 68.5) */
     @Column(name = "peso_kg", precision = 6, scale = 2)

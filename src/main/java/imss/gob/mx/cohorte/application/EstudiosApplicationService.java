@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.application;
 
+import imss.gob.mx.cohorte.modules.documentos.EstudioDocumentoRepository;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
@@ -47,6 +48,7 @@ public class EstudiosApplicationService {
     private final UserService userService;
     private final ParametroEstudioService parametroService;
     private final ResultadoEstudioRepository resultadoRepository;
+    private final EstudioDocumentoRepository estudioDocumentoRepository;
     private final InstitucionRepository institucionRepository;
     private final InstitucionContextService institucionContextService;
 
@@ -81,6 +83,12 @@ public class EstudiosApplicationService {
     public EstudioMedico createEstudio(EstudioMedico estudioMedico) {
         resolveRelaciones(estudioMedico);
         return estudioService.create(estudioMedico);
+    }
+
+    @Transactional
+    public void deleteEstudio(Long id) {
+        estudioDocumentoRepository.deleteByEstudio_Id(id);
+        estudioService.delete(id);
     }
 
     @Transactional

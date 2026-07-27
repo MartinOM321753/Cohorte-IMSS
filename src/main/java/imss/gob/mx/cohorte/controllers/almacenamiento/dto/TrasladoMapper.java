@@ -8,6 +8,9 @@ import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class TrasladoMapper {
@@ -34,6 +37,8 @@ public class TrasladoMapper {
                 .estado(t.getEstado().name())
                 .fechaTraslado(t.getFechaTraslado())
                 .fechaRetorno(t.getFechaRetorno())
+                .fechaLimite(t.getFechaLimite())
+                .vencido(isVencido(t))
                 .motivo(t.getMotivo())
                 .observaciones(t.getObservaciones())
                 .grupoTraslado(t.getGrupoTraslado())
@@ -68,6 +73,12 @@ public class TrasladoMapper {
         CajaCriogenica caja = pos.getCaja();
         String cajaCode = caja != null ? caja.getCodigoCaja() : "?";
         return cajaCode + " [F" + pos.getFila() + ",C" + pos.getColumna() + "]";
+    }
+
+    private static boolean isVencido(TrasladoMuestra t) {
+        if (t.getFechaLimite() == null) return false;
+        if (t.getEstado() == EstadoTraslado.DEVUELTA || t.getEstado() == EstadoTraslado.CANCELADO) return false;
+        return LocalDateTime.now().isAfter(t.getFechaLimite());
     }
 
     private static TrasladoResponseDTO.UsuarioResumenDTO mapUsuario(BeanUser u) {

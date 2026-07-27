@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class SomatometriaRequestDTO {
@@ -17,7 +17,7 @@ public class SomatometriaRequestDTO {
     private String usuarioRegistraUUID;
 
     @NotNull(message = "La fecha de medición es requerida")
-    private LocalDate fechaMedicion;
+    private LocalDateTime fechaMedicion;
 
     private BigDecimal pesoKg;
     private BigDecimal tallaM;

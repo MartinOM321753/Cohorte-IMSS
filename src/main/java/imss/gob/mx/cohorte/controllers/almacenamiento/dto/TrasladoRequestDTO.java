@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -29,4 +30,7 @@ public class TrasladoRequestDTO {
 
     @Size(max = 500, message = "Las observaciones no pueden superar 500 caracteres")
     private String observaciones;
+
+    /** Fecha límite esperada para la devolución (opcional). */
+    private LocalDateTime fechaLimite;
 }

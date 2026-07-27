@@ -24,7 +24,7 @@ public class PisoRefrigerador {
     @JoinColumn(name = "id_refrigerador", nullable = false)
     private Refrigerador refrigerador;
 
-    @OneToMany(mappedBy = "piso")
+    @OneToMany(mappedBy = "piso", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PosicionPiso> posiciones;
 
     @Column(name = "numero_piso", nullable = false)

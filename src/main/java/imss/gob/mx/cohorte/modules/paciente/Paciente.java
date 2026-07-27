@@ -26,7 +26,7 @@ public class Paciente {
     @Column(name = "folio", nullable = false, unique = true, length = 50)
     private String folio;
 
-    @Column(name = "activo")
+    @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
     @Column(name = "fecha_registro", nullable = false)

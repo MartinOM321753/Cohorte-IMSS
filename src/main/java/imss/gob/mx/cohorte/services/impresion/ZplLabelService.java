@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.services.impresion;
 
+import imss.gob.mx.cohorte.controllers.impresion.dto.LabelDataDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.documentos.Documento;
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
@@ -290,5 +291,32 @@ public class ZplLabelService {
         String ap = per.getApellidoPaterno() != null ? per.getApellidoPaterno() : "";
         String am = per.getApellidoMaterno() != null ? per.getApellidoMaterno() : "";
         return (nombre + " " + ap + " " + am).trim();
+    }
+
+    // ── Datos estructurados para impresión por navegador ────────────────────
+
+    public LabelDataDTO extraerDatosMuestra(Muestra muestra) {
+        String etiqueta = muestra.getEtiqueta();
+        String nombre = truncar(construirNombrePaciente(muestra.getPaciente()), 24);
+        return LabelDataDTO.builder()
+                .etiqueta(etiqueta)
+                .nombre(nombre)
+                .codigoDatos(etiqueta)
+                .build();
+    }
+
+    public List<LabelDataDTO> extraerDatosMuestras(List<Muestra> muestras) {
+        return muestras.stream().map(this::extraerDatosMuestra).toList();
+    }
+
+    public LabelDataDTO extraerDatosDocumento(Documento documento) {
+        String etiqueta = documento.getEtiqueta();
+        String nombre = truncar(documento.getNombreOriginal(), 24);
+        String codigoData = frontendUrl + "/documento/" + etiqueta;
+        return LabelDataDTO.builder()
+                .etiqueta(etiqueta)
+                .nombre(nombre)
+                .codigoDatos(codigoData)
+                .build();
     }
 }

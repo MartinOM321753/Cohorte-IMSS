@@ -1,7 +1,7 @@
 package imss.gob.mx.cohorte.controllers.estudios.dto;
 import lombok.*;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 @Getter
 @Setter
 @Builder
@@ -10,7 +10,7 @@ import java.time.LocalDate;
 public class EstudioListRequestDTO {
 
     private Long id;
-    private LocalDate fechaEstudio;
+    private LocalDateTime fechaEstudio;
     private String paciente;
     private String pacienteuuid;
     private String usuarioRealiza;

@@ -18,4 +18,12 @@ public class IniciarDevolucionRequestDTO {
     private String observaciones;
 
     private List<Long> idsAlicuotasDevolver;
+
+    /**
+     * ID de institución destino de la devolución. Si es {@code null}, se devuelve
+     * al eslabón anterior de la cadena (comportamiento por defecto). Si viene un ID,
+     * debe corresponder a una institución que ya participó en la cadena de custodia
+     * de la muestra (dueña original o cualquier tenedor previo).
+     */
+    private Long idInstitucionDestinoDevolucion;
 }

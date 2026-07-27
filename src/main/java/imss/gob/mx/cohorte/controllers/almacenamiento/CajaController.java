@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,6 +46,7 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
     public ResponseEntity<APIResponse> getAll() {
         List<CajaCriogenica> list = cajasApplicationService.getAllCajas();
         return ResponseEntity.ok(new APIResponse("Cajas encontradas", CajaMapper.toResponseDTOList(list), false, HttpStatus.OK));
@@ -66,6 +68,7 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id) {
@@ -86,6 +89,7 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('CAJAS_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody CajaRequestDTO dto) {
         CajaCriogenica entity = CajaMapper.toEntity(dto);
         CajaCriogenica saved = cajasApplicationService.createCaja(entity, dto.getIdPosicionPiso());
@@ -109,12 +113,37 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('CAJAS_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id, @Validated @RequestBody CajaRequestDTO dto) {
         CajaCriogenica entity = CajaMapper.toEntity(dto);
         CajaCriogenica updated = cajasApplicationService.updateCaja(id, entity, dto.getIdPosicionPiso());
         return ResponseEntity.ok(new APIResponse("Caja criogénica actualizada", CajaMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar caja criogénica", description = "Elimina una caja criogénica. Solo se permite si no tiene posiciones ocupadas con muestras.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Conflicto — posiciones ocupadas",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAuthority('CAJAS_ELIMINAR')")
+    public ResponseEntity<APIResponse> delete(
+        @Parameter(description = "ID numérico de la caja criogénica", required = true)
+        @PathVariable Long id) {
+        cajasApplicationService.deleteCaja(id);
+        return ResponseEntity.ok(new APIResponse("Caja criogénica eliminada", null, false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}/posiciones")
@@ -133,6 +162,7 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
     public ResponseEntity<APIResponse> getPosiciones(
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id) {
@@ -156,6 +186,7 @@ public class CajaController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
     public ResponseEntity<APIResponse> getPosicionesLibres(
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id) {

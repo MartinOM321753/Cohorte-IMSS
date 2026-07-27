@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.MuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.*;
+import imss.gob.mx.cohorte.controllers.impresion.dto.PrintableLabelBatchDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,8 +52,11 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
-    public ResponseEntity<APIResponse> getAll() {
-        List<Muestra> list = muestraApplicationService.getAllMuestras();
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
+    public ResponseEntity<APIResponse> getAll(
+            @Parameter(description = "Si true, incluye también muestras que solo estuvieron prestadas en el pasado (default: false).")
+            @RequestParam(value = "incluirHistorico", defaultValue = "false") boolean incluirHistorico) {
+        List<Muestra> list = muestraApplicationService.getAllMuestras(incluirHistorico);
         return ResponseEntity.ok(new APIResponse("Muestras encontradas", MuestraMapper.toResponseDTOList(list), false, HttpStatus.OK));
     }
 
@@ -65,6 +70,7 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
         Page<Muestra> page = muestraApplicationService.getAllMuestrasPaginado(pageable);
         Map<String, Object> body = Map.of(
@@ -93,6 +99,7 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "ID numérico de la muestra biológica", required = true)
         @PathVariable Long id) {
@@ -102,6 +109,7 @@ public class  MuestraController {
 
     @GetMapping("/paciente/uuid/{uuid}/count")
     @Operation(summary = "Contar muestras de un paciente por UUID")
+    @PreAuthorize("hasAnyAuthority('MUESTRAS_VER', 'EXPEDIENTE_BIOBANCO')")
     public ResponseEntity<APIResponse> countByPacienteUUID(@PathVariable String uuid) {
         long count = muestraApplicationService.countMuestrasByPacienteUuid(uuid);
         return ResponseEntity.ok(new APIResponse("Conteo de muestras", count, false, HttpStatus.OK));
@@ -123,6 +131,7 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getByPacienteUUID(
         @Parameter(description = "UUID único del paciente", required = true)
         @PathVariable String uuid) {
@@ -143,6 +152,7 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody MuestraRequestDTO dto) {
         if (dto.getPacienteUUID() == null || dto.getPacienteUUID().isBlank()) {
             throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException("El UUID del participante es obligatorio");
@@ -196,6 +206,7 @@ public class  MuestraController {
     @GetMapping("/biobanco")
     @Operation(summary = "Muestras en el biobanco de mi institución",
                description = "Muestras cuyo tenedor actual es la institución del usuario logueado (incluye SIN_POSICION, EN_BIOBANCO y PRESTADAS recibidas).")
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getMuestrasEnBiobanco(Pageable pageable) {
         Page<Muestra> page = muestraApplicationService.getMuestrasEnBiobancoPage(pageable);
         Map<String, Object> body = Map.of(
@@ -211,6 +222,7 @@ public class  MuestraController {
     @GetMapping("/{id}/alicuotas")
     @Operation(summary = "Alícuotas de una muestra padre",
                description = "Retorna las alícuotas derivadas de una muestra primaria, con su estado y posición actuales.")
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getAlicuotas(@PathVariable Long id) {
         List<Muestra> alicuotas = muestraApplicationService.getAlicuotas(id);
         return ResponseEntity.ok(new APIResponse("Alícuotas encontradas",
@@ -226,6 +238,7 @@ public class  MuestraController {
         @ApiResponse(responseCode = "409", description = "Posición ocupada o muestra prestada",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('MUESTRAS_EDITAR', 'TRASLADOS_CONFIRMAR')")
     public ResponseEntity<APIResponse> asignarPosicion(
             @PathVariable Long id,
             @Validated @RequestBody AsignarPosicionRequestDTO dto) {
@@ -237,6 +250,7 @@ public class  MuestraController {
     @DeleteMapping("/{id}/posicion")
     @Operation(summary = "Liberar posición en biobanco",
                description = "Libera la PosicionCaja actual de la muestra sin asignarla a otra. La muestra pasa a SIN_POSICION.")
+    @PreAuthorize("hasAuthority('MUESTRAS_EDITAR')")
     public ResponseEntity<APIResponse> liberarPosicion(
             @PathVariable Long id,
             @RequestParam(required = false) String motivo) {
@@ -252,14 +266,33 @@ public class  MuestraController {
         @ApiResponse(responseCode = "200", description = "Muestra eliminada"),
         @ApiResponse(responseCode = "409", description = "No se puede eliminar (alícuota con posición o muestra prestada)")
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_ELIMINAR')")
     public ResponseEntity<APIResponse> delete(@PathVariable Long id) {
         muestraApplicationService.deleteMuestra(id);
         return ResponseEntity.ok(new APIResponse("Muestra eliminada exitosamente", null, false, HttpStatus.OK));
     }
 
+    @PostMapping("/{id}/baja")
+    @Operation(summary = "Dar de baja muestra",
+               description = "Marca la muestra como BAJA de manera irreversible. Solo la institución propietaria puede hacerlo. "
+                           + "Requiere motivo obligatorio. Libera la posición si tenía. Queda registrado en el historial.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Muestra dada de baja"),
+        @ApiResponse(responseCode = "409", description = "Muestra ya de baja, en tránsito, o no pertenece a la institución del usuario")
+    })
+    @PreAuthorize("hasAuthority('MUESTRAS_DAR_BAJA')")
+    public ResponseEntity<APIResponse> darDeBaja(
+            @PathVariable Long id,
+            @Validated @RequestBody imss.gob.mx.cohorte.controllers.almacenamiento.dto.DarDeBajaRequestDTO dto) {
+        Muestra baja = muestraApplicationService.darDeBajaMuestra(id, dto.getMotivo());
+        return ResponseEntity.ok(new APIResponse("Muestra dada de baja",
+            MuestraMapper.toResponseDTO(baja), false, HttpStatus.OK));
+    }
+
     @PostMapping("/{id}/generar-alicuotas")
     @Operation(summary = "Generar alícuotas en institución receptora",
                description = "Genera alícuotas de una muestra padre recibida usando un tipo+tubo seleccionado por la institución receptora.")
+    @PreAuthorize("hasAuthority('MUESTRAS_CREAR')")
     public ResponseEntity<APIResponse> generarAlicuotasEnReceptora(
             @PathVariable Long id,
             @Validated @RequestBody GenerarAlicuotasRequestDTO dto) {
@@ -273,6 +306,7 @@ public class  MuestraController {
     @GetMapping("/{id}/tipo-institucion")
     @Operation(summary = "Tipo/tubo asignado por mi institución a esta muestra",
                description = "Obtiene el tipo y tubo que mi institución asignó a una muestra padre recibida.")
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
     public ResponseEntity<APIResponse> getTipoInstitucion(@PathVariable Long id) {
         var mapping = muestraApplicationService.getTipoInstitucion(id);
         if (mapping.isEmpty()) {
@@ -313,6 +347,7 @@ public class  MuestraController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('MUESTRAS_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "ID numérico de la muestra biológica", required = true)
         @PathVariable Long id, @Validated @RequestBody MuestraRequestDTO dto) {
@@ -324,6 +359,7 @@ public class  MuestraController {
 
     @GetMapping("/{id}/etiqueta/zpl")
     @Operation(summary = "Generar ZPL para etiqueta de muestra")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> getZplEtiqueta(
             @PathVariable Long id,
             @RequestParam(required = false) Long configuracionId) {
@@ -333,6 +369,7 @@ public class  MuestraController {
 
     @GetMapping("/{id}/alicuotas/etiquetas/zpl")
     @Operation(summary = "Generar ZPL para etiquetas de alícuotas, agrupado por fila")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> getZplAlicuotas(
             @PathVariable Long id,
             @RequestParam(required = false) Long configuracionId) {
@@ -342,6 +379,7 @@ public class  MuestraController {
 
     @GetMapping("/{id}/lote-completo/zpl")
     @Operation(summary = "Generar ZPL para etiqueta padre + alícuotas, agrupado por fila")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> getZplLoteCompleto(
             @PathVariable Long id,
             @RequestParam(required = false) Long configuracionId) {
@@ -349,10 +387,43 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("ZPL generado para lote completo", zpl, false, HttpStatus.OK));
     }
 
+    // ── Datos para impresión por navegador ─────────────────────────────────
+
+    @GetMapping("/{id}/etiqueta/datos")
+    @Operation(summary = "Obtener datos estructurados para etiqueta de muestra")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
+    public ResponseEntity<APIResponse> getDatosEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosEtiqueta(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiqueta", datos, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas/etiquetas/datos")
+    @Operation(summary = "Obtener datos estructurados para etiquetas de alícuotas")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
+    public ResponseEntity<APIResponse> getDatosAlicuotas(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosAlicuotas(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiquetas de alícuotas", datos, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/lote-completo/datos")
+    @Operation(summary = "Obtener datos estructurados para etiquetas de lote completo")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
+    public ResponseEntity<APIResponse> getDatosLoteCompleto(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long configuracionId) {
+        PrintableLabelBatchDTO datos = muestraApplicationService.obtenerDatosLoteCompleto(id, configuracionId);
+        return ResponseEntity.ok(new APIResponse("Datos de etiquetas de lote completo", datos, false, HttpStatus.OK));
+    }
+
     // ── Impresión directa ───────────────────────────────────────────────────
 
     @GetMapping("/impresoras")
     @Operation(summary = "Listar impresoras disponibles en el servidor")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> listarImpresoras() {
         List<String> impresoras = muestraApplicationService.listarImpresoras();
         return ResponseEntity.ok(new APIResponse("Impresoras disponibles", impresoras, false, HttpStatus.OK));
@@ -360,6 +431,7 @@ public class  MuestraController {
 
     @PostMapping("/{id}/etiqueta/imprimir")
     @Operation(summary = "Imprimir etiqueta directamente en impresora")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> imprimirEtiqueta(
             @PathVariable Long id,
             @RequestParam String impresora,
@@ -370,6 +442,7 @@ public class  MuestraController {
 
     @PostMapping("/{id}/alicuotas/etiquetas/imprimir")
     @Operation(summary = "Imprimir etiquetas de alícuotas directamente en impresora")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> imprimirAlicuotas(
             @PathVariable Long id,
             @RequestParam String impresora,
@@ -380,6 +453,7 @@ public class  MuestraController {
 
     @PostMapping("/{id}/lote-completo/imprimir")
     @Operation(summary = "Imprimir etiqueta padre + todas las alícuotas")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
     public ResponseEntity<APIResponse> imprimirLoteCompleto(
             @PathVariable Long id,
             @RequestParam String impresora,

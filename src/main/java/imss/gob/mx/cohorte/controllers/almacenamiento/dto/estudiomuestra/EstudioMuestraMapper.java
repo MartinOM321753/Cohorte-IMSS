@@ -116,6 +116,7 @@ public class EstudioMuestraMapper {
                 .id(t.getId())
                 .nombre(t.getNombre())
                 .descripcion(t.getDescripcion())
+                .tipoCapturaDefecto(t.getTipoCapturaDefecto())
                 .activo(t.getActivo())
                 .fechaCreacion(t.getFechaCreacion())
                 .parametros(parametrosDTO)
@@ -149,9 +150,26 @@ public class EstudioMuestraMapper {
                 + h.getUsuario().getPersona().getApellidoPaterno()
                 : (h.getUsuario() != null ? h.getUsuario().getUsername() : null);
 
+        String campo = h.getCampo();
+        if (campo == null && h.getTipoEvento() != null) {
+            campo = switch (h.getTipoEvento()) {
+                case REGISTRO -> "Registro de muestra";
+                case ESTUDIO_REALIZADO -> "Estudio realizado";
+                case POSICION_ASIGNADA -> "Posición asignada";
+                case POSICION_LIBERADA -> "Posición liberada";
+                case PRESTAMO_ENVIADO -> "Préstamo enviado";
+                case PRESTAMO_RECIBIDO -> "Préstamo recibido";
+                case PRESTAMO_DEVUELTO -> "Préstamo devuelto";
+                case PRESTAMO_CANCELADO -> "Préstamo cancelado";
+                case MUESTRA_DADA_BAJA -> "Muestra dada de baja";
+                case ACTUALIZACION_CAMPO -> null;
+            };
+        }
+
         return HistorialCambioMuestraResponseDTO.builder()
                 .id(h.getId())
-                .campo(h.getCampo())
+                .tipoEvento(h.getTipoEvento() != null ? h.getTipoEvento().name() : null)
+                .campo(campo)
                 .valorAnterior(h.getValorAnterior())
                 .valorNuevo(h.getValorNuevo())
                 .usuario(nombreUsuario)

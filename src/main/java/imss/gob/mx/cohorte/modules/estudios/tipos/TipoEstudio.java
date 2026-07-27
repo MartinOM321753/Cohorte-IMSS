@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "Tipo_Estudio")
+@Table(name = "Tipo_Estudio",
+       uniqueConstraints = @UniqueConstraint(
+               name = "uk_tipo_estudio_nombre_inst",
+               columnNames = {"nombre", "id_institucion"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,8 +26,11 @@ public class TipoEstudio {
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
-    @Column(name = "descripcion", length = 500)
+    @Column(name = "descripcion", length = 1000)
     private String descripcion;
+
+    @Column(name = "tipo_captura_defecto", nullable = false, length = 10)
+    private String tipoCapturaDefecto = "NORMAL";
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
@@ -37,7 +43,7 @@ public class TipoEstudio {
     @JoinColumn(name = "id_institucion", nullable = false)
     private Institucion institucion;
 
-    @OneToMany(mappedBy = "tipoEstudio")
+    @OneToMany(mappedBy = "tipoEstudio", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ParametroEstudio> parametros;
 
 }

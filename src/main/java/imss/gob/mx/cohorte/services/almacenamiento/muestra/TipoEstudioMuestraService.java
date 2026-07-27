@@ -73,7 +73,16 @@ public class TipoEstudioMuestraService {
             tipoBD.setNombre(datos.getNombre());
         }
         tipoBD.setDescripcion(datos.getDescripcion());
+        if (datos.getTipoCapturaDefecto() != null) {
+            tipoBD.setTipoCapturaDefecto(datos.getTipoCapturaDefecto());
+        }
         return repository.save(tipoBD);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long id) {
+        TipoEstudioMuestra tipo = getById(id);
+        repository.delete(tipo);
     }
 
     @Transactional(rollbackFor = Exception.class)

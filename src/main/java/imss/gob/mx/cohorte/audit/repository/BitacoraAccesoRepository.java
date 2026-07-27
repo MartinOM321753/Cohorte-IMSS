@@ -20,6 +20,7 @@ public interface BitacoraAccesoRepository extends JpaRepository<BitacoraAcceso, 
           AND (:hasta  IS NULL OR b.timestamp <= :hasta)
           AND (:usuarioUuid IS NULL OR b.usuarioUuid = :usuarioUuid)
           AND (:tipoEvento  IS NULL OR b.tipoEvento  = :tipoEvento)
+          AND (:incluirRoot = true OR b.rol IS NULL OR b.rol <> 'ROOT')
         ORDER BY b.timestamp DESC
         """)
     Page<BitacoraAcceso> buscarConFiltros(
@@ -27,6 +28,7 @@ public interface BitacoraAccesoRepository extends JpaRepository<BitacoraAcceso, 
             @Param("hasta")       LocalDateTime hasta,
             @Param("usuarioUuid") String usuarioUuid,
             @Param("tipoEvento")  TipoEventoAcceso tipoEvento,
+            @Param("incluirRoot") boolean incluirRoot,
             Pageable pageable
     );
 }

@@ -36,4 +36,10 @@ public class ConfiguracionEtiquetaResponseDTO {
 
     private int anchoDots;
     private int altoDots;
+
+    private Integer filasPorPagina;
+    private Double espacioHorizontalMm;
+    private Double espacioVerticalMm;
+    private Double margenPaginaSuperiorMm;
+    private Double margenPaginaIzquierdoMm;
 }

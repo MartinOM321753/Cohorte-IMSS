@@ -73,6 +73,7 @@ public class EstudioMapper {
                     .id(e.getTipoEstudio().getId())
                     .nombre(e.getTipoEstudio().getNombre())
                     .descripcion(e.getTipoEstudio().getDescripcion())
+                    .tipoCapturaDefecto(e.getTipoEstudio().getTipoCapturaDefecto())
                     .activo(e.getTipoEstudio().getActivo())
                     .parametroEstudios(e.getTipoEstudio().getParametros() != null
                         ? e.getTipoEstudio().getParametros().stream()

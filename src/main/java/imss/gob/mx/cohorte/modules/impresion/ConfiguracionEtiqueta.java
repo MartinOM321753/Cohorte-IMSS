@@ -83,6 +83,21 @@ public class ConfiguracionEtiqueta {
     @Column(name = "disposicion", nullable = false, length = 40)
     private DisposicionEtiqueta disposicion = DisposicionEtiqueta.NOMBRE_CODIGO_ETIQUETA;
 
+    @Column(name = "filas_por_pagina", nullable = false)
+    private Integer filasPorPagina = 10;
+
+    @Column(name = "espacio_horizontal_mm", nullable = false)
+    private Double espacioHorizontalMm = 3.0;
+
+    @Column(name = "espacio_vertical_mm", nullable = false)
+    private Double espacioVerticalMm = 2.0;
+
+    @Column(name = "margen_pagina_superior_mm", nullable = false)
+    private Double margenPaginaSuperiorMm = 12.7;
+
+    @Column(name = "margen_pagina_izquierdo_mm", nullable = false)
+    private Double margenPaginaIzquierdoMm = 4.8;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 

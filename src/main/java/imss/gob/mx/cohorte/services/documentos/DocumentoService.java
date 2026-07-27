@@ -16,9 +16,6 @@ import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestraRepository;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -90,21 +87,27 @@ public class DocumentoService {
 
     // ─── Validación de permisos ───────────────────────────────────────────────────
 
-    public void verificarPuedeVer(String role, TipoEntidadDocumento tipo) {
-        if (!permisosConfig.puedeVer(role, tipo)) {
-            throw new AccessDeniedException("El rol '" + role + "' no tiene permiso para ver documentos de tipo " + tipo);
+    public void verificarPuedeVerMetadata() {
+        if (!permisosConfig.puedeVerMetadata()) {
+            throw new AccessDeniedException("No tiene permiso para ver metadatos de documentos");
         }
     }
 
-    public void verificarPuedeSubir(String role, TipoEntidadDocumento tipo) {
-        if (!permisosConfig.puedeSubir(role, tipo)) {
-            throw new AccessDeniedException("El rol '" + role + "' no tiene permiso para subir documentos de tipo " + tipo);
+    public void verificarPuedeDescargar() {
+        if (!permisosConfig.puedeDescargar()) {
+            throw new AccessDeniedException("No tiene permiso para descargar documentos");
         }
     }
 
-    public void verificarPuedeEliminar(String role) {
-        if (!permisosConfig.puedeEliminar(role)) {
-            throw new AccessDeniedException("El rol '" + role + "' no tiene permiso para eliminar documentos");
+    public void verificarPuedeSubir() {
+        if (!permisosConfig.puedeSubir()) {
+            throw new AccessDeniedException("No tiene permiso para subir documentos");
+        }
+    }
+
+    public void verificarPuedeEliminar() {
+        if (!permisosConfig.puedeEliminar()) {
+            throw new AccessDeniedException("No tiene permiso para eliminar documentos");
         }
     }
 
@@ -574,25 +577,8 @@ public class DocumentoService {
         return prefix + "/" + UUID.randomUUID() + "-" + sanitized;
     }
 
-    // ─── Helper: rol del usuario actual ─────────────────────────────────────────
-
-    private String getCurrentRole() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return "";
-        return auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(a -> a.startsWith("ROLE_"))
-                .map(a -> a.substring(5))
-                .findFirst()
-                .orElse("");
-    }
-
     private DocumentoResponseDTO toDTO(Documento doc) {
-        // No se expone URL firmada de MinIO. El acceso a archivos va por
-        // GET /api/documentos/{id}/download (requiere JWT válido).
-        // puedeDescargar se calcula en tiempo de respuesta según el rol activo,
-        // de modo que el frontend pueda ocultar los botones sin necesitar otra llamada.
-        boolean puedeDescargar = permisosConfig.puedeVer(getCurrentRole(), doc.getTipoEntidad());
+        boolean puedeDescargar = permisosConfig.puedeDescargar();
 
         return DocumentoResponseDTO.builder()
                 .id(doc.getId())

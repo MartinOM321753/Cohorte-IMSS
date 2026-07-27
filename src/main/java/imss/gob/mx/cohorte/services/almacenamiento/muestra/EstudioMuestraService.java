@@ -38,9 +38,9 @@ public class EstudioMuestraService {
         return repository.save(estudio);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
-        EstudioMuestra estudio = getById(id);
-        repository.delete(estudio);
-    }
+    // NOTA: intencionalmente no existe delete(id) individual. Los estudios de muestra
+    // son historial clínico inmutable — no se pueden eliminar de forma aislada.
+    // El único borrado permitido es en cascada cuando se borra la muestra padre
+    // (vía deleteAllByMuestra_Id en MuestraService.eliminarDependencias), y solo si
+    // la muestra nunca salió de la institución (existsByMuestra_Id lo bloquea si tuvo traslados).
 }

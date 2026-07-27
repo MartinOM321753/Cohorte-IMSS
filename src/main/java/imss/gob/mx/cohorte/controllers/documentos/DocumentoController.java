@@ -1,6 +1,10 @@
 package imss.gob.mx.cohorte.controllers.documentos;
 
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.controllers.documentos.dto.DocumentoResponseDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.ConfiguracionEtiquetaMapper;
+import imss.gob.mx.cohorte.controllers.impresion.dto.LabelDataDTO;
+import imss.gob.mx.cohorte.controllers.impresion.dto.PrintableLabelBatchDTO;
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.documentos.Documento;
 import imss.gob.mx.cohorte.modules.documentos.DocumentoAccessToken;
@@ -9,6 +13,7 @@ import imss.gob.mx.cohorte.modules.documentos.TipoEntidadDocumento;
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.documentos.DocumentoAccessTokenService;
+import imss.gob.mx.cohorte.services.documentos.DocumentoPermisosConfig;
 import imss.gob.mx.cohorte.services.documentos.DocumentoService;
 import imss.gob.mx.cohorte.services.impresion.ConfiguracionEtiquetaService;
 import imss.gob.mx.cohorte.services.impresion.DirectPrintService;
@@ -20,9 +25,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -63,6 +65,8 @@ public class DocumentoController {
     private final ConfiguracionEtiquetaService configuracionEtiquetaService;
     private final InstitucionContextService institucionCtx;
     private final DocumentoAccessTokenService accessTokenService;
+    private final DocumentoPermisosConfig permisosConfig;
+    private final PacienteApplicationService pacienteApplicationService;
 
     public DocumentoController(DocumentoService documentoService,
                                 MinioStorageService minioStorageService,
@@ -70,7 +74,9 @@ public class DocumentoController {
                                 DirectPrintService directPrintService,
                                 ConfiguracionEtiquetaService configuracionEtiquetaService,
                                 InstitucionContextService institucionCtx,
-                                DocumentoAccessTokenService accessTokenService) {
+                                DocumentoAccessTokenService accessTokenService,
+                                DocumentoPermisosConfig permisosConfig,
+                                PacienteApplicationService pacienteApplicationService) {
         this.documentoService = documentoService;
         this.minioStorageService = minioStorageService;
         this.zplLabelService = zplLabelService;
@@ -78,6 +84,8 @@ public class DocumentoController {
         this.configuracionEtiquetaService = configuracionEtiquetaService;
         this.institucionCtx = institucionCtx;
         this.accessTokenService = accessTokenService;
+        this.permisosConfig = permisosConfig;
+        this.pacienteApplicationService = pacienteApplicationService;
     }
 
     // ─── Helper: mapeo TipoDocumentoPaciente → TipoEntidadDocumento ───────────
@@ -91,23 +99,6 @@ public class DocumentoController {
         };
     }
 
-    // ─── Helper: extrae el rol del SecurityContext ────────────────────────────────
-
-    /**
-     * Extrae el nombre del rol activo (sin prefijo ROLE_) del token JWT actual.
-     * Ejemplo: "ROLE_ADMINISTRADOR" → "ADMINISTRADOR"
-     */
-    private String getCurrentRole() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return "";
-        return auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(a -> a.startsWith("ROLE_"))
-                .map(a -> a.substring(5))
-                .findFirst()
-                .orElse("");
-    }
-
     // ─── Upload para Estudio ──────────────────────────────────────────────────────
 
     @PostMapping(value = "/estudio/{estudioId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -118,7 +109,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID,
             @RequestParam(value = "orden", defaultValue = "0") int orden
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.ESTUDIO);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaEstudio(file, estudioId, descripcion, usuarioUUID, orden);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -135,7 +126,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
         TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
-        documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaPaciente(file, uuid, tipoDoc, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -149,7 +140,7 @@ public class DocumentoController {
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
         TipoEntidadDocumento tipoEntidad = mapTipoEntidad(tipoDoc);
-        documentoService.verificarPuedeSubir(getCurrentRole(), tipoEntidad);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.crearDocumentoSinArchivo(uuid, tipoDoc, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Registro creado — etiqueta generada", dto, false, HttpStatus.CREATED));
@@ -173,7 +164,7 @@ public class DocumentoController {
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.MUESTRA);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaMuestra(file, muestraId, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -188,7 +179,7 @@ public class DocumentoController {
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "usuarioUUID") String usuarioUUID
     ) {
-        documentoService.verificarPuedeSubir(getCurrentRole(), TipoEntidadDocumento.RESULTADO_EXAMEN);
+        documentoService.verificarPuedeSubir();
         DocumentoResponseDTO dto = documentoService.uploadParaResultadoExamen(file, resultadoId, descripcion, usuarioUUID);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Documento subido correctamente", dto, false, HttpStatus.CREATED));
@@ -209,6 +200,7 @@ public class DocumentoController {
 
     @GetMapping("/paciente/{uuid}")
     public ResponseEntity<APIResponse> getByPaciente(@PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPaciente(uuid);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -218,6 +210,7 @@ public class DocumentoController {
             @PathVariable String uuid,
             @PathVariable TipoDocumentoPaciente tipoDoc
     ) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<DocumentoResponseDTO> docs = documentoService.getDocumentosByPacienteYTipo(uuid, tipoDoc);
         return ResponseEntity.ok(new APIResponse("Documentos obtenidos", docs, false, HttpStatus.OK));
     }
@@ -266,7 +259,7 @@ public class DocumentoController {
         }
 
         Documento doc = documentoService.getDocumentoById(id);
-        documentoService.verificarPuedeVer(getCurrentRole(), doc.getTipoEntidad());
+        documentoService.verificarPuedeDescargar();
 
         if (!doc.isArchivoSubido() || doc.getObjectKey() == null) {
             throw new ObjNotFoundException("Este documento aún no tiene archivo adjunto");
@@ -326,6 +319,21 @@ public class DocumentoController {
         return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).body(zpl);
     }
 
+    @GetMapping("/{id}/etiqueta/datos")
+    public ResponseEntity<APIResponse> getDatosEtiqueta(
+            @PathVariable Long id,
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+    ) {
+        Documento doc = documentoService.getDocumentoById(id);
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        LabelDataDTO labelData = zplLabelService.extraerDatosDocumento(doc);
+        PrintableLabelBatchDTO batch = PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(java.util.List.of(labelData))
+                .build();
+        return ResponseEntity.ok(new APIResponse("Datos de etiqueta", batch, false, HttpStatus.OK));
+    }
+
     @PostMapping("/{id}/etiqueta/imprimir")
     public ResponseEntity<APIResponse> imprimirEtiqueta(
             @PathVariable Long id,
@@ -350,17 +358,21 @@ public class DocumentoController {
         if (configuracionId != null) {
             return configuracionEtiquetaService.obtenerPorId(configuracionId, idInst);
         }
-        return configuracionEtiquetaService.obtenerPredeterminada(idInst);
+        ConfiguracionEtiqueta pred = configuracionEtiquetaService.obtenerPredeterminada(idInst);
+        if (pred == null) {
+            throw new IllegalArgumentException(
+                    "No hay configuración de etiqueta predeterminada. Cree una en Configuración > Etiquetas.");
+        }
+        return pred;
     }
 
     // ─── Visualización por etiqueta (escaneo QR/barcode) ─────────────────────────
 
-    @PostMapping("/etiqueta/{etiqueta}/token")
-    public ResponseEntity<APIResponse> generarTokenAcceso(@PathVariable String etiqueta) {
-        String role = getCurrentRole();
-        if (!"ADMINISTRADOR".equals(role)) {
+    @PostMapping("/etiqueta/token")
+    public ResponseEntity<APIResponse> generarTokenAcceso(@RequestParam String etiqueta) {
+        if (!permisosConfig.puedeDescargar()) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Solo el rol ADMINISTRADOR puede generar tokens de visualización de documentos");
+                    "No tiene permiso para generar tokens de visualización de documentos");
         }
         DocumentoAccessToken token = accessTokenService.generarToken(etiqueta);
         Map<String, Object> response = Map.of(
@@ -411,8 +423,8 @@ public class DocumentoController {
                 .body(stream);
     }
 
-    @GetMapping("/etiqueta/{etiqueta}/info")
-    public ResponseEntity<APIResponse> getInfoPorEtiqueta(@PathVariable String etiqueta) {
+    @GetMapping("/etiqueta/info")
+    public ResponseEntity<APIResponse> getInfoPorEtiqueta(@RequestParam String etiqueta) {
         Documento doc = documentoService.getDocumentoPorEtiqueta(etiqueta);
         Map<String, Object> info = Map.of(
                 "id", doc.getId(),
@@ -430,7 +442,7 @@ public class DocumentoController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<APIResponse> delete(@PathVariable Long id) {
-        documentoService.verificarPuedeEliminar(getCurrentRole());
+        documentoService.verificarPuedeEliminar();
         documentoService.deleteDocumento(id);
         return ResponseEntity.ok(new APIResponse("Documento eliminado correctamente", null, false, HttpStatus.OK));
     }

@@ -4,6 +4,7 @@ import imss.gob.mx.cohorte.infrastructure.email.EmailService;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
@@ -51,11 +52,6 @@ public class TrasladoMuestraService {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     // ── Consultas ────────────────────────────────────────────────────────────
-
-    @Transactional(readOnly = true)
-    public List<TrasladoMuestra> getAll() {
-        return trasladoRepository.findAllByOrderByFechaTrasladoDesc();
-    }
 
     @Transactional(readOnly = true)
     public TrasladoMuestra getById(Long id) {
@@ -111,7 +107,8 @@ public class TrasladoMuestraService {
                                                   Long idInstitucionDestino,
                                                   String uuidAutoriza,
                                                   String motivo,
-                                                  String observaciones) {
+                                                  String observaciones,
+                                                  LocalDateTime fechaLimite) {
         Institucion origen = institucionRepository.findById(idInstitucionOrigen)
                 .orElseThrow(() -> new ObjNotFoundException("Institución origen no encontrada: " + idInstitucionOrigen));
 
@@ -140,6 +137,9 @@ public class TrasladoMuestraService {
         for (Long idMuestra : idsMuestras) {
             Muestra muestra = muestraRepository.findById(idMuestra)
                     .orElseThrow(() -> new ObjNotFoundException("Muestra no encontrada: " + idMuestra));
+
+            // Cuarentena: bloquear si el participante está inactivo
+            PacienteEstadoValidator.requirePacienteActivo(muestra, "iniciar préstamo de la muestra '" + muestra.getEtiqueta() + "'");
 
             // Solo el tenedor actual puede prestar
             if (!muestra.getInstitucionActual().getId().equals(idInstitucionOrigen)) {
@@ -181,6 +181,7 @@ public class TrasladoMuestraService {
             traslado.setMotivo(motivo);
             traslado.setObservaciones(observaciones);
             traslado.setGrupoTraslado(grupoTraslado);
+            traslado.setFechaLimite(fechaLimite);
             traslado.setFechaRegistro(Timestamp.from(Instant.now()));
             traslado.setIdPosicionCajaAnterior(idPosicionAnterior);
 
@@ -226,7 +227,15 @@ public class TrasladoMuestraService {
 
         if (idPosicionCaja != null) {
             PosicionCaja posicion = posicionCajaService.getById(idPosicionCaja);
-            Institucion instPos = posicion.getCaja().getInstitucion();
+            imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica caja = posicion.getCaja();
+            if (caja == null) {
+                throw new ObjConflictException("La posición no está asignada a ninguna caja.");
+            }
+            if (!Boolean.TRUE.equals(caja.getActivo())) {
+                throw new ObjConflictException(
+                        "La caja '" + caja.getCodigoCaja() + "' está desactivada; no se puede recibir la muestra ahí.");
+            }
+            Institucion instPos = caja.getInstitucion();
             if (!instPos.getId().equals(traslado.getInstitucionDestino().getId())) {
                 throw new ValidationException(
                         "La posición seleccionada pertenece a otra institución.");
@@ -246,11 +255,19 @@ public class TrasladoMuestraService {
         traslado.setRecibidoPor(confirma);
         TrasladoMuestra updated = trasladoRepository.save(traslado);
 
+        String notaRecepcion = idPosicionCaja != null
+                ? "Recepción confirmada con posición asignada"
+                : "Recepción confirmada SIN posición asignada — pendiente ubicar en biobanco";
         historialService.registrarEvento(muestra, confirma,
                 TipoEventoMuestra.PRESTAMO_RECIBIDO,
                 traslado.getInstitucionOrigen().getNombre(),
                 traslado.getInstitucionDestino().getNombre(),
-                "Recepción confirmada", updated);
+                notaRecepcion, updated);
+        if (idPosicionCaja == null) {
+            log.warn("Traslado {}: recepción confirmada sin posición para muestra {}; "
+                    + "queda SIN_POSICION hasta que un operador la ubique.",
+                    updated.getId(), muestra.getEtiqueta());
+        }
 
         enviarEmailPrestamoRecibido(updated);
 
@@ -262,7 +279,8 @@ public class TrasladoMuestraService {
      */
     @Transactional
     public List<TrasladoMuestra> iniciarDevolucion(Long idTraslado, String uuidInicia,
-                                                    String observaciones, List<Long> idsAlicuotasDevolver) {
+                                                    String observaciones, List<Long> idsAlicuotasDevolver,
+                                                    Long idInstitucionDestinoDevolucion) {
         TrasladoMuestra traslado = getById(idTraslado);
 
         if (traslado.getEstado() != EstadoTraslado.RECIBIDA) {
@@ -277,20 +295,56 @@ public class TrasladoMuestraService {
         Institucion instOrigen = traslado.getInstitucionOrigen();
         Institucion instDestino = traslado.getInstitucionDestino();
 
-        String grupoTraslado = UUID.randomUUID().toString();
+        // Guard anti-corrupción: si la muestra ya fue re-prestada a otra institución,
+        // devolver este traslado antiguo corromperia el estado (haría "aparecer" la
+        // muestra en origen cuando físicamente está en otro tenedor).
+        Muestra muestra = traslado.getMuestra();
+        if (!muestra.getInstitucionActual().getId().equals(instDestino.getId())) {
+            throw new ObjConflictException(
+                    "Esta muestra ya fue re-prestada a otra institución. "
+                    + "Debe devolverse desde su tenedor actual.");
+        }
+
+        // Atajo opcional: devolver directo a una institución previa en la cadena
+        // (dueña original o cualquier tenedor anterior). Si viene null, se usa
+        // el eslabón anterior (institucionOrigen del traslado que se está devolviendo).
+        Institucion destinoDevolucion = instOrigen;
+        if (idInstitucionDestinoDevolucion != null
+                && !idInstitucionDestinoDevolucion.equals(instOrigen.getId())) {
+            if (idInstitucionDestinoDevolucion.equals(instDestino.getId())) {
+                throw new ObjConflictException(
+                        "El destino de la devolución no puede ser la misma institución que la tiene.");
+            }
+            if (!institucionParticipoEnCadena(muestra, idInstitucionDestinoDevolucion)) {
+                throw new ObjConflictException(
+                        "La institución destino de la devolución debe haber participado "
+                        + "previamente en la cadena de custodia de esta muestra.");
+            }
+            destinoDevolucion = institucionRepository.findById(idInstitucionDestinoDevolucion)
+                    .orElseThrow(() -> new ObjNotFoundException(
+                            "Institución destino de devolución no encontrada: " + idInstitucionDestinoDevolucion));
+        }
 
         // Liberar posición en destino si la muestra padre tenía una asignada
-        Muestra muestra = traslado.getMuestra();
         if (muestra.getPosicionCaja() != null) {
             posicionCajaService.liberarPosicion(muestra.getPosicionCaja().getId());
             muestra.setPosicionCaja(null);
         }
         muestra.setEstadoMuestra(EstadoMuestra.PRESTADA);
-        muestra.setInstitucionActual(instOrigen);
+        // institucionActual NO cambia aquí: la muestra sigue físicamente en destino
+        // hasta que el origen confirme la devolución (confirmarDevolucion)
         muestraRepository.save(muestra);
 
         traslado.setEstado(EstadoTraslado.EN_DEVOLUCION);
-        traslado.setGrupoTraslado(grupoTraslado);
+        // Persistir el atajo si aplica (solo si el destino difiere del institucionOrigen).
+        if (!destinoDevolucion.getId().equals(instOrigen.getId())) {
+            traslado.setIdInstitucionDestinoDevolucion(destinoDevolucion.getId());
+        }
+        // Marcar el traslado padre y las alícuotas asociadas con el mismo grupoDevolucion
+        // para poder confirmarlos en lote de forma determinística en confirmarDevolucion.
+        // Preservamos el grupoTraslado original del préstamo saliente (histórico).
+        String grupoDevolucion = UUID.randomUUID().toString();
+        traslado.setGrupoDevolucion(grupoDevolucion);
         if (observaciones != null && !observaciones.isBlank()) {
             String obs = traslado.getObservaciones();
             traslado.setObservaciones(
@@ -323,25 +377,25 @@ public class TrasladoMuestraService {
                     alicuota.setPosicionCaja(null);
                 }
                 alicuota.setEstadoMuestra(EstadoMuestra.PRESTADA);
-                alicuota.setInstitucionActual(instOrigen);
+                // institucionActual NO cambia — sigue en destino hasta confirmarDevolucion
                 muestraRepository.save(alicuota);
 
                 TrasladoMuestra trasladoAlicuota = new TrasladoMuestra();
                 trasladoAlicuota.setMuestra(alicuota);
                 trasladoAlicuota.setInstitucionOrigen(instDestino);
-                trasladoAlicuota.setInstitucionDestino(instOrigen);
+                trasladoAlicuota.setInstitucionDestino(destinoDevolucion);
                 trasladoAlicuota.setAutorizadoPor(inicia);
                 trasladoAlicuota.setEstado(EstadoTraslado.EN_DEVOLUCION);
                 trasladoAlicuota.setFechaTraslado(LocalDateTime.now());
                 trasladoAlicuota.setMotivo("Devolución junto con muestra padre " + muestra.getEtiqueta());
-                trasladoAlicuota.setGrupoTraslado(grupoTraslado);
+                trasladoAlicuota.setGrupoDevolucion(grupoDevolucion);
                 trasladoAlicuota.setFechaRegistro(Timestamp.from(Instant.now()));
 
                 resultado.add(trasladoRepository.save(trasladoAlicuota));
 
                 historialService.registrarEvento(alicuota, inicia,
                         TipoEventoMuestra.PRESTAMO_ENVIADO,
-                        instDestino.getNombre(), instOrigen.getNombre(),
+                        instDestino.getNombre(), destinoDevolucion.getNombre(),
                         "Devolución junto con muestra padre", trasladoAlicuota);
             }
         }
@@ -352,10 +406,11 @@ public class TrasladoMuestraService {
 
     /**
      * Institución origen (anterior tenedor) confirma que recibió la muestra de vuelta.
-     * La muestra queda SIN_POSICION en el tenedor anterior para que le asignen caja.
+     * Ahora es cuando {@code institucionActual} cambia al origen (la muestra llegó físicamente).
+     * Si el traslado tiene alícuotas en el mismo grupo de devolución, se confirman todas.
      */
     @Transactional
-    public TrasladoMuestra confirmarDevolucion(Long idTraslado, String uuidConfirma, String observaciones) {
+    public List<TrasladoMuestra> confirmarDevolucion(Long idTraslado, String uuidConfirma, String observaciones) {
         TrasladoMuestra traslado = getById(idTraslado);
 
         if (traslado.getEstado() != EstadoTraslado.EN_DEVOLUCION) {
@@ -367,9 +422,51 @@ public class TrasladoMuestraService {
         BeanUser confirma = userRepository.findByUUID(uuidConfirma)
                 .orElseThrow(() -> new ObjNotFoundException("Usuario no encontrado: " + uuidConfirma));
 
+        List<TrasladoMuestra> porConfirmar = new ArrayList<>();
+        porConfirmar.add(traslado);
+
+        // Agrupar por grupoDevolucion (fuente única de verdad: se popula en
+        // iniciarDevolucion tanto en el padre como en las alícuotas asociadas).
+        // Esto reemplaza el heurístico frágil anterior que dependía de
+        // grupoTraslado + iteración lazy sobre muestraPadre.getAlicuotas().
+        String grupoDev = traslado.getGrupoDevolucion();
+        if (grupoDev != null) {
+            List<TrasladoMuestra> hermanos = trasladoRepository
+                    .findAllByGrupoDevolucionOrderByFechaTrasladoDesc(grupoDev);
+            for (TrasladoMuestra h : hermanos) {
+                if (!h.getId().equals(traslado.getId()) && h.getEstado() == EstadoTraslado.EN_DEVOLUCION) {
+                    porConfirmar.add(h);
+                }
+            }
+        }
+
+        List<TrasladoMuestra> resultado = new ArrayList<>();
+        for (TrasladoMuestra t : porConfirmar) {
+            resultado.add(confirmarDevolucionIndividual(t, confirma, observaciones));
+        }
+
+        return resultado;
+    }
+
+    private TrasladoMuestra confirmarDevolucionIndividual(TrasladoMuestra traslado,
+                                                          BeanUser confirma, String observaciones) {
         Muestra muestra = traslado.getMuestra();
-        muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION); // lista para asignar posición
-        // institucionActual ya se actualizó en iniciarDevolucion → es el origen
+
+        // Defensa en profundidad: entre iniciarDevolucion y confirmarDevolucion
+        // no debe haberse re-prestado esta muestra a otro tenedor.
+        if (!muestra.getInstitucionActual().getId().equals(traslado.getInstitucionDestino().getId())) {
+            throw new ObjConflictException(
+                    "La muestra '" + muestra.getEtiqueta() + "' ya no se encuentra en "
+                    + traslado.getInstitucionDestino().getNombre()
+                    + "; no se puede confirmar la devolución de este traslado.");
+        }
+
+        // Determinar destino real: si el traslado padre tiene atajo, usarlo;
+        // si no, el eslabón anterior (comportamiento estándar).
+        Institucion destinoFinal = resolverDestinoDevolucion(traslado);
+
+        muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
+        muestra.setInstitucionActual(destinoFinal);
         muestraRepository.save(muestra);
 
         traslado.setEstado(EstadoTraslado.DEVUELTA);
@@ -385,19 +482,54 @@ public class TrasladoMuestraService {
         historialService.registrarEvento(muestra, confirma,
                 TipoEventoMuestra.PRESTAMO_DEVUELTO,
                 traslado.getInstitucionDestino().getNombre(),
-                traslado.getInstitucionOrigen().getNombre(),
+                destinoFinal.getNombre(),
                 "Devolución confirmada", saved);
 
         return saved;
     }
 
     /**
+     * Devuelve la institución que efectivamente recibe la muestra al confirmar la devolución.
+     * Si el traslado tiene un atajo en la cadena de custodia (idInstitucionDestinoDevolucion),
+     * se usa ese destino; en caso contrario, el eslabón anterior (institucionOrigen).
+     */
+    private Institucion resolverDestinoDevolucion(TrasladoMuestra traslado) {
+        Long idAtajo = traslado.getIdInstitucionDestinoDevolucion();
+        if (idAtajo != null) {
+            return institucionRepository.findById(idAtajo)
+                    .orElseThrow(() -> new ObjNotFoundException(
+                            "Institución destino de devolución no encontrada: " + idAtajo));
+        }
+        return traslado.getInstitucionOrigen();
+    }
+
+    /**
+     * Verifica si una institución participó previamente en la cadena de custodia
+     * de una muestra (es la dueña original o aparece como origen/destino de algún
+     * traslado histórico distinto al que se está devolviendo).
+     */
+    private boolean institucionParticipoEnCadena(Muestra muestra, Long idInstitucion) {
+        if (muestra.getInstitucion() != null && idInstitucion.equals(muestra.getInstitucion().getId())) {
+            return true;
+        }
+        List<TrasladoMuestra> historial = trasladoRepository
+                .findAllByMuestra_IdOrderByFechaTrasladoDesc(muestra.getId());
+        for (TrasladoMuestra t : historial) {
+            if (idInstitucion.equals(t.getInstitucionOrigen().getId())
+                    || idInstitucion.equals(t.getInstitucionDestino().getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Cancela un préstamo en estado ENVIADA antes de que el destino confirme recepción.
-     * Solo puede ejecutarlo la institución origen (tenedor original).
-     * La muestra regresa a SIN_POSICION en la institución origen.
+     * Si el traslado pertenece a un grupo (padre + alícuotas), cancela todos los
+     * hermanos en ENVIADA atómicamente para evitar grupos en estado inconsistente.
      */
     @Transactional
-    public TrasladoMuestra cancelarPrestamo(Long idTraslado, String uuidUsuario, String motivo) {
+    public List<TrasladoMuestra> cancelarPrestamo(Long idTraslado, String uuidUsuario, String motivo) {
         TrasladoMuestra traslado = getById(idTraslado);
 
         if (traslado.getEstado() != EstadoTraslado.ENVIADA) {
@@ -409,9 +541,35 @@ public class TrasladoMuestraService {
         BeanUser usuario = userRepository.findByUUID(uuidUsuario)
                 .orElseThrow(() -> new ObjNotFoundException("Usuario no encontrado: " + uuidUsuario));
 
+        List<TrasladoMuestra> porCancelar = new ArrayList<>();
+        porCancelar.add(traslado);
+
+        if (traslado.getGrupoTraslado() != null) {
+            List<TrasladoMuestra> hermanos = trasladoRepository
+                    .findAllByGrupoTrasladoOrderByFechaTrasladoDesc(traslado.getGrupoTraslado());
+            for (TrasladoMuestra h : hermanos) {
+                if (!h.getId().equals(traslado.getId()) && h.getEstado() == EstadoTraslado.ENVIADA) {
+                    porCancelar.add(h);
+                }
+            }
+        }
+
+        List<TrasladoMuestra> resultado = new ArrayList<>();
+        for (TrasladoMuestra t : porCancelar) {
+            resultado.add(cancelarTraslado(t, usuario, motivo));
+        }
+
+        if (!resultado.isEmpty()) {
+            enviarEmailPrestamoCancelado(resultado.get(0), usuario, motivo);
+        }
+
+        return resultado;
+    }
+
+    private TrasladoMuestra cancelarTraslado(TrasladoMuestra traslado, BeanUser usuario, String motivo) {
         Muestra muestra = traslado.getMuestra();
 
-        // Restaurar la posición original si sigue libre; de lo contrario dejar SIN_POSICION
+        boolean posicionAnteriorPerdida = false;
         Long idPosAnterior = traslado.getIdPosicionCajaAnterior();
         if (idPosAnterior != null) {
             try {
@@ -419,8 +577,11 @@ public class TrasladoMuestraService {
                 PosicionCaja posicion = posicionCajaService.getById(idPosAnterior);
                 muestra.setPosicionCaja(posicion);
                 muestra.setEstadoMuestra(EstadoMuestra.EN_BIOBANCO);
-            } catch (Exception e) {
-                // La posición fue eliminada o ya está ocupada; dejar sin posición asignada
+            } catch (ObjConflictException e) {
+                log.warn("Cancelación traslado {}: posición anterior {} ya ocupada; "
+                        + "muestra {} queda SIN_POSICION. Detalle: {}",
+                        traslado.getId(), idPosAnterior, muestra.getEtiqueta(), e.getMessage());
+                posicionAnteriorPerdida = true;
                 muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
             }
         } else {
@@ -437,13 +598,19 @@ public class TrasladoMuestraService {
         }
         TrasladoMuestra saved = trasladoRepository.save(traslado);
 
+        String motivoHistorial = motivo;
+        if (posicionAnteriorPerdida) {
+            String notaPosicion = "Posición anterior ya ocupada — muestra queda sin posición";
+            motivoHistorial = (motivo != null && !motivo.isBlank())
+                    ? motivo + " | " + notaPosicion
+                    : notaPosicion;
+        }
+
         historialService.registrarEvento(muestra, usuario,
-                imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra.PRESTAMO_CANCELADO,
+                TipoEventoMuestra.PRESTAMO_CANCELADO,
                 traslado.getInstitucionDestino().getNombre(),
                 traslado.getInstitucionOrigen().getNombre(),
-                motivo, saved);
-
-        enviarEmailPrestamoCancelado(saved, usuario, motivo);
+                motivoHistorial, saved);
 
         return saved;
     }

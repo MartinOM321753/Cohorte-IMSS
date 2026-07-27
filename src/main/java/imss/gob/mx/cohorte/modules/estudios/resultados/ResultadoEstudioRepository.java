@@ -9,4 +9,5 @@ public interface ResultadoEstudioRepository extends JpaRepository<ResultadoEstud
 
     ResultadoEstudio findByParametro_Id(Long parametroId);
 
+    boolean existsByParametro_Id(Long parametroId);
 }

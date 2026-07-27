@@ -6,6 +6,8 @@ import imss.gob.mx.cohorte.modules.institucion.TipoInstitucion;
 import imss.gob.mx.cohorte.modules.institucion.TipoInstitucionRepository;
 import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.persona.PersonaRepository;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRol;
+import imss.gob.mx.cohorte.modules.permisos.UsuarioRolRepository;
 import imss.gob.mx.cohorte.modules.usuarios.role.Role;
 import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
@@ -14,6 +16,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -31,10 +34,13 @@ public class InitialConfig implements CommandLineRunner {
     private final InstitucionRepository institucionRepository;
     private final TipoInstitucionRepository tipoInstitucionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioRolRepository usuarioRolRepository;
 
     @Override
+    @Transactional
     public void run(String... args) {
-        Role rolAdmin = ensureRole("ADMINISTRADOR");
+        Role rolRoot = ensureRole("ROOT");
+        ensureRole("ADMINISTRADOR");
         ensureRole("RECEPCIONISTA");
         ensureRole("MEDICO");
         ensureRole("LABORATORISTA");
@@ -42,7 +48,9 @@ public class InitialConfig implements CommandLineRunner {
 
         Institucion institucionRaiz = ensureInstitucionRaiz();
 
-        if (userRepository.findByUsername("admin").isPresent()) {
+        java.util.Optional<BeanUser> existing = userRepository.findByUsername("admin");
+        if (existing.isPresent()) {
+            ensureUserIsRoot(existing.get(), rolRoot);
             return;
         }
 
@@ -65,13 +73,43 @@ public class InitialConfig implements CommandLineRunner {
         admin.setUsername("admin");
         admin.setPassword(passwordEncoder.encode("password123"));
         admin.setActivo(true);
-        admin.setRol(rolAdmin);
+        admin.setRol(rolRoot);
         admin.setInstitucion(institucionRaiz);
         admin.setPersona(persona);
         admin.setFechaCreacion(LocalDateTime.now());
         admin.setFechaActualizacion(LocalDateTime.now());
 
-        userRepository.save(admin);
+        BeanUser saved = userRepository.save(admin);
+
+        UsuarioRol ur = new UsuarioRol();
+        ur.setUsuario(saved);
+        ur.setRol(rolRoot);
+        ur.setFechaAsignacion(LocalDateTime.now());
+        usuarioRolRepository.save(ur);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void ensureUserIsRoot(BeanUser user, Role rolRoot) {
+        boolean changed = false;
+
+        if (user.getRol() == null || !"ROOT".equals(user.getRol().getRole())) {
+            user.setRol(rolRoot);
+            changed = true;
+        }
+
+        if (changed) {
+            userRepository.save(user);
+        }
+
+        if (!usuarioRolRepository.existsByUsuarioAndRol(user, rolRoot)) {
+            usuarioRolRepository.deleteAllByUsuario(user);
+            usuarioRolRepository.flush();
+            UsuarioRol ur = new UsuarioRol();
+            ur.setUsuario(user);
+            ur.setRol(rolRoot);
+            ur.setFechaAsignacion(LocalDateTime.now());
+            usuarioRolRepository.save(ur);
+        }
     }
 
     private Role ensureRole(String roleName) {

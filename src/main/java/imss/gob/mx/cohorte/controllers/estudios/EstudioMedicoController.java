@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.estudios;
 
 import imss.gob.mx.cohorte.application.EstudiosApplicationService;
+import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.controllers.estudios.dto.*;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +39,7 @@ public class EstudioMedicoController {
 
     private final EstudiosApplicationService estudiosApplicationService;
     private final InstitucionContextService institucionContextService;
+    private final PacienteApplicationService pacienteApplicationService;
 
     @GetMapping
     @Operation(summary = "Listar todos los estudios médicos", description = "Obtiene una lista completa de todos los estudios médicos registrados en el sistema")
@@ -51,6 +54,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
         List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
@@ -67,6 +71,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
         Page<EstudioMedico> estudios = estudiosApplicationService.getAllEstudiosPaginado(pageable);
         Map<String, Object> body = Map.of(
@@ -95,6 +100,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getById(
         @Parameter(description = "Identificador único del estudio médico", required = true)
         @PathVariable Long id) {
@@ -116,6 +122,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_CREAR')")
     public ResponseEntity<APIResponse> create(@Valid @RequestBody EstudioMedicoRequestDTO dto) {
         EstudioMedico entity = EstudioMapper.toEntity(dto);
         entity.setInstitucion(institucionContextService.getInstitucionActual());
@@ -142,6 +149,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_EDITAR')")
     public ResponseEntity<APIResponse> update(
         @Parameter(description = "Identificador único del estudio médico a actualizar", required = true)
         @PathVariable Long id,
@@ -150,6 +158,14 @@ public class EstudioMedicoController {
         EstudioMedico actualizado = estudiosApplicationService.updateEstudio(id, entity);
         EstudioMedicoResponseDTO responseDTO = EstudioMapper.toResponseDTO(actualizado);
         return ResponseEntity.ok(new APIResponse(responseDTO, "Estudio actualizado correctamente", HttpStatus.OK, false));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar estudio médico", description = "Elimina un estudio médico y todos sus resultados y documentos adjuntos")
+    @PreAuthorize("hasAuthority('ESTUDIOS_ELIMINAR')")
+    public ResponseEntity<APIResponse> deleteEstudio(@PathVariable Long id) {
+        estudiosApplicationService.deleteEstudio(id);
+        return ResponseEntity.ok(new APIResponse("Estudio eliminado correctamente", HttpStatus.OK, false));
     }
 
     @GetMapping("/paciente/{uuid}")
@@ -165,9 +181,11 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAnyAuthority('ESTUDIOS_LLENADO_ACCEDER', 'EXPEDIENTE_VER')")
     public ResponseEntity<APIResponse> getByPaciente(
         @Parameter(description = "UUID del paciente", required = true)
         @PathVariable @NotBlank String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPaciente(uuid);
         List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios del participante obtenidos correctamente", HttpStatus.OK, false));
@@ -186,6 +204,7 @@ public class EstudioMedicoController {
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = APIResponse.class)))
     })
+    @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getByPacientePaginado(
         @Parameter(description = "UUID del paciente", required = true)
         @PathVariable @NotBlank String uuid,

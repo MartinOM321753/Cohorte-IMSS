@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.security.jwt;
 
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -10,9 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
@@ -20,6 +19,12 @@ public class JWTUtils {
 
     @Value("${secret.key}")
     private String SECRET_KEY;
+
+    private final PermisoEvaluationService permisoEvaluationService;
+
+    public JWTUtils(PermisoEvaluationService permisoEvaluationService) {
+        this.permisoEvaluationService = permisoEvaluationService;
+    }
 
     // La clave debe tener al menos 32 caracteres (256 bits) para HS256
     private SecretKey getSigningKey() {
@@ -70,18 +75,15 @@ public class JWTUtils {
         return extractClaim(token, claims -> claims.get("name", String.class));
     }
 
-    /**
-     * Extrae el claim "role" del token.
-     *
-     * <p><b>No usar para autorización.</b> Es solo informativo (frontend/logging):
-     * si el rol del usuario cambia en BD, este claim queda obsoleto hasta que se
-     * emita un token nuevo. Las decisiones de autorización (hasRole/@PreAuthorize)
-     * usan UDService#loadUserByUsername, que consulta el rol vigente en BD
-     * en cada request — por eso un cambio de rol surte efecto de inmediato sin
-     * esperar a que expire el token.
-     */
+    @SuppressWarnings("unchecked")
+    public List<String> extractRoles(String token) {
+        return extractClaim(token, claims -> claims.get("roles", List.class));
+    }
+
+    @Deprecated
     public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
+        List<String> roles = extractRoles(token);
+        return (roles != null && !roles.isEmpty()) ? roles.get(0) : null;
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
@@ -102,12 +104,12 @@ public class JWTUtils {
         }
         claims.put("name", fullName);
         claims.put("activo", beanUser.getActivo());
-        claims.put("role", beanUser.getRol().getRole());
-        // Indica al frontend si debe forzar cambio de contraseña en el primer login
+
+        List<String> roles = permisoEvaluationService.getRoleNames(beanUser);
+        claims.put("roles", roles);
+        claims.put("role", roles.isEmpty() ? null : roles.get(0));
+
         claims.put("mustChangePassword", Boolean.TRUE.equals(beanUser.getDebeResetear()));
-        // Contexto de institución — usado para aislar datos por sede/sucursal.
-        // Sólo informativo en el token (igual que "role"): la autorización real
-        // de acceso a módulos se resuelve en cada request contra BD vigente.
         if (beanUser.getInstitucion() != null) {
             claims.put("institucionId", beanUser.getInstitucion().getId());
             claims.put("institucionUuid", beanUser.getInstitucion().getUuid());

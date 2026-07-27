@@ -42,7 +42,7 @@ public class PermisoAccesoPacientesController {
     }
 
     @PostMapping("/otorgar/{idInstitucionRecibe}")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Otorgar acceso a pacientes a una institución hija")
     public ResponseEntity<APIResponse> otorgar(
             @PathVariable Long idInstitucion,
@@ -52,7 +52,7 @@ public class PermisoAccesoPacientesController {
     }
 
     @DeleteMapping("/revocar/{idInstitucionRecibe}")
-    @PreAuthorize("hasRole('ADMINISTRADOR') or hasRole('ENCARGADO')")
+    @PreAuthorize("hasAuthority('INSTITUCIONES_EDITAR')")
     @Operation(summary = "Revocar acceso a pacientes de una institución hija")
     public ResponseEntity<APIResponse> revocar(
             @PathVariable Long idInstitucion,

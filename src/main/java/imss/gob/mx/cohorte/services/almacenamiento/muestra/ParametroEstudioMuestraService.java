@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ResultadoEstudioMuestraRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import java.util.List;
 public class ParametroEstudioMuestraService {
 
     private final ParametroEstudioMuestraRepository repository;
+    private final ResultadoEstudioMuestraRepository resultadoEstudioMuestraRepository;
 
     @Transactional(readOnly = true)
     public List<ParametroEstudioMuestra> getByTipo(Long idTipo) {
@@ -48,6 +50,11 @@ public class ParametroEstudioMuestraService {
             });
             paramBD.setNombre(datos.getNombre());
         }
+        if (datos.getTipo() != paramBD.getTipo()
+                && resultadoEstudioMuestraRepository.existsByParametro_Id(paramBD.getId())) {
+            throw new ObjConflictException("No se puede cambiar el tipo del parámetro porque tiene resultados registrados");
+        }
+
         paramBD.setUnidad(datos.getUnidad());
         paramBD.setTipo(datos.getTipo());
         paramBD.setValorMinimo(datos.getValorMinimo());

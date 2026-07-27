@@ -112,7 +112,8 @@ public class TrasladoMuestraController {
             dto.getIdInstitucionDestino(),
             dto.getUuidAutoriza(),
             dto.getMotivo(),
-            dto.getObservaciones()
+            dto.getObservaciones(),
+            dto.getFechaLimite()
         );
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Préstamo iniciado exitosamente",
@@ -147,7 +148,8 @@ public class TrasladoMuestraController {
             @PathVariable Long id,
             @Validated @RequestBody IniciarDevolucionRequestDTO dto) {
         List<TrasladoMuestra> traslados = trasladoApplicationService.iniciarDevolucion(
-            id, dto.getUuidInicia(), dto.getObservaciones(), dto.getIdsAlicuotasDevolver());
+            id, dto.getUuidInicia(), dto.getObservaciones(),
+            dto.getIdsAlicuotasDevolver(), dto.getIdInstitucionDestinoDevolucion());
         return ResponseEntity.ok(
             new APIResponse("Devolución iniciada", TrasladoMapper.toResponseDTOList(traslados, myInstId()), false, HttpStatus.OK));
     }
@@ -158,10 +160,10 @@ public class TrasladoMuestraController {
     public ResponseEntity<APIResponse> confirmarDevolucion(
             @PathVariable Long id,
             @Validated @RequestBody DevolucionRequestDTO dto) {
-        TrasladoMuestra devuelto = trasladoApplicationService.confirmarDevolucion(
+        List<TrasladoMuestra> devueltos = trasladoApplicationService.confirmarDevolucion(
             id, dto.getUuidConfirma(), dto.getObservaciones());
         return ResponseEntity.ok(
-            new APIResponse("Devolución confirmada", TrasladoMapper.toResponseDTO(devuelto, myInstId()), false, HttpStatus.OK));
+            new APIResponse("Devolución confirmada", TrasladoMapper.toResponseDTOList(devueltos, myInstId()), false, HttpStatus.OK));
     }
 
     @PutMapping("/{id}/cancelar")
@@ -176,10 +178,10 @@ public class TrasladoMuestraController {
     public ResponseEntity<APIResponse> cancelarPrestamo(
             @PathVariable Long id,
             @Validated @RequestBody CancelarPrestamoRequestDTO dto) {
-        TrasladoMuestra cancelado = trasladoApplicationService.cancelarPrestamo(
+        List<TrasladoMuestra> cancelados = trasladoApplicationService.cancelarPrestamo(
             id, dto.getUuidUsuario(), dto.getMotivo());
         return ResponseEntity.ok(
-            new APIResponse("Préstamo cancelado", TrasladoMapper.toResponseDTO(cancelado, myInstId()), false, HttpStatus.OK));
+            new APIResponse("Préstamo cancelado", TrasladoMapper.toResponseDTOList(cancelados, myInstId()), false, HttpStatus.OK));
     }
 
     private Long myInstId() {

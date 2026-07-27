@@ -59,7 +59,7 @@ public class UserMapper {
         return UserResponseDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
-                .UUID(user.getUUID())
+                .uuid(user.getUUID())
                 .activo(user.getActivo())
                 .debeResetear(user.getDebeResetear())
                 .rol(user.getRol() != null

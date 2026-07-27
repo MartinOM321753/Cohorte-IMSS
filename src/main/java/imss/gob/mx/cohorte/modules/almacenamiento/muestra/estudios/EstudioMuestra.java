@@ -6,7 +6,6 @@ import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +38,7 @@ public class EstudioMuestra {
     private BeanUser usuarioRealiza;
 
     @Column(name = "fecha_estudio", nullable = false)
-    private LocalDate fechaEstudio;
+    private LocalDateTime fechaEstudio;
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private LocalDateTime fechaRegistro;

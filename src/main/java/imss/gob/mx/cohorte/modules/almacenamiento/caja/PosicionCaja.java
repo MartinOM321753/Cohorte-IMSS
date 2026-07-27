@@ -18,6 +18,10 @@ public class PosicionCaja {
     @Column(name = "id_posicion_caja")
     private Long Id;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @ManyToOne
     @JoinColumn(name = "id_caja", nullable = false)
     @JsonIgnore

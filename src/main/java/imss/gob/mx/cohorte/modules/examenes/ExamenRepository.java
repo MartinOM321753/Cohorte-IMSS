@@ -18,8 +18,8 @@ public interface ExamenRepository extends JpaRepository<Examen, Long> {
     /** Catálogo de exámenes de una institución (aislamiento de datos). */
     List<Examen> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
 
+    List<Examen> findAllByInstitucion_Id(Long idInstitucion);
 
-
-
+    boolean existsByParametroIgnoreCaseAndInstitucion_Id(String parametro, Long idInstitucion);
 
 }

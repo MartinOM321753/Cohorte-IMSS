@@ -81,6 +81,11 @@ public class TipoService {
         return tipoEstudioRepository.save(tipoBD);
     }
 
+    public void delete(TipoEstudio tipo) {
+        institucionContextService.verificarPertenece(tipo.getInstitucion());
+        tipoEstudioRepository.delete(tipo);
+    }
+
     public Boolean Active(Long id) {
         TipoEstudio tipoEstudio = tipoEstudioRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio"));

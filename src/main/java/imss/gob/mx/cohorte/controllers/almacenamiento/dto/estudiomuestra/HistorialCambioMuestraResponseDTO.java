@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class HistorialCambioMuestraResponseDTO {
 
     private Long id;
+    private String tipoEvento;
     private String campo;
     private String valorAnterior;
     private String valorNuevo;

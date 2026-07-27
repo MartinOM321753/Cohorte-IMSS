@@ -1,7 +1,9 @@
 package imss.gob.mx.cohorte.application;
 
+import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
 import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametro;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudioRepository;
 import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
 import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
@@ -11,14 +13,13 @@ import imss.gob.mx.cohorte.services.estudios.OpcionParametroService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.ResultadoService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import imss.gob.mx.cohorte.security.institucion.RequireModulo;
-import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Service
 @AllArgsConstructor
@@ -29,6 +30,8 @@ public class GestionEstudiosApplicationService {
     private final ParametroEstudioService parametroService;
     private final ResultadoService resultadoService;
     private final OpcionParametroService opcionService;
+    private final EstudioMedicoRepository estudioMedicoRepository;
+    private final ParametroEstudioRepository parametroEstudioRepository;
 
     @Transactional(readOnly = true)
     public List<TipoEstudio> getAllByEstatus() {
@@ -95,9 +98,20 @@ public class GestionEstudiosApplicationService {
     }
 
     @Transactional
+    public void deleteTipo(Long id) {
+        TipoEstudio tipo = tipoService.getOne(id);
+        if (estudioMedicoRepository.existsByTipoEstudio_Id(id)) {
+            throw new ObjConflictException("No se puede eliminar: tiene estudios registrados");
+        }
+        parametroEstudioRepository.findAllByTipoEstudio_Id(id)
+                .forEach(p -> parametroEstudioRepository.delete(p));
+        tipoService.delete(tipo);
+    }
+
+    @Transactional
     public ParametroEstudio deleteParametro(Long id) {
         ResultadoEstudio resultadoEstudio = resultadoService.findResultadoByParametroId(id);
-        if (resultadoEstudio != null) throw new RuntimeException("No se puede eliminar el parametro porque tiene resultados");
+        if (resultadoEstudio != null) throw new ObjConflictException("No se puede eliminar el parámetro porque tiene resultados");
         return parametroService.delete(id);
     }
 

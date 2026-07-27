@@ -1,9 +1,12 @@
 package imss.gob.mx.cohorte.application;
 
+import imss.gob.mx.cohorte.modules.documentos.ResultadoExamenDocumentoRepository;
 import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
+import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamenRepository;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
@@ -30,14 +33,16 @@ public class ExamenApplicationService {
     private final PacienteService pacienteService;
     private final UserService userService;
     private final ResultadoExamenService resultadoExamenService;
+    private final ResultadoExamenRepository resultadoExamenRepository;
+    private final ResultadoExamenDocumentoRepository resultadoExamenDocumentoRepository;
     private final InstitucionRepository institucionRepository;
     private final InstitucionContextService institucionContextService;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Examen> findAll() {
         return examenService.getAllExamenes();
     }
-    @Transactional
+    @Transactional(readOnly = true)
     public Examen findOne(Long id) {
         Examen examen = examenService.getExamen(id);
         institucionContextService.verificarPertenece(examen.getInstitucion());
@@ -70,11 +75,25 @@ public class ExamenApplicationService {
         return institucion;
     }
     @Transactional
+    public void deleteExamen(Long id) {
+        if (resultadoExamenRepository.existsByExamen_Id(id)) {
+            throw new ObjConflictException("No se puede eliminar: tiene resultados registrados");
+        }
+        examenService.deleteExamen(id);
+    }
+
+    @Transactional
+    public void deleteResultado(Long id) {
+        resultadoExamenDocumentoRepository.deleteByResultadoExamen_Id(id);
+        resultadoExamenService.deleteResultado(id);
+    }
+
+    @Transactional(readOnly = true)
     public List<ResultadoExamen> findAllResultadoByFolio(String folio) {
         return resultadoExamenService.findAllByFolio(folio);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ResultadoExamen> findAllResultadoByUUID(String uuid) {
         return resultadoExamenService.findAllByUUID(uuid);
     }

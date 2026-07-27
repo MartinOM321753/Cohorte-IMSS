@@ -21,6 +21,7 @@ public interface BitacoraAccionesRepository extends JpaRepository<BitacoraAccion
           AND (:usuarioUuid   IS NULL OR b.usuarioUuid      = :usuarioUuid)
           AND (:tipoAccion    IS NULL OR b.tipoAccion        = :tipoAccion)
           AND (:entidad       IS NULL OR b.entidadAfectada   = :entidad)
+          AND (:incluirRoot   = true OR b.rol IS NULL OR b.rol <> 'ROOT')
         ORDER BY b.timestamp DESC
         """)
     Page<BitacoraAcciones> buscarConFiltros(
@@ -29,6 +30,7 @@ public interface BitacoraAccionesRepository extends JpaRepository<BitacoraAccion
             @Param("usuarioUuid") String usuarioUuid,
             @Param("tipoAccion")  TipoAccion tipoAccion,
             @Param("entidad")     String entidad,
+            @Param("incluirRoot") boolean incluirRoot,
             Pageable pageable
     );
 }

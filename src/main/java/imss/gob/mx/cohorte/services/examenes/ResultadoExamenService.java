@@ -58,6 +58,13 @@ public class ResultadoExamenService {
         return resultadoExamenRepository.save(resultadoExamen);
     }
 
+    public void deleteResultado(Long id) {
+        ResultadoExamen resultado = resultadoExamenRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + id));
+        institucionContextService.verificarPertenece(resultado.getPaciente().getInstitucion());
+        resultadoExamenRepository.delete(resultado);
+    }
+
     public ResultadoExamen updateResultado(ResultadoExamen resultadoExamen) {
         ResultadoExamen resultadoBD = resultadoExamenRepository.findById(resultadoExamen.getId())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + resultadoExamen.getId()));
