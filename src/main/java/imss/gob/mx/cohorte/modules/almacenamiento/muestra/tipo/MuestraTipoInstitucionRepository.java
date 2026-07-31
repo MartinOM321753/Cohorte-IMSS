@@ -14,4 +14,7 @@ public interface MuestraTipoInstitucionRepository extends JpaRepository<MuestraT
     List<MuestraTipoInstitucion> findAllByMuestra_Id(Long idMuestra);
 
     void deleteAllByMuestra_Id(Long idMuestra);
+
+    /** Registros que referencian un tubo. Bloquean su eliminación. */
+    long countByTuboMuestra_Id(Long idTuboMuestra);
 }

@@ -17,6 +17,9 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
     List<Muestra> findAllByPaciente_Uuid(String uuid);
     List<Muestra> findAllByPaciente_Folio(String folio);
     List<Muestra> findAllByPosicionCajaIsNull();
+    /** Muestras y alícuotas que referencian un tubo. Bloquea su eliminación. */
+    long countByTuboMuestra_Id(Long idTuboMuestra);
+
     long countByPaciente_Uuid(String uuid);
 
     List<Muestra> findAllByInstitucion_Id(Long idInstitucion);

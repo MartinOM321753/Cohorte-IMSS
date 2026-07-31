@@ -4,6 +4,8 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestraRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.MuestraTipoInstitucionRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
@@ -20,6 +22,8 @@ public class TipoMuestraService {
 
     private final TipoMuestraRepository tipoMuestraRepository;
     private final TuboMuestraRepository tuboMuestraRepository;
+    private final MuestraRepository muestraRepository;
+    private final MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
     private final InstitucionContextService institucionContextService;
 
     private Long myInstId() {
@@ -112,9 +116,37 @@ public class TipoMuestraService {
         return tuboMuestraRepository.save(tubo);
     }
 
+    /**
+     * Elimina un tubo de su tipo de muestra.
+     *
+     * El borrado se hace quitando el tubo de la colección del padre, no llamando
+     * a delete() sobre el hijo: TipoMuestra.tubos es cascade = ALL con
+     * orphanRemoval, y la relación inversa (TuboMuestra.tipoMuestra) es EAGER por
+     * omisión. Al cargar el tubo se carga también el tipo con toda su colección,
+     * que seguiría conteniendo el tubo borrado; al hacer flush, la cascada lo
+     * volvía a persistir y el DELETE quedaba sin efecto.
+     */
     @Transactional
     public void deleteTubo(Long idTubo) {
         TuboMuestra tubo = getTuboById(idTubo);
-        tuboMuestraRepository.delete(tubo);
+
+        // Un tubo solo puede eliminarse mientras no tenga registros asociados:
+        // la eliminación existe para corregir un alta equivocada, no para retirar
+        // un tubo en uso. Sin esta comprobación, el DELETE choca contra las claves
+        // foráneas y aflora como error 500 sin explicación.
+        long muestras = muestraRepository.countByTuboMuestra_Id(idTubo);
+        if (muestras > 0) {
+            throw new ObjConflictException("No se puede eliminar el tubo '" + tubo.getNombre()
+                    + "': tiene " + muestras + " muestra(s) o alícuota(s) asociadas.");
+        }
+        long asignaciones = muestraTipoInstitucionRepository.countByTuboMuestra_Id(idTubo);
+        if (asignaciones > 0) {
+            throw new ObjConflictException("No se puede eliminar el tubo '" + tubo.getNombre()
+                    + "': tiene " + asignaciones + " asignación(es) a instituciones.");
+        }
+
+        TipoMuestra tipo = tubo.getTipoMuestra();
+        tipo.getTubos().removeIf(t -> t.getId().equals(idTubo));
+        tipoMuestraRepository.save(tipo);
     }
 }
