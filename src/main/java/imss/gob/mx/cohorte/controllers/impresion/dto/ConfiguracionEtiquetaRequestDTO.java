@@ -31,7 +31,7 @@ public class ConfiguracionEtiquetaRequestDTO {
 
     @NotNull(message = "Las etiquetas por fila son obligatorias")
     @Min(value = 1, message = "Mínimo 1 etiqueta por fila")
-    @Max(value = 5, message = "Máximo 5 etiquetas por fila")
+    @Max(value = 12, message = "Máximo 12 etiquetas por fila")
     private Integer etiquetasPorFila;
 
     @NotNull(message = "El margen izquierdo es obligatorio")
@@ -49,8 +49,13 @@ public class ConfiguracionEtiquetaRequestDTO {
 
     @NotNull(message = "El módulo del código es obligatorio")
     @Min(value = 1, message = "El módulo mínimo es 1")
-    @Max(value = 20, message = "El módulo máximo es 20")
+    @Max(value = 60, message = "El módulo máximo es 60")
     private Integer moduloCodigo;
+
+    /** Solo se usa en Code 128; el rango es el que admite ^BY en ZPL. */
+    @Min(value = 1, message = "El ancho de barra mínimo es 1")
+    @Max(value = 10, message = "El ancho de barra máximo es 10")
+    private Integer anchoBarraCodigo = 2;
 
     @NotNull(message = "El tamaño de fuente del nombre es obligatorio")
     @Min(value = 8, message = "El tamaño mínimo es 8")
@@ -102,4 +107,16 @@ public class ConfiguracionEtiquetaRequestDTO {
     @DecimalMin(value = "0.0", message = "El margen no puede ser negativo")
     @DecimalMax(value = "50.0", message = "El margen máximo es 50mm")
     private Double margenPaginaIzquierdoMm = 4.8;
+
+    /**
+     * El QR se genera con {@code ^BQN,2,<modulo>}, y la magnificacion de ^BQ solo
+     * admite de 1 a 10: por encima de eso el ZPL sale fuera de rango y la Zebra no
+     * imprime lo que se configuro. Los demas codigos usan el tope general.
+     */
+    @AssertTrue(message = "Para código QR el módulo máximo es 10")
+    public boolean isModuloParaTipoCodigo() {
+        if (moduloCodigo == null || tipoCodigo == null) return true;
+        if (!"QR_CODE".equals(tipoCodigo)) return true;
+        return moduloCodigo <= 10;
+    }
 }
