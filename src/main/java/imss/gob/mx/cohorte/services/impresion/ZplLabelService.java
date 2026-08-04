@@ -111,8 +111,11 @@ public class ZplLabelService {
         int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
         int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
 
+        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
+
         String dataParaCodigo = (codigoData != null && !codigoData.isEmpty()) ? codigoData : etiqueta;
-        int dmDots = estimarTamanoCodigo(tipoCodigo, moduloCodigo, dataParaCodigo.length());
+        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo.length());
+        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, dataParaCodigo.length());
 
         int y = topMargin;
         List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
@@ -127,8 +130,8 @@ public class ZplLabelService {
                     break;
                 case CODIGO:
                     if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, dataParaCodigo, labelW, mx, dmDots);
-                        y += dmDots + gapCodigo;
+                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo, labelW, mx, codigoW);
+                        y += codigoH + gapCodigo;
                     }
                     break;
                 case ETIQUETA:
@@ -183,7 +186,9 @@ public class ZplLabelService {
         int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
         int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
 
-        int dmDots = estimarTamanoCodigo(tipoCodigo, moduloCodigo, etiqueta.length());
+        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
+        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, etiqueta.length());
+        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, etiqueta.length());
 
         int y = topMargin;
         List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
@@ -198,8 +203,8 @@ public class ZplLabelService {
                     break;
                 case CODIGO:
                     if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, etiqueta, labelW, mx, dmDots);
-                        y += dmDots + gapCodigo;
+                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, etiqueta, labelW, mx, codigoW);
+                        y += codigoH + gapCodigo;
                     }
                     break;
                 case ETIQUETA:
@@ -237,10 +242,16 @@ public class ZplLabelService {
     }
 
     private void appendCodigo(StringBuilder zpl, int xBase, int y,
-                               TipoCodigo tipo, int modulo, String data,
-                               int labelW, int mx, int dmDots) {
+                               TipoCodigo tipo, int modulo, int anchoBarra, String data,
+                               int labelW, int mx, int anchoCodigoDots) {
         int usableW = labelW - mx * 2;
-        int codeX = xBase + mx + Math.max(0, (usableW - dmDots) / 2);
+        int codeX = xBase + mx + Math.max(0, (usableW - anchoCodigoDots) / 2);
+
+        // ^BY fija el ancho de la barra angosta. Solo tiene efecto en los codigos
+        // lineales; en DataMatrix y QR el tamano va en el propio comando.
+        if (tipo == TipoCodigo.CODE_128) {
+            zpl.append("^BY").append(anchoBarra).append("\n");
+        }
 
         zpl.append("^FO").append(codeX).append(",").append(y);
         switch (tipo) {
@@ -255,6 +266,32 @@ public class ZplLabelService {
                 break;
         }
         zpl.append("^FD").append(data).append("^FS\n");
+    }
+
+    /**
+     * Ancho del simbolo en dots; se usa para centrarlo dentro de la etiqueta.
+     *
+     * En Code 128 cada caracter ocupa 11 modulos, mas arranque, digito de control
+     * y cierre: 11*n + 35 en el peor caso (subconjunto B). Ese total se multiplica
+     * por el ancho de barra, no por el modulo.
+     */
+    private int anchoCodigoDots(TipoCodigo tipo, int modulo, int anchoBarra, int dataLen) {
+        if (tipo == TipoCodigo.CODE_128) {
+            return (11 * dataLen + 35) * anchoBarra;
+        }
+        return estimarTamanoCodigo(tipo, modulo, dataLen);
+    }
+
+    /**
+     * Alto del simbolo en dots; es lo que avanza el cursor vertical despues de
+     * dibujarlo. En Code 128 lo marca ^BC (modulo*10), no el ancho del simbolo:
+     * usar el ancho aqui empujaba el texto siguiente muy por debajo de la etiqueta.
+     */
+    private int altoCodigoDots(TipoCodigo tipo, int modulo, int dataLen) {
+        if (tipo == TipoCodigo.CODE_128) {
+            return modulo * 10;
+        }
+        return estimarTamanoCodigo(tipo, modulo, dataLen);
     }
 
     private int estimarTamanoCodigo(TipoCodigo tipo, int modulo, int dataLen) {
