@@ -64,6 +64,7 @@ public class ConfiguracionEtiquetaService {
         config.setMargenSuperiorMm(datos.getMargenSuperiorMm());
         config.setTipoCodigo(datos.getTipoCodigo());
         config.setModuloCodigo(datos.getModuloCodigo());
+        config.setAnchoBarraCodigo(datos.getAnchoBarraCodigo());
         config.setTamanoFuenteNombre(datos.getTamanoFuenteNombre());
         config.setTamanoFuenteEtiqueta(datos.getTamanoFuenteEtiqueta());
         config.setEspaciadoNombre(datos.getEspaciadoNombre());
@@ -73,6 +74,14 @@ public class ConfiguracionEtiquetaService {
         config.setMostrarCodigo(datos.getMostrarCodigo());
         config.setMostrarEtiqueta(datos.getMostrarEtiqueta());
         config.setDisposicion(datos.getDisposicion());
+
+        // Estos cinco no se copiaban: editar la seccion de configuracion de
+        // pagina guardaba sin error pero dejaba los valores anteriores.
+        config.setFilasPorPagina(datos.getFilasPorPagina());
+        config.setEspacioHorizontalMm(datos.getEspacioHorizontalMm());
+        config.setEspacioVerticalMm(datos.getEspacioVerticalMm());
+        config.setMargenPaginaSuperiorMm(datos.getMargenPaginaSuperiorMm());
+        config.setMargenPaginaIzquierdoMm(datos.getMargenPaginaIzquierdoMm());
 
         if (Boolean.TRUE.equals(datos.getPredeterminada()) && !Boolean.TRUE.equals(config.getPredeterminada())) {
             quitarPredeterminadaActual(institucionId);
