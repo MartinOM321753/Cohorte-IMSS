@@ -41,14 +41,32 @@ public class ZplLabelService {
         return zpl.toString();
     }
 
-    public String generarZplDocumento(Documento documento, ConfiguracionEtiqueta config) {
+    /**
+     * Contenido que se codifica dentro del simbolo de una etiqueta de documento.
+     *
+     * Code 128 lleva siempre el codigo de la etiqueta: es un codigo lineal, y una
+     * URL completa da un simbolo de mas de 100 mm de ancho que no cabe en ninguna
+     * etiqueta. En DataMatrix y QR si se puede elegir, porque llevar el enlace
+     * permite abrir el documento con solo escanearlo.
+     */
+    public String contenidoCodigoDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                            boolean incluirEnlace) {
+        if (!incluirEnlace || config.getTipoCodigo() == TipoCodigo.CODE_128) {
+            return documento.getEtiqueta();
+        }
+        return frontendUrl + "/documento/" + documento.getEtiqueta();
+    }
+
+    public String generarZplDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                       boolean incluirEnlace) {
         String etiqueta = sanitizar(documento.getEtiqueta());
         String nombre = truncar(sanitizar(documento.getNombreOriginal()), 24);
-        String codigoData = frontendUrl + "/documento/" + documento.getEtiqueta();
+        String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
         return generarZplGenericoConUrl(etiqueta, nombre, codigoData, config);
     }
 
-    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config) {
+    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config,
+                                        boolean incluirEnlace) {
         int perRow = config.getEtiquetasPorFila();
         StringBuilder zpl = new StringBuilder();
         for (int i = 0; i < documentos.size(); i += perRow) {
@@ -67,7 +85,7 @@ public class ZplLabelService {
                 int xBase = j * labelW;
                 String etiqueta = sanitizar(fila.get(j).getEtiqueta());
                 String nombre = truncar(sanitizar(fila.get(j).getNombreOriginal()), 24);
-                String codigoData = frontendUrl + "/documento/" + fila.get(j).getEtiqueta();
+                String codigoData = contenidoCodigoDocumento(fila.get(j), config, incluirEnlace);
                 appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, xBase, labelW, topMargin, config);
             }
 
@@ -346,10 +364,11 @@ public class ZplLabelService {
         return muestras.stream().map(this::extraerDatosMuestra).toList();
     }
 
-    public LabelDataDTO extraerDatosDocumento(Documento documento) {
+    public LabelDataDTO extraerDatosDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                               boolean incluirEnlace) {
         String etiqueta = documento.getEtiqueta();
         String nombre = truncar(documento.getNombreOriginal(), 24);
-        String codigoData = frontendUrl + "/documento/" + etiqueta;
+        String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
         return LabelDataDTO.builder()
                 .etiqueta(etiqueta)
                 .nombre(nombre)
