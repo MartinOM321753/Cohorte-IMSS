@@ -23,6 +23,7 @@ public class ConfiguracionEtiquetaMapper {
                 .margenSuperiorMm(entity.getMargenSuperiorMm())
                 .tipoCodigo(entity.getTipoCodigo().name())
                 .moduloCodigo(entity.getModuloCodigo())
+                .anchoBarraCodigo(entity.getAnchoBarraCodigo())
                 .tamanoFuenteNombre(entity.getTamanoFuenteNombre())
                 .tamanoFuenteEtiqueta(entity.getTamanoFuenteEtiqueta())
                 .espaciadoNombre(entity.getEspaciadoNombre())
@@ -61,6 +62,7 @@ public class ConfiguracionEtiquetaMapper {
         entity.setMargenSuperiorMm(dto.getMargenSuperiorMm());
         entity.setTipoCodigo(TipoCodigo.valueOf(dto.getTipoCodigo()));
         entity.setModuloCodigo(dto.getModuloCodigo());
+        entity.setAnchoBarraCodigo(dto.getAnchoBarraCodigo() != null ? dto.getAnchoBarraCodigo() : 2);
         entity.setTamanoFuenteNombre(dto.getTamanoFuenteNombre());
         entity.setTamanoFuenteEtiqueta(dto.getTamanoFuenteEtiqueta());
         entity.setEspaciadoNombre(dto.getEspaciadoNombre() != null ? dto.getEspaciadoNombre() : 4);

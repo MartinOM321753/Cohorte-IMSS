@@ -21,6 +21,7 @@ public class ConfiguracionEtiquetaResponseDTO {
     private Double margenSuperiorMm;
     private String tipoCodigo;
     private Integer moduloCodigo;
+    private Integer anchoBarraCodigo;
     private Integer tamanoFuenteNombre;
     private Integer tamanoFuenteEtiqueta;
     private Integer espaciadoNombre;

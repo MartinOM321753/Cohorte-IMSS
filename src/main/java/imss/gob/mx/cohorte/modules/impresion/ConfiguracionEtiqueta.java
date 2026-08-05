@@ -55,6 +55,15 @@ public class ConfiguracionEtiqueta {
     @Column(name = "modulo_codigo", nullable = false)
     private Integer moduloCodigo = 6;
 
+    /**
+     * Ancho de la barra angosta, en dots. Solo aplica a los codigos lineales
+     * (Code 128), donde se emite como {@code ^BY}. En DataMatrix y QR el tamano
+     * del modulo lo lleva {@link #moduloCodigo}. El valor 2 es el que la Zebra
+     * usaba por omision antes de que este campo existiera.
+     */
+    @Column(name = "ancho_barra_codigo", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 2")
+    private Integer anchoBarraCodigo = 2;
+
     @Column(name = "tamano_fuente_nombre", nullable = false)
     private Integer tamanoFuenteNombre = 16;
 

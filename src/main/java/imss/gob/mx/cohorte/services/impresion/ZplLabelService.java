@@ -41,14 +41,32 @@ public class ZplLabelService {
         return zpl.toString();
     }
 
-    public String generarZplDocumento(Documento documento, ConfiguracionEtiqueta config) {
+    /**
+     * Contenido que se codifica dentro del simbolo de una etiqueta de documento.
+     *
+     * Code 128 lleva siempre el codigo de la etiqueta: es un codigo lineal, y una
+     * URL completa da un simbolo de mas de 100 mm de ancho que no cabe en ninguna
+     * etiqueta. En DataMatrix y QR si se puede elegir, porque llevar el enlace
+     * permite abrir el documento con solo escanearlo.
+     */
+    public String contenidoCodigoDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                            boolean incluirEnlace) {
+        if (!incluirEnlace || config.getTipoCodigo() == TipoCodigo.CODE_128) {
+            return documento.getEtiqueta();
+        }
+        return frontendUrl + "/documento/" + documento.getEtiqueta();
+    }
+
+    public String generarZplDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                       boolean incluirEnlace) {
         String etiqueta = sanitizar(documento.getEtiqueta());
         String nombre = truncar(sanitizar(documento.getNombreOriginal()), 24);
-        String codigoData = frontendUrl + "/documento/" + documento.getEtiqueta();
+        String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
         return generarZplGenericoConUrl(etiqueta, nombre, codigoData, config);
     }
 
-    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config) {
+    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config,
+                                        boolean incluirEnlace) {
         int perRow = config.getEtiquetasPorFila();
         StringBuilder zpl = new StringBuilder();
         for (int i = 0; i < documentos.size(); i += perRow) {
@@ -67,7 +85,7 @@ public class ZplLabelService {
                 int xBase = j * labelW;
                 String etiqueta = sanitizar(fila.get(j).getEtiqueta());
                 String nombre = truncar(sanitizar(fila.get(j).getNombreOriginal()), 24);
-                String codigoData = frontendUrl + "/documento/" + fila.get(j).getEtiqueta();
+                String codigoData = contenidoCodigoDocumento(fila.get(j), config, incluirEnlace);
                 appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, xBase, labelW, topMargin, config);
             }
 
@@ -111,8 +129,11 @@ public class ZplLabelService {
         int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
         int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
 
+        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
+
         String dataParaCodigo = (codigoData != null && !codigoData.isEmpty()) ? codigoData : etiqueta;
-        int dmDots = estimarTamanoCodigo(tipoCodigo, moduloCodigo, dataParaCodigo.length());
+        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo.length());
+        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, dataParaCodigo.length());
 
         int y = topMargin;
         List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
@@ -127,8 +148,8 @@ public class ZplLabelService {
                     break;
                 case CODIGO:
                     if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, dataParaCodigo, labelW, mx, dmDots);
-                        y += dmDots + gapCodigo;
+                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo, labelW, mx, codigoW);
+                        y += codigoH + gapCodigo;
                     }
                     break;
                 case ETIQUETA:
@@ -183,7 +204,9 @@ public class ZplLabelService {
         int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
         int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
 
-        int dmDots = estimarTamanoCodigo(tipoCodigo, moduloCodigo, etiqueta.length());
+        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
+        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, etiqueta.length());
+        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, etiqueta.length());
 
         int y = topMargin;
         List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
@@ -198,8 +221,8 @@ public class ZplLabelService {
                     break;
                 case CODIGO:
                     if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, etiqueta, labelW, mx, dmDots);
-                        y += dmDots + gapCodigo;
+                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, etiqueta, labelW, mx, codigoW);
+                        y += codigoH + gapCodigo;
                     }
                     break;
                 case ETIQUETA:
@@ -237,10 +260,16 @@ public class ZplLabelService {
     }
 
     private void appendCodigo(StringBuilder zpl, int xBase, int y,
-                               TipoCodigo tipo, int modulo, String data,
-                               int labelW, int mx, int dmDots) {
+                               TipoCodigo tipo, int modulo, int anchoBarra, String data,
+                               int labelW, int mx, int anchoCodigoDots) {
         int usableW = labelW - mx * 2;
-        int codeX = xBase + mx + Math.max(0, (usableW - dmDots) / 2);
+        int codeX = xBase + mx + Math.max(0, (usableW - anchoCodigoDots) / 2);
+
+        // ^BY fija el ancho de la barra angosta. Solo tiene efecto en los codigos
+        // lineales; en DataMatrix y QR el tamano va en el propio comando.
+        if (tipo == TipoCodigo.CODE_128) {
+            zpl.append("^BY").append(anchoBarra).append("\n");
+        }
 
         zpl.append("^FO").append(codeX).append(",").append(y);
         switch (tipo) {
@@ -255,6 +284,32 @@ public class ZplLabelService {
                 break;
         }
         zpl.append("^FD").append(data).append("^FS\n");
+    }
+
+    /**
+     * Ancho del simbolo en dots; se usa para centrarlo dentro de la etiqueta.
+     *
+     * En Code 128 cada caracter ocupa 11 modulos, mas arranque, digito de control
+     * y cierre: 11*n + 35 en el peor caso (subconjunto B). Ese total se multiplica
+     * por el ancho de barra, no por el modulo.
+     */
+    private int anchoCodigoDots(TipoCodigo tipo, int modulo, int anchoBarra, int dataLen) {
+        if (tipo == TipoCodigo.CODE_128) {
+            return (11 * dataLen + 35) * anchoBarra;
+        }
+        return estimarTamanoCodigo(tipo, modulo, dataLen);
+    }
+
+    /**
+     * Alto del simbolo en dots; es lo que avanza el cursor vertical despues de
+     * dibujarlo. En Code 128 lo marca ^BC (modulo*10), no el ancho del simbolo:
+     * usar el ancho aqui empujaba el texto siguiente muy por debajo de la etiqueta.
+     */
+    private int altoCodigoDots(TipoCodigo tipo, int modulo, int dataLen) {
+        if (tipo == TipoCodigo.CODE_128) {
+            return modulo * 10;
+        }
+        return estimarTamanoCodigo(tipo, modulo, dataLen);
     }
 
     private int estimarTamanoCodigo(TipoCodigo tipo, int modulo, int dataLen) {
@@ -309,10 +364,11 @@ public class ZplLabelService {
         return muestras.stream().map(this::extraerDatosMuestra).toList();
     }
 
-    public LabelDataDTO extraerDatosDocumento(Documento documento) {
+    public LabelDataDTO extraerDatosDocumento(Documento documento, ConfiguracionEtiqueta config,
+                                               boolean incluirEnlace) {
         String etiqueta = documento.getEtiqueta();
         String nombre = truncar(documento.getNombreOriginal(), 24);
-        String codigoData = frontendUrl + "/documento/" + etiqueta;
+        String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
         return LabelDataDTO.builder()
                 .etiqueta(etiqueta)
                 .nombre(nombre)

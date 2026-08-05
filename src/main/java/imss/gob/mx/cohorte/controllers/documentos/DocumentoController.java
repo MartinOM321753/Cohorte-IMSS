@@ -308,25 +308,32 @@ public class DocumentoController {
 
     // ─── Impresión de etiquetas ────────────────────────────────────────────────
 
+    /**
+     * {@code incluirEnlace} decide que se codifica dentro del simbolo: el enlace para
+     * abrir el documento, o solo el codigo de la etiqueta. En Code 128 se ignora y
+     * siempre va el codigo, porque el enlace no cabe en una etiqueta lineal.
+     */
     @GetMapping("/{id}/etiqueta/zpl")
     public ResponseEntity<String> getZplEtiqueta(
             @PathVariable Long id,
-            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId,
+            @RequestParam(value = "incluirEnlace", defaultValue = "true") boolean incluirEnlace
     ) {
         Documento doc = documentoService.getDocumentoById(id);
         ConfiguracionEtiqueta config = resolverConfig(configuracionId);
-        String zpl = zplLabelService.generarZplDocumento(doc, config);
+        String zpl = zplLabelService.generarZplDocumento(doc, config, incluirEnlace);
         return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).body(zpl);
     }
 
     @GetMapping("/{id}/etiqueta/datos")
     public ResponseEntity<APIResponse> getDatosEtiqueta(
             @PathVariable Long id,
-            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId,
+            @RequestParam(value = "incluirEnlace", defaultValue = "true") boolean incluirEnlace
     ) {
         Documento doc = documentoService.getDocumentoById(id);
         ConfiguracionEtiqueta config = resolverConfig(configuracionId);
-        LabelDataDTO labelData = zplLabelService.extraerDatosDocumento(doc);
+        LabelDataDTO labelData = zplLabelService.extraerDatosDocumento(doc, config, incluirEnlace);
         PrintableLabelBatchDTO batch = PrintableLabelBatchDTO.builder()
                 .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
                 .etiquetas(java.util.List.of(labelData))
@@ -334,15 +341,39 @@ public class DocumentoController {
         return ResponseEntity.ok(new APIResponse("Datos de etiqueta", batch, false, HttpStatus.OK));
     }
 
+    /**
+     * Datos de varias etiquetas en una sola llamada, para imprimir en lote desde el navegador.
+     * Respeta el orden en que llegan los identificadores: es el orden con el que el usuario
+     * las acomoda despues sobre la hoja.
+     */
+    @GetMapping("/etiquetas/datos")
+    public ResponseEntity<APIResponse> getDatosEtiquetasLote(
+            @RequestParam("ids") List<Long> ids,
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId,
+            @RequestParam(value = "incluirEnlace", defaultValue = "true") boolean incluirEnlace
+    ) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+        List<LabelDataDTO> etiquetas = ids.stream()
+                .map(documentoService::getDocumentoById)
+                .map(doc -> zplLabelService.extraerDatosDocumento(doc, config, incluirEnlace))
+                .toList();
+        PrintableLabelBatchDTO batch = PrintableLabelBatchDTO.builder()
+                .configuracion(ConfiguracionEtiquetaMapper.toResponseDTO(config))
+                .etiquetas(etiquetas)
+                .build();
+        return ResponseEntity.ok(new APIResponse("Datos de etiquetas", batch, false, HttpStatus.OK));
+    }
+
     @PostMapping("/{id}/etiqueta/imprimir")
     public ResponseEntity<APIResponse> imprimirEtiqueta(
             @PathVariable Long id,
             @RequestParam("impresora") String impresora,
-            @RequestParam(value = "configuracionId", required = false) Long configuracionId
+            @RequestParam(value = "configuracionId", required = false) Long configuracionId,
+            @RequestParam(value = "incluirEnlace", defaultValue = "true") boolean incluirEnlace
     ) {
         Documento doc = documentoService.getDocumentoById(id);
         ConfiguracionEtiqueta config = resolverConfig(configuracionId);
-        String zpl = zplLabelService.generarZplDocumento(doc, config);
+        String zpl = zplLabelService.generarZplDocumento(doc, config, incluirEnlace);
         directPrintService.imprimir(zpl, impresora);
         return ResponseEntity.ok(new APIResponse("Etiqueta enviada a impresora", null, false, HttpStatus.OK));
     }
