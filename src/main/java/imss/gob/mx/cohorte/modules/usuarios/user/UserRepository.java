@@ -28,6 +28,9 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
 
     boolean existsByPersona_Id(Long personaId);
 
+    /** Cuenta de acceso ligada a una persona, si es que se le creo alguna. */
+    Optional<BeanUser> findByPersona_Id(Long personaId);
+
     @Query("SELECT u.persona.id FROM BeanUser u WHERE u.persona.id IN :personaIds")
     Set<Long> findPersonaIdsWithUserAccount(@Param("personaIds") List<Long> personaIds);
 

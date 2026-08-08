@@ -101,6 +101,18 @@ public class PacienteService {
         return pacienteRepository.save(paciente);
     }
 
+    /**
+     * Variante para editar un participante que puede pertenecer a otra institucion
+     * del grupo (registro cruzado entre sedes). La institucion del participante NO
+     * cambia aqui: se conserva la que ya tenia, porque mover a alguien de sede
+     * dejaria su historial —estudios, muestras, citas— en la sede anterior.
+     */
+    public Paciente updatePatient(Paciente paciente, List<Long> idsInstituciones) {
+        Paciente pacienteBD = pacienteRepository.findByIdAndInstitucion_IdIn(paciente.getId(), idsInstituciones)
+                .orElseThrow(() -> new ObjNotFoundException("El participante no existe"));
+        return updatePatient(paciente, pacienteBD.getInstitucion().getId());
+    }
+
     public Paciente updatePatient(Paciente paciente, Long idInstitucion) {
         Paciente pacienteBD = pacienteRepository.findByIdAndInstitucion_Id(paciente.getId(), idInstitucion)
                 .orElseThrow(() -> new ObjNotFoundException("El participante no existe"));
@@ -167,6 +179,20 @@ public class PacienteService {
             throw new ObjNotFoundException("El participante no se encuentra activo");
         }
         return findPatient;
+    }
+
+    /** Igual que getByUUID por conjunto pero sin lanzar: para procesos por lote. */
+    public java.util.Optional<Paciente> buscarPorUUID(String uuid, List<Long> idsInstituciones) {
+        return pacienteRepository.findByUuidAndInstitucion_IdIn(uuid, idsInstituciones);
+    }
+
+    public Paciente guardar(Paciente paciente) {
+        return pacienteRepository.save(paciente);
+    }
+
+    /** Participantes fuera de alcance de los que la institucion conserva registros. */
+    public List<Paciente> buscarConRegistrosDeInstitucion(Long idInstitucion, List<Long> alcanzables) {
+        return pacienteRepository.findConRegistrosDeInstitucion(idInstitucion, alcanzables);
     }
 
     public Paciente getPatient(Long idPaciente, List<Long> idsInstituciones) {

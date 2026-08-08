@@ -16,7 +16,10 @@ import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import imss.gob.mx.cohorte.services.auth.PasswordResetService;
 import imss.gob.mx.cohorte.services.pacientes.ImportacionParticipantesAsyncService;
 import imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService;
+import imss.gob.mx.cohorte.services.institucion.InstitucionRegistroService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteTitularidadService;
 import imss.gob.mx.cohorte.services.reclutamiento.ReclutamientoParticipanteService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.CredentialGenerator;
@@ -34,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
@@ -49,6 +53,9 @@ public class PacienteApplicationService {
     private final ImportacionParticipantesAsyncService importacionParticipantesAsyncService;
     private final InstitucionContextService institucionContextService;
     private final InstitucionJerarquiaService institucionJerarquiaService;
+    private final InstitucionRegistroService institucionRegistroService;
+    private final ParticipanteTitularidadService participanteTitularidadService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserRepository userRepository;
     private final UserService userService;
     private final RoleRepository roleRepository;
@@ -121,14 +128,17 @@ public class PacienteApplicationService {
         return pacienteService.findAllStatusByInstitucion(false, institucionContextService.getIdInstitucionActual());
     }
 
+    // Estas dos abren la ficha de un participante. Van por el conjunto alcanzable y
+    // no por la institución propia: los listados ya mostraban participantes de la
+    // jerarquía, así que abrir uno de ellos respondía "no se encontró".
     @Transactional
     public Paciente findUser(Long id) {
-        return pacienteService.getPatient(id, institucionContextService.getIdInstitucionActual());
+        return participanteAccesoService.resolverPorId(id);
     }
 
     @Transactional
     public Paciente findByUUID(String uuid) {
-        return pacienteService.getByUUID(uuid, institucionContextService.getIdInstitucionActual());
+        return participanteAccesoService.resolver(uuid);
     }
 
     @Transactional
@@ -138,12 +148,26 @@ public class PacienteApplicationService {
 
     @Transactional
     public Paciente saveUser(Paciente paciente) {
+        return saveUser(paciente, null);
+    }
+
+    /**
+     * Registra un participante, opcionalmente a nombre de otra institución del
+     * mismo grupo.
+     *
+     * <p>La institución nunca se toma tal cual del cliente: {@code idInstitucionSolicitada}
+     * es una petición que se valida contra el conjunto que
+     * {@code InstitucionRegistroService} calcula en el servidor. Si se omite, o si
+     * la sede no tiene autorización para registrar fuera de sí misma, queda la del
+     * usuario autenticado.</p>
+     */
+    @Transactional
+    public Paciente saveUser(Paciente paciente, Long idInstitucionSolicitada) {
         Persona savePersona = personaService.createPerson(paciente.getPersona());
         paciente.setPersona(savePersona);
-        // La institución del participante SIEMPRE se infiere del usuario autenticado —
-        // nunca se acepta del cliente, para evitar que se registre en otra institución.
-        Institucion institucionActual = institucionContextService.getInstitucionActual();
-        paciente.setInstitucion(institucionActual);
+        Institucion destino = institucionRegistroService.resolverInstitucionDestino(
+                institucionContextService.getIdInstitucionActual(), idInstitucionSolicitada);
+        paciente.setInstitucion(destino);
         return pacienteService.cretePatient(paciente);
     }
 
@@ -157,7 +181,13 @@ public class PacienteApplicationService {
      */
     @Transactional
     public Paciente saveUserConReclutamiento(Paciente paciente, ReclutamientoParticipanteRequestDTO reclutamientoDto, String uuidUsuarioAutenticado) {
-        Paciente saved = saveUser(paciente);
+        return saveUserConReclutamiento(paciente, reclutamientoDto, uuidUsuarioAutenticado, null);
+    }
+
+    @Transactional
+    public Paciente saveUserConReclutamiento(Paciente paciente, ReclutamientoParticipanteRequestDTO reclutamientoDto,
+                                             String uuidUsuarioAutenticado, Long idInstitucionSolicitada) {
+        Paciente saved = saveUser(paciente, idInstitucionSolicitada);
 
         String uuidRecluta = (reclutamientoDto.getUuidUsuarioRecluta() != null && !reclutamientoDto.getUuidUsuarioRecluta().isBlank())
                 ? reclutamientoDto.getUuidUsuarioRecluta()
@@ -222,14 +252,186 @@ public class PacienteApplicationService {
         }
     }
 
+    /**
+     * Actualiza un participante. Se busca dentro de las instituciones visibles y no
+     * solo en la propia, porque con el registro cruzado un participante puede
+     * pertenecer a otra sede del grupo. Su institución no se toca: cambiarla dejaría
+     * su historial —estudios, muestras, citas, documentos— en la sede anterior.
+     */
     @Transactional
     public Paciente updateUser(Paciente paciente) {
-        Long idInstitucionActual = institucionContextService.getIdInstitucionActual();
-        Paciente existing = pacienteService.getPatient(paciente.getId(), idInstitucionActual);
+        List<Long> visibles = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+        Paciente existing = pacienteService.getPatient(paciente.getId(), visibles);
         paciente.getPersona().setId(existing.getPersona().getId());
         Persona updatePersona = personaService.update(paciente.getPersona());
         paciente.setPersona(updatePersona);
-        return pacienteService.updatePatient(paciente, idInstitucionActual);
+        return pacienteService.updatePatient(paciente, visibles);
+    }
+
+    // ─── Cambio de institución del participante ──────────────────────────────
+
+    /**
+     * Vínculos que impiden mover al participante. Lista vacía significa que sí se
+     * puede. Se consulta antes de ofrecer el cambio en pantalla; la decisión real
+     * se vuelve a tomar dentro de {@link #cambiarInstitucion}.
+     */
+    @Transactional(readOnly = true)
+    public List<ParticipanteTitularidadService.Vinculo> vinculosQueImpidenCambio(String uuidPaciente) {
+        // Resolver el participante primero valida que el usuario alcance a verlo.
+        pacienteService.getByUUID(uuidPaciente, getInstitucionesVisibles());
+        return participanteTitularidadService.vinculosQueImpidenCambio(uuidPaciente);
+    }
+
+    /**
+     * Cambia la institución dueña de un participante.
+     *
+     * <p>Solo procede mientras nada lo ate a su institución actual. La comprobación
+     * se repite aquí dentro y no basta con la consulta previa de la pantalla: entre
+     * una y otra alguien pudo registrarle un estudio.</p>
+     *
+     * <p>La cuenta de acceso del participante, si existe, se mueve con él: su
+     * institución la copió de aquí cuando se creó y dejarla atrás la desincronizaría.
+     * El reclutamiento no se toca — registra quién lo contactó, y eso no cambia.</p>
+     */
+    @Transactional
+    public Paciente cambiarInstitucion(String uuidPaciente, Long idInstitucionDestino) {
+        Paciente paciente = pacienteService.getByUUID(uuidPaciente, getInstitucionesVisibles());
+        Institucion destino = institucionRegistroService.resolverInstitucionDestino(
+                institucionContextService.getIdInstitucionActual(), idInstitucionDestino);
+
+        List<ParticipanteTitularidadService.Vinculo> vinculos =
+                participanteTitularidadService.vinculosQueImpidenCambio(uuidPaciente);
+        if (!vinculos.isEmpty()) {
+            throw new ValidationException(
+                    "No se puede cambiar la institución: el participante ya tiene "
+                            + participanteTitularidadService.describir(vinculos)
+                            + " registrados en su institución actual.");
+        }
+
+        return aplicarCambioInstitucion(paciente, destino);
+    }
+
+    /** Texto legible de los vínculos, para el mensaje que ve el usuario. */
+    public String describirVinculos(List<ParticipanteTitularidadService.Vinculo> vinculos) {
+        return participanteTitularidadService.describir(vinculos);
+    }
+
+    /** Resultado de mover un participante dentro de una reasignación en lote. */
+    public record ResultadoReasignacion(String uuid, String folio, boolean movido, String motivo) {}
+
+    /**
+     * Reasignación en lote, para redistribuir lo que la importación masiva dejó
+     * todo a nombre de una sola sede.
+     *
+     * <p>Cada participante se resuelve por separado y sin excepciones: que uno tenga
+     * un estudio no debe abortar el resto ni marcar la transacción para deshacerse.
+     * El destino sí se valida una sola vez al principio — es el mismo para todos, y
+     * si no está autorizado no hay nada que procesar.</p>
+     */
+    @Transactional
+    public List<ResultadoReasignacion> reasignarInstitucion(List<String> uuids, Long idInstitucionDestino) {
+        Institucion destino = institucionRegistroService.resolverInstitucionDestino(
+                institucionContextService.getIdInstitucionActual(), idInstitucionDestino);
+        List<Long> visibles = getInstitucionesVisibles();
+
+        List<ResultadoReasignacion> resultados = new ArrayList<>();
+
+        for (String uuid : uuids) {
+            Paciente paciente = pacienteService.buscarPorUUID(uuid, visibles).orElse(null);
+            if (paciente == null) {
+                resultados.add(new ResultadoReasignacion(uuid, null, false,
+                        "No se encontró el participante o no pertenece a una institución que puedas ver"));
+                continue;
+            }
+
+            String folio = paciente.getFolio();
+
+            if (destino.getId().equals(paciente.getInstitucion().getId())) {
+                resultados.add(new ResultadoReasignacion(uuid, folio, false,
+                        "Ya pertenece a la institución destino"));
+                continue;
+            }
+
+            List<ParticipanteTitularidadService.Vinculo> vinculos =
+                    participanteTitularidadService.vinculosQueImpidenCambio(uuid);
+            if (!vinculos.isEmpty()) {
+                resultados.add(new ResultadoReasignacion(uuid, folio, false,
+                        "Tiene " + participanteTitularidadService.describir(vinculos)));
+                continue;
+            }
+
+            aplicarCambioInstitucion(paciente, destino);
+            resultados.add(new ResultadoReasignacion(uuid, folio, true, null));
+        }
+
+        return resultados;
+    }
+
+    /**
+     * Escribe el cambio. La cuenta de acceso del participante, si existe, se mueve
+     * con él: su institución la copió de aquí cuando se creó y dejarla atrás la
+     * desincronizaría. El reclutamiento no se toca — registra quién lo contactó, y
+     * eso no cambia porque cambie de sede.
+     */
+    private Paciente aplicarCambioInstitucion(Paciente paciente, Institucion destino) {
+        paciente.setInstitucion(destino);
+        paciente.setFechaActualizacion(LocalDateTime.now());
+        Paciente guardado = pacienteService.guardar(paciente);
+
+        if (paciente.getPersona() != null) {
+            userRepository.findByPersona_Id(paciente.getPersona().getId()).ifPresent(cuenta -> {
+                cuenta.setInstitucion(destino);
+                userRepository.save(cuenta);
+            });
+        }
+
+        return guardado;
+    }
+
+    // ─── Participantes que ya no se gestionan pero conservan registros propios ──
+
+    /**
+     * Participantes fuera del alcance actual de la institución de los que, sin
+     * embargo, conserva registros. Aparecen en la búsqueda marcados como «ya no los
+     * gestionas»: se les puede consultar lo que esta sede registró, nada más.
+     */
+    @Transactional(readOnly = true)
+    public List<Paciente> getParticipantesConRegistrosPropios() {
+        return pacienteService.buscarConRegistrosDeInstitucion(
+                institucionContextService.getIdInstitucionActual(),
+                getInstitucionesVisibles());
+    }
+
+    /**
+     * Resuelve un participante para consulta histórica: no está al alcance, pero
+     * esta institución conserva registros suyos.
+     *
+     * <p>No abre el expediente. Solo confirma que hay algo propio que mostrar; los
+     * registros se piden después, cada uno filtrado por la institución. Si no
+     * hubiera ninguno, no habría nada que ver y se rechaza.</p>
+     */
+    @Transactional(readOnly = true)
+    public Paciente resolverParaConsultaHistorica(String uuid) {
+        return getParticipantesConRegistrosPropios().stream()
+                .filter(p -> p.getUuid().equals(uuid))
+                .findFirst()
+                .orElseThrow(() -> new AccessDeniedException(
+                        "No gestionas a este participante y no conservas registros suyos"));
+    }
+
+    /** Instituciones a las que el usuario actual puede asignar un participante nuevo. */
+    @Transactional(readOnly = true)
+    public List<Institucion> getInstitucionesParaRegistro() {
+        return institucionRegistroService.getInstitucionesParaRegistroDetalle(
+                institucionContextService.getIdInstitucionActual());
+    }
+
+    /** Instituciones cuyos participantes el usuario actual alcanza a ver. */
+    @Transactional(readOnly = true)
+    public List<Long> getInstitucionesVisibles() {
+        return institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
     }
 
     /** Alterna el estado activo/inactivo del paciente. Devuelve el paciente actualizado. */
@@ -240,7 +442,7 @@ public class PacienteApplicationService {
 
     @Transactional
     public Paciente crearAccesoPaciente(String uuid) {
-        Paciente paciente = pacienteService.getByUUID(uuid, institucionContextService.getIdInstitucionActual());
+        Paciente paciente = participanteAccesoService.resolver(uuid);
 
         if (!Boolean.TRUE.equals(paciente.getActivo())) {
             throw new ValidationException("Solo se puede crear acceso para participantes activos");

@@ -55,6 +55,35 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     Optional<Paciente> findByUuidAndInstitucion_IdIn(String uuid, List<Long> ids);
 
+    /**
+     * Participantes que ya NO estan al alcance de la institucion pero de los que
+     * conserva registros propios.
+     *
+     * <p>Es el caso de una sede a la que le revocaron el permiso: dejo de gestionar
+     * al participante, pero los estudios, muestras, citas, somatometrias y
+     * resultados que ella capturo siguen siendo suyos. Sin esta consulta esa
+     * informacion queda inalcanzable, porque buscar al participante ya no lo
+     * encuentra.</p>
+     *
+     * @param idInstitucion la institucion que conserva los registros
+     * @param alcanzables   instituciones que ya ve por la via normal; se excluyen
+     *                      para no duplicar lo que la busqueda habitual ya muestra
+     */
+    @Query("""
+        SELECT DISTINCT p FROM Paciente p
+        WHERE p.institucion.id NOT IN :alcanzables
+          AND (
+               EXISTS (SELECT 1 FROM EstudioMedico e   WHERE e.paciente = p AND e.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Muestra m         WHERE m.paciente = p AND m.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Cita c            WHERE c.paciente = p AND c.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Somatometria s    WHERE s.paciente = p AND s.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM ResultadoExamen r WHERE r.paciente = p AND r.institucion.id = :idInstitucion)
+          )
+        ORDER BY p.folio ASC
+    """)
+    List<Paciente> findConRegistrosDeInstitucion(@Param("idInstitucion") Long idInstitucion,
+                                                  @Param("alcanzables") List<Long> alcanzables);
+
     Optional<Paciente> findByFolioAndInstitucion_IdIn(String folio, List<Long> ids);
 
     Optional<Paciente> findByIdAndInstitucion_IdIn(Long id, List<Long> ids);

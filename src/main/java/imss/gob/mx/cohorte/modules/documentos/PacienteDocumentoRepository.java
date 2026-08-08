@@ -16,4 +16,7 @@ public interface PacienteDocumentoRepository extends JpaRepository<PacienteDocum
     void deleteByDocumento_Id(Long documentoId);
 
     long countByPaciente_Institucion_Id(Long idInstitucion);
+
+    /** Sin filtro de institucion: se usa para saber si un participante ya quedo vinculado a alguna. */
+    long countByPaciente_Uuid(String uuid);
 }
