@@ -139,6 +139,8 @@ public class EstudioMapper {
                 .tipoEstudioid(e.getTipoEstudio().getId())
                 .cantidadResultados(numResultados)
                 .cantidadAdjuntos(numAdjuntos)
+                .institucionId(e.getInstitucion() != null ? e.getInstitucion().getId() : null)
+                .institucionNombre(e.getInstitucion() != null ? e.getInstitucion().getNombre() : null)
                 .build();
     }
 
@@ -162,5 +164,21 @@ public class EstudioMapper {
 
     public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {
         return list.stream().map(EstudioMapper::toResponseDTOList).collect(Collectors.toList());
+    }
+
+    /**
+     * Variante que marca si el participante de cada estudio sigue al alcance del
+     * usuario. Un registro puede seguir siendo de esta institucion aunque le hayan
+     * revocado el acceso al participante: se muestra, pero sin invitar a abrirlo.
+     */
+    public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list,
+                                                                 java.util.Collection<Long> institucionesAlcanzables) {
+        return list.stream().map(e -> {
+            EstudioListRequestDTO dto = toResponseDTOList(e);
+            Long idInstPaciente = (e.getPaciente() != null && e.getPaciente().getInstitucion() != null)
+                    ? e.getPaciente().getInstitucion().getId() : null;
+            dto.setPacienteAlcanzable(idInstPaciente != null && institucionesAlcanzables.contains(idInstPaciente));
+            return dto;
+        }).collect(Collectors.toList());
     }
 }
