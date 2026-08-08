@@ -39,6 +39,26 @@ public class CoberturaController {
     private final ResultadoExamenRepository  resultadoExamenRepository;
     private final EstudioMedicoRepository    estudioMedicoRepository;
     private final InstitucionContextService  institucionContextService;
+    private final imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService institucionJerarquiaService;
+
+
+    /**
+     * Institucion sobre la que se calcula la cobertura. Por omision la propia; se
+     * puede pedir la de otra sede siempre que este al alcance del usuario.
+     *
+     * <p>La cobertura se mide por sede a proposito: mezclar el padron de varias en
+     * un solo porcentaje esconde justo lo que el tablero debe mostrar, que es el
+     * pendiente de cada una.</p>
+     */
+    private long resolverInstitucion(Long solicitada) {
+        long propia = institucionContextService.getIdInstitucionActual();
+        if (solicitada == null || solicitada == propia) return propia;
+        if (!institucionJerarquiaService.getInstitucionesVisibles(propia).contains(solicitada)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "La institución solicitada no está a tu alcance");
+        }
+        return solicitada;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/dashboard/cobertura/examenes
@@ -46,9 +66,10 @@ public class CoberturaController {
     @GetMapping("/examenes")
     @Operation(summary = "Cobertura por examen",
                description = "Para cada examen activo: cuántos pacientes activos lo tienen registrado.")
-    public ResponseEntity<APIResponse> getCoberturaExamenes() {
+    public ResponseEntity<APIResponse> getCoberturaExamenes(
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         long total = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
         List<Examen> examenes = examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
@@ -72,9 +93,10 @@ public class CoberturaController {
     @GetMapping("/estudios")
     @Operation(summary = "Cobertura por tipo de estudio",
                description = "Para cada tipo de estudio activo: cuántos pacientes activos lo tienen registrado.")
-    public ResponseEntity<APIResponse> getCoberturaEstudios() {
+    public ResponseEntity<APIResponse> getCoberturaEstudios(
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         long total = pacienteRepository.countByActivoAndInstitucion_Id(true, idInstitucion);
         List<TipoEstudio> tipos = tipoEstudioRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
@@ -98,9 +120,11 @@ public class CoberturaController {
     @GetMapping("/distribucion")
     @Operation(summary = "Distribución de completitud",
                description = "Cuántos pacientes tienen exactamente k tipos cubiertos (k = 0…N).")
-    public ResponseEntity<APIResponse> getDistribucion(@RequestParam String tipo) {
+    public ResponseEntity<APIResponse> getDistribucion(
+            @RequestParam String tipo,
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         boolean esExamen = "EXAMEN".equalsIgnoreCase(tipo);
 
@@ -152,9 +176,10 @@ public class CoberturaController {
                description = "Pacientes activos que aún no tienen el examen o estudio indicado.")
     public ResponseEntity<APIResponse> getPendientes(
             @RequestParam Long tipoId,
-            @RequestParam String catalogoTipo) {
+            @RequestParam String catalogoTipo,
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
         int totalTipos = esExamen
@@ -177,9 +202,10 @@ public class CoberturaController {
                description = "Pacientes activos que tienen exactamente k tipos cubiertos.")
     public ResponseEntity<APIResponse> getGrupo(
             @RequestParam int cantidadTipos,
-            @RequestParam String catalogoTipo) {
+            @RequestParam String catalogoTipo,
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
         int totalTipos = esExamen
@@ -217,9 +243,10 @@ public class CoberturaController {
                description = "Hasta 100 pacientes ordenados por menor cobertura, con estado por celda.")
     public ResponseEntity<APIResponse> getMatriz(
             @RequestParam String catalogoTipo,
-            @RequestParam(defaultValue = "100") int limit) {
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(value = "idInstitucion", required = false) Long idInstitucionFiltro) {
 
-        long idInstitucion = institucionContextService.getIdInstitucionActual();
+        long idInstitucion = resolverInstitucion(idInstitucionFiltro);
 
         boolean esExamen = "EXAMEN".equalsIgnoreCase(catalogoTipo);
 
