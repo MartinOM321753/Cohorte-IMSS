@@ -68,8 +68,9 @@ public class GestionEstudiosApplicationService {
     //PARAMETROS
     @Transactional(readOnly = true)
     public List<ParametroEstudio> getParametrosByTipo(Long tipoEstudioId) {
-        // getOne verifica que el tipo pertenezca a la institución del usuario.
-        getOne(tipoEstudioId);
+        // Lectura acotada al conjunto alcanzable: hace falta para consultar un estudio
+        // registrado por otra sede, cuyo tipo vive en el catálogo de esa institución.
+        tipoService.getOneParaLectura(tipoEstudioId);
         return parametroService.getByTipoEstudio(tipoEstudioId);
     }
 

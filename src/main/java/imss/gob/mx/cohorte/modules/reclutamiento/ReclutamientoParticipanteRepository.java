@@ -13,4 +13,9 @@ public interface ReclutamientoParticipanteRepository extends JpaRepository<Reclu
 
     Optional<ReclutamientoParticipante> findByPaciente_IdAndPaciente_Institucion_Id(Long idPaciente, Long idInstitucion);
     Optional<ReclutamientoParticipante> findByPaciente_UuidAndPaciente_Institucion_Id(String uuidPaciente, Long idInstitucion);
+
+    /** Variantes por conjunto de instituciones alcanzables (atencion entre sedes). */
+    Optional<ReclutamientoParticipante> findByPaciente_IdAndPaciente_Institucion_IdIn(Long idPaciente, java.util.List<Long> ids);
+
+    Optional<ReclutamientoParticipante> findByPaciente_UuidAndPaciente_Institucion_IdIn(String uuidPaciente, java.util.List<Long> ids);
 }

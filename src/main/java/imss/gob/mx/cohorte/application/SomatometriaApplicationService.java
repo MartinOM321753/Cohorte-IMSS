@@ -11,6 +11,7 @@ import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 import imss.gob.mx.cohorte.services.somatometria.SomatometriaService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import lombok.AllArgsConstructor;
@@ -29,31 +30,45 @@ public class SomatometriaApplicationService {
 
     private final SomatometriaService somatometriaService;
     private final PacienteService pacienteService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
     private final InstitucionContextService institucionContextService;
     private final ConfiguracionHorarioRepository configuracionHorarioRepository;
 
+    // Estas dos no validaban nada: bastaba el permiso SOMATOMETRIA_VER y conocer el
+    // UUID para leer el historial de un participante de otra institución. Resolver
+    // el participante primero cierra esa puerta, y el servicio además acota la lista
+    // a las instituciones alcanzables.
     @Transactional(readOnly = true)
     public List<Somatometria> getHistorialByPaciente(String pacienteUUID) {
+        participanteAccesoService.resolver(pacienteUUID);
         return somatometriaService.findByPacienteUuid(pacienteUUID);
     }
 
     @Transactional(readOnly = true)
     public Optional<Somatometria> getLatest(String pacienteUUID) {
+        participanteAccesoService.resolver(pacienteUUID);
         return somatometriaService.findLatest(pacienteUUID);
+    }
+
+    /** Somatometrias registradas por mi institucion, incluidas las de participantes que ya no gestiono. */
+    @Transactional(readOnly = true)
+    public List<Somatometria> getTodasDeMiInstitucion() {
+        return somatometriaService.findAllDeMiInstitucion();
     }
 
     @Transactional(readOnly = true)
     public Somatometria getById(Long id) {
         Somatometria somatometria = somatometriaService.findById(id);
-        institucionContextService.verificarPertenece(somatometria.getInstitucion());
+        participanteAccesoService.verificarLecturaRegistro(
+                somatometria.getInstitucion(), somatometria.getPaciente());
         return somatometria;
     }
 
     @Transactional
     public Somatometria create(SomatometriaRequestDTO dto) {
         validarFechaMedicion(dto.getFechaMedicion());
-        Paciente paciente = pacienteService.getByUUID(dto.getPacienteUUID(), institucionContextService.getIdInstitucionActual());
+        Paciente paciente = participanteAccesoService.resolver(dto.getPacienteUUID());
         BeanUser usuario = userService.getByUUID(dto.getUsuarioRegistraUUID());
         Institucion institucion = institucionContextService.getInstitucionActual();
 

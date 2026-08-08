@@ -11,6 +11,9 @@ import java.util.List;
 @Repository
 public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Long> {
 
+    /** Sin filtro de institucion: se usa para saber si un participante ya quedo vinculado a alguna. */
+    long countByPaciente_Uuid(String uuid);
+
     /*
      * Las colecciones resultadoEstudio y adjuntos son LAZY + @BatchSize(30).
      * Hibernate las carga en queries secundarias con IN(...) agrupando hasta 30 IDs
@@ -25,6 +28,11 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     List<EstudioMedico> findAllByPaciente_UuidOrderByFechaEstudioDesc(String uuid);
 
     List<EstudioMedico> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaEstudioDesc(String uuid, Long idInstitucion);
+
+    /** Variante por conjunto de instituciones: al atender entre sedes, el historial es la union de lo que hizo el grupo. */
+    List<EstudioMedico> findAllByPaciente_UuidAndInstitucion_IdInOrderByFechaEstudioDesc(String uuid, java.util.List<Long> idsInstituciones);
+
+    org.springframework.data.domain.Page<EstudioMedico> findAllByPaciente_UuidAndInstitucion_IdInOrderByFechaEstudioDesc(String uuid, java.util.List<Long> idsInstituciones, org.springframework.data.domain.Pageable pageable);
 
     /**
      * Variantes paginadas: sin fetch de colecciones para no forzar paginación en memoria.

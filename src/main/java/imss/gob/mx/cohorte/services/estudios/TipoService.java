@@ -18,6 +18,7 @@ public class TipoService {
 
     private final TipoEstudioRepository tipoEstudioRepository;
     private final InstitucionContextService institucionContextService;
+    private final imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService institucionJerarquiaService;
 
     /** Todos los TipoEstudio de la institución actual, filtrados por estado. */
     public List<TipoEstudio> getAllByStatus(Boolean status) {
@@ -35,6 +36,27 @@ public class TipoService {
         return tipoEstudioRepository.findByNombreIgnoreCaseAndInstitucion_Id(
                 nombre, institucionContextService.getIdInstitucionActual())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));
+    }
+
+    /**
+     * Lectura de la definicion de un tipo de estudio para CONSULTAR un estudio que
+     * lo usa. El catalogo es por institucion, asi que ver un estudio de otra sede
+     * obliga a leer su tipo: sin esto la consulta rebota al pedir los parametros.
+     *
+     * <p>Solo lectura. {@link #getOne(Long)} sigue exigiendo que el tipo sea de la
+     * institucion propia, de modo que no se puede crear ni editar un estudio a
+     * partir del catalogo de otra sede.</p>
+     */
+    public TipoEstudio getOneParaLectura(Long id) {
+        TipoEstudio tipo = tipoEstudioRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));
+        if (!institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual())
+                .contains(tipo.getInstitucion().getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "El tipo de estudio pertenece a otra institución");
+        }
+        return tipo;
     }
 
     public TipoEstudio getOne(Long id) {

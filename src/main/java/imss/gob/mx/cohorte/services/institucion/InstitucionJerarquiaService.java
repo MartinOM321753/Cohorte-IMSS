@@ -18,15 +18,24 @@ public class InstitucionJerarquiaService {
 
     private final InstitucionRepository institucionRepository;
     private final PermisoAccesoPacientesRepository permisoRepository;
+    private final InstitucionRegistroService institucionRegistroService;
 
+    /**
+     * Instituciones cuyos participantes alcanza {@code idInstitucionActual}: los ve
+     * en sus listados y —desde que el acceso tambien habilita atender— puede
+     * registrarles estudios, muestras, citas y demas.
+     *
+     * <p>Parte del conjunto para registro, de modo que todo aquello a nombre de lo
+     * que se puede dar de alta tambien se puede ver: registrar un participante para
+     * una hermana y despues no poder abrirlo seria incoherente. A eso se suman los
+     * ancestros que otorgaron acceso explicito a su padron.</p>
+     */
     public List<Long> getInstitucionesVisibles(Long idInstitucionActual) {
-        Set<Long> ids = new LinkedHashSet<>();
-        ids.add(idInstitucionActual);
+        // Propia + descendientes + el grupo del padre cuando hay autorizacion de registro.
+        Set<Long> ids = new LinkedHashSet<>(
+                institucionRegistroService.getInstitucionesParaRegistro(idInstitucionActual));
 
-        // Descendientes (siempre visibles para el padre)
-        agregarDescendientes(idInstitucionActual, ids);
-
-        // Ancestros con permiso otorgado
+        // Ancestros que abrieron su padron explicitamente.
         List<PermisoAccesoPacientes> permisos =
                 permisoRepository.findAllByInstitucionRecibe_IdAndHabilitadoTrue(idInstitucionActual);
         for (PermisoAccesoPacientes permiso : permisos) {
@@ -34,15 +43,6 @@ public class InstitucionJerarquiaService {
         }
 
         return new ArrayList<>(ids);
-    }
-
-    private void agregarDescendientes(Long idPadre, Set<Long> acumulador) {
-        List<Institucion> hijas = institucionRepository.findAllByInstitucionPadre_Id(idPadre);
-        for (Institucion hija : hijas) {
-            if (acumulador.add(hija.getId())) {
-                agregarDescendientes(hija.getId(), acumulador);
-            }
-        }
     }
 
     @Transactional

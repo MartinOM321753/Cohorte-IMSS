@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.estudios;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
@@ -17,14 +19,17 @@ import java.util.List;
 @AllArgsConstructor
 public class EstudioService {
     private final EstudioMedicoRepository estudioMedicoRepository;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public EstudioMedico getOne(Long id) {
-        EstudioMedico estudio = estudioMedicoRepository.findById(id)
+        // Sin puerta aqui a proposito: quien llama decide. getEstudio aplica la regla
+        // de lectura (union) y updateEstudio/deleteEstudio siguen exigiendo que el
+        // estudio sea de la institucion propia. Tenerla aqui bloqueaba la consulta
+        // de un estudio ajeno antes de que la regla de lectura pudiera evaluarse.
+        return estudioMedicoRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el estudio medico"));
-        institucionContextService.verificarPertenece(estudio.getInstitucion());
-        return estudio;
     }
 
     @Transactional(readOnly = true)
@@ -35,8 +40,7 @@ public class EstudioService {
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getAllByPacienteUUID(String uuid) {
-        return estudioMedicoRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaEstudioDesc(
-                uuid, institucionContextService.getIdInstitucionActual());
+        return estudioMedicoRepository.findAllByPaciente_UuidOrderByFechaEstudioDesc(uuid);
     }
 
     @Transactional(readOnly = true)
@@ -47,8 +51,7 @@ public class EstudioService {
 
     @Transactional(readOnly = true)
     public Page<EstudioMedico> getAllByPacienteUUIDPaginado(String uuid, Pageable pageable) {
-        return estudioMedicoRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaEstudioDesc(
-                uuid, institucionContextService.getIdInstitucionActual(), pageable);
+        return estudioMedicoRepository.findAllByPaciente_UuidOrderByFechaEstudioDesc(uuid, pageable);
     }
 
     @Transactional(rollbackFor = Exception.class)

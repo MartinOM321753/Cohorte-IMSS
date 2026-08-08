@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.documentos;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.controllers.documentos.dto.DocumentoResponseDTO;
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
@@ -51,6 +53,7 @@ public class DocumentoService {
     private final DocumentoPermisosConfig permisosConfig;
     private final DocumentoEtiquetaService etiquetaService;
     private final InstitucionContextService institucionCtx;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final TrasladoMuestraRepository trasladoMuestraRepository;
 
     public DocumentoService(
@@ -67,7 +70,8 @@ public class DocumentoService {
             DocumentoPermisosConfig permisosConfig,
             DocumentoEtiquetaService etiquetaService,
             InstitucionContextService institucionCtx,
-            TrasladoMuestraRepository trasladoMuestraRepository
+            TrasladoMuestraRepository trasladoMuestraRepository,
+            ParticipanteAccesoService participanteAccesoService
     ) {
         this.minioService = minioService;
         this.documentoRepository = documentoRepository;
@@ -83,6 +87,7 @@ public class DocumentoService {
         this.etiquetaService = etiquetaService;
         this.institucionCtx = institucionCtx;
         this.trasladoMuestraRepository = trasladoMuestraRepository;
+        this.participanteAccesoService = participanteAccesoService;
     }
 
     // ─── Validación de permisos ───────────────────────────────────────────────────
@@ -452,8 +457,13 @@ public class DocumentoService {
         institucionCtx.verificarPertenece(estudio.getInstitucion());
     }
 
+    /**
+     * Puerta de los documentos de un participante. Pasa por el conjunto alcanzable
+     * y no por la institucion propia: si se atiende a un participante de otra sede,
+     * tambien hay que poder ver y adjuntar sus documentos.
+     */
     private void validarPacientePertenece(Paciente paciente) {
-        institucionCtx.verificarPertenece(paciente.getInstitucion());
+        participanteAccesoService.verificarAlcance(paciente);
     }
 
     private void validarMuestraAccesible(Muestra muestra) {

@@ -9,6 +9,20 @@ import java.util.Optional;
 
 public interface SomatometriaRepository extends JpaRepository<Somatometria, Long> {
 
+    /** Sin filtro de institucion: se usa para saber si un participante ya quedo vinculado a alguna. */
+    long countByPaciente_Uuid(String uuid);
+
+    /** Lo que mi sede le registro a un participante concreto. */
+    java.util.List<Somatometria> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaMedicionDesc(
+            String uuid, Long idInstitucion);
+
+    /** Lo que registro mi sede, independientemente de a quien. */
+    java.util.List<Somatometria> findAllByInstitucion_IdOrderByFechaMedicionDesc(Long idInstitucion);
+
+    /** Historial acotado a las instituciones alcanzables. */
+    java.util.List<Somatometria> findByPaciente_UuidAndInstitucion_IdInOrderByFechaMedicionDesc(
+            String uuid, java.util.List<Long> idsInstituciones);
+
     /** Historial ordenado por fecha desc para un paciente */
     @Query("""
         SELECT s FROM Somatometria s

@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
@@ -35,6 +37,7 @@ import java.util.List;
 public class MuestraService {
 
     private final MuestraRepository muestraRepository;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final PacienteRepository pacienteRepository;
     private final UserRepository userRepository;
     private final PosicionCajaRepository posicionCajaRepository;
@@ -71,7 +74,7 @@ public class MuestraService {
 
     @Transactional(readOnly = true)
     public long countByPacienteUuid(String uuid) {
-        return muestraRepository.countByPaciente_UuidAndInstitucion_Id(uuid, institucionContextService.getIdInstitucionActual());
+        return muestraRepository.countByPaciente_Uuid(uuid);
     }
 
     @Transactional(readOnly = true)

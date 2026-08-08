@@ -26,6 +26,11 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
     Page<Muestra> findAllByInstitucion_Id(Long idInstitucion, Pageable pageable);
     List<Muestra> findAllByPaciente_UuidAndInstitucion_Id(String uuid, Long idInstitucion);
     long countByPaciente_UuidAndInstitucion_Id(String uuid, Long idInstitucion);
+
+    /** Variante por conjunto de instituciones (atencion entre sedes del grupo). */
+    long countByPaciente_UuidAndInstitucion_IdIn(String uuid, java.util.List<Long> idsInstituciones);
+
+    List<Muestra> findAllByPaciente_UuidAndInstitucion_IdIn(String uuid, java.util.List<Long> idsInstituciones);
     long countByInstitucion_Id(Long idInstitucion);
 
     /** Muestras cuyo tenedor actual es la institución dada (biobanco en tiempo real). */
