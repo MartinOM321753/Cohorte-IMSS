@@ -79,6 +79,22 @@ public class Institucion {
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
+    /**
+     * Si esta institución quiere ver, por defecto, los participantes de sus hijas.
+     *
+     * <p>Es el valor que se aplica a las hijas sin decisión explícita en
+     * {@link VisibilidadInstitucionHija}, incluidas las que se creen en el futuro:
+     * quien apaga el interruptor espera que las sedes nuevas nazcan ocultas, no
+     * que reaparezcan de una en una.</p>
+     *
+     * <p>Arranca en TRUE con {@code DEFAULT} en la columna porque la tabla ya está
+     * poblada y este era el comportamiento anterior — así el sistema se comporta
+     * igual que antes hasta que alguien decida lo contrario.</p>
+     */
+    @Column(name = "ver_participantes_hijas", nullable = false,
+            columnDefinition = "BIT(1) NOT NULL DEFAULT b'1'")
+    private Boolean verParticipantesHijas = true;
+
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;
 }

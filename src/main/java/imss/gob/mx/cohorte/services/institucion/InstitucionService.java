@@ -34,14 +34,17 @@ public class InstitucionService {
     private final PermisoEvaluationService permisoEvaluationService;
 
     /**
-     * Instituciones visibles para el usuario actual según la jerarquía (propias,
-     * descendientes y ancestras con permiso otorgado) — alimenta el selector de
-     * institución del frontend cuando el modo "jerarquía" está activo.
+     * Instituciones que el usuario puede elegir en el selector de sede.
+     *
+     * <p>Va por {@code getInstitucionesParaSelector} y no por el alcance de
+     * participantes: incluye también las hijas cuyos participantes esta institución
+     * decidió no ver, porque seguirlas administrando —y poder volver a mostrarlas—
+     * es independiente de querer ver su padrón.</p>
      */
     @Transactional(readOnly = true)
     public List<Institucion> getVisiblesParaJerarquia() {
         Long idActual = institucionContextService.getIdInstitucionActual();
-        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(idActual);
+        List<Long> ids = institucionJerarquiaService.getInstitucionesParaSelector(idActual);
         return institucionRepository.findAllById(ids);
     }
 

@@ -5,7 +5,9 @@ import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
 import imss.gob.mx.cohorte.modules.institucion.PermisoRegistroParticipantes;
 import imss.gob.mx.cohorte.modules.institucion.PermisoRegistroParticipantesRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
-import jakarta.validation.ValidationException;
+// La del proyecto, no la de jakarta: el GlobalExceptionHandler solo mapea esta. Con
+// la de jakarta este servicio venía devolviendo 500 en vez de explicar el motivo.
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,8 @@ public class InstitucionRegistroService {
 
     private final InstitucionRepository institucionRepository;
     private final PermisoRegistroParticipantesRepository permisoRepository;
+    private final InstitucionArbolService arbol;
+    private final InstitucionVisibilidadService visibilidad;
 
     /**
      * Instituciones a las que {@code idInstitucionActual} puede asignar un
@@ -45,7 +49,9 @@ public class InstitucionRegistroService {
         Set<Long> ids = new LinkedHashSet<>();
         ids.add(idInstitucionActual);
 
-        agregarDescendientes(idInstitucionActual, ids);
+        // Descendientes que esta institución ha decidido seguir viendo. No se puede
+        // dar de alta un participante en una sede que no ves: nacería invisible.
+        ids.addAll(visibilidad.descendientesVisibles(idInstitucionActual));
 
         // El permiso lo otorga el padre y habilita todo su grupo: el propio padre
         // y las hermanas que cuelgan de el. No se otorga par por par porque la
@@ -101,13 +107,6 @@ public class InstitucionRegistroService {
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la institución indicada"));
     }
 
-    private void agregarDescendientes(Long idPadre, Set<Long> acumulador) {
-        for (Institucion hija : institucionRepository.findAllByInstitucionPadre_Id(idPadre)) {
-            if (acumulador.add(hija.getId())) {
-                agregarDescendientes(hija.getId(), acumulador);
-            }
-        }
-    }
 
     // ── Administracion del permiso ──────────────────────────────────────────
 
@@ -159,13 +158,6 @@ public class InstitucionRegistroService {
     }
 
     private boolean esAncestra(Institucion posibleAncestra, Institucion objetivo) {
-        Institucion actual = objetivo;
-        while (actual.getInstitucionPadre() != null) {
-            actual = actual.getInstitucionPadre();
-            if (actual.getId().equals(posibleAncestra.getId())) {
-                return true;
-            }
-        }
-        return false;
+        return arbol.esAncestra(posibleAncestra.getId(), objetivo.getId());
     }
 }
