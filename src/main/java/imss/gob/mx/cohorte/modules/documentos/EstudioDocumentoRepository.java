@@ -14,6 +14,9 @@ public interface EstudioDocumentoRepository extends JpaRepository<EstudioDocumen
 
     List<EstudioDocumento> findByEstudio_IdOrderByOrdenAsc(Long estudioId);
 
+    /** Resuelve a qué estudio cuelga un documento, para heredar de él su puerta de acceso. */
+    List<EstudioDocumento> findByDocumento_Id(Long documentoId);
+
     void deleteByDocumento_Id(Long documentoId);
 
     @Modifying

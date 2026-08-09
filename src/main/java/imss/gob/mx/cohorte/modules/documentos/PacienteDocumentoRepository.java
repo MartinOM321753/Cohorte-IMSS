@@ -13,6 +13,9 @@ public interface PacienteDocumentoRepository extends JpaRepository<PacienteDocum
     List<PacienteDocumento> findByPaciente_UuidAndTipoDocOrderByDocumento_FechaSubidaDesc(
             String uuid, TipoDocumentoPaciente tipoDoc);
 
+    /** Resuelve a qué participante cuelga un documento, para heredar de él su puerta de acceso. */
+    List<PacienteDocumento> findByDocumento_Id(Long documentoId);
+
     void deleteByDocumento_Id(Long documentoId);
 
     long countByPaciente_Institucion_Id(Long idInstitucion);
