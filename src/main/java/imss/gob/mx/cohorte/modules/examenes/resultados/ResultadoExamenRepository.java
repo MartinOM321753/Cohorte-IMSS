@@ -22,6 +22,9 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     List<ResultadoExamen> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
             String uuid, Long idInstitucion);
 
+    Page<ResultadoExamen> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+            String uuid, Long idInstitucion, Pageable pageable);
+
     /** Lo que capturo mi sede, independientemente de a quien se lo hizo. */
     List<ResultadoExamen> findAllByInstitucion_IdOrderByFechaResultadoDesc(Long idInstitucion);
 

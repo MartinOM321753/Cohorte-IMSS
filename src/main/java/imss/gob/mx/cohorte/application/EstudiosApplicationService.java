@@ -70,11 +70,13 @@ public class EstudiosApplicationService {
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getEstudiosByPaciente(String uuid) {
-        // Puerta: alcanzar al participante. La consulta ya no filtra por institucion,
-        // asi que esta comprobacion es la unica defensa — y la correcta: el expediente
-        // de un participante es su historial completo, lo haya hecho quien lo haya hecho.
-        participanteAccesoService.resolver(uuid);
-        return estudioService.getAllByPacienteUUID(uuid);
+        // Si alcanzo al participante veo su historial completo; si no lo alcanzo pero
+        // conservo registros suyos, veo solo los mios. Es la regla de union a nivel
+        // de lista — ver ParticipanteAccesoService.resolverParaLectura.
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? estudioService.getAllByPacienteUUIDDeMiInstitucion(uuid)
+                : estudioService.getAllByPacienteUUID(uuid);
     }
 
     @Transactional(readOnly = true)
@@ -84,8 +86,10 @@ public class EstudiosApplicationService {
 
     @Transactional(readOnly = true)
     public Page<EstudioMedico> getEstudiosByPacientePaginado(String uuid, Pageable pageable) {
-        participanteAccesoService.resolver(uuid);
-        return estudioService.getAllByPacienteUUIDPaginado(uuid, pageable);
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? estudioService.getAllByPacienteUUIDDeMiInstitucionPaginado(uuid, pageable)
+                : estudioService.getAllByPacienteUUIDPaginado(uuid, pageable);
     }
 
     @Transactional

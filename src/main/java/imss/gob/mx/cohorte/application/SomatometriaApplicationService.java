@@ -41,13 +41,15 @@ public class SomatometriaApplicationService {
     // a las instituciones alcanzables.
     @Transactional(readOnly = true)
     public List<Somatometria> getHistorialByPaciente(String pacienteUUID) {
-        participanteAccesoService.resolver(pacienteUUID);
-        return somatometriaService.findByPacienteUuid(pacienteUUID);
+        var acceso = participanteAccesoService.resolverParaLectura(pacienteUUID);
+        return acceso.soloPropio()
+                ? somatometriaService.findByPacienteUuidDeMiInstitucion(pacienteUUID)
+                : somatometriaService.findByPacienteUuid(pacienteUUID);
     }
 
     @Transactional(readOnly = true)
     public Optional<Somatometria> getLatest(String pacienteUUID) {
-        participanteAccesoService.resolver(pacienteUUID);
+        participanteAccesoService.resolverParaLectura(pacienteUUID);
         return somatometriaService.findLatest(pacienteUUID);
     }
 

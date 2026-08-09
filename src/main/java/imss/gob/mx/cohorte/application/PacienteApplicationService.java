@@ -420,6 +420,21 @@ public class PacienteApplicationService {
                         "No gestionas a este participante y no conservas registros suyos"));
     }
 
+    /**
+     * Identidad del participante para una pantalla de consulta: quién es y si ya no
+     * se le gestiona.
+     *
+     * <p>Va aparte de {@link #findByUUID} a propósito. Aquélla abre el expediente y
+     * sigue exigiendo alcance sobre el participante; ésta solo resuelve el nombre y
+     * el folio con los que rotular un historial que la institución ya tiene derecho
+     * a ver. Mezclarlas convertiría un registro suelto en la llave del expediente
+     * completo de una sede ajena.</p>
+     */
+    @Transactional(readOnly = true)
+    public ParticipanteAccesoService.AccesoLectura resolverParaLectura(String uuid) {
+        return participanteAccesoService.resolverParaLectura(uuid);
+    }
+
     /** Instituciones a las que el usuario actual puede asignar un participante nuevo. */
     @Transactional(readOnly = true)
     public List<Institucion> getInstitucionesParaRegistro() {

@@ -69,11 +69,13 @@ public class CitaApplicationService {
 
     @Transactional(readOnly = true)
     public List<Cita> findAllByPacienteUuid(String uuid) {
-        // Puerta: alcanzar al participante. La consulta ya no filtra por institucion,
-        // asi que esta comprobacion es la unica defensa — y la correcta: el expediente
-        // de un participante es su historial completo, lo haya hecho quien lo haya hecho.
-        participanteAccesoService.resolver(uuid);
-        return citaService.findAllByPacienteUuid(uuid);
+        // Si alcanzo al participante veo su historial completo; si no lo alcanzo pero
+        // conservo registros suyos, veo solo los mios. Es la regla de union a nivel
+        // de lista — ver ParticipanteAccesoService.resolverParaLectura.
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? citaService.findAllByPacienteUuidDeMiInstitucion(uuid)
+                : citaService.findAllByPacienteUuid(uuid);
     }
 
     @Transactional

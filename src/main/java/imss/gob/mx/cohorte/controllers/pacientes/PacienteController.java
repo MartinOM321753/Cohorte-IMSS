@@ -182,6 +182,23 @@ public class PacienteController {
         return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
+    @GetMapping("/uuid/{uuid}/basico")
+    @Operation(summary = "Identidad del participante para pantallas de consulta",
+               description = "Devuelve nombre, folio e institución, y marca soloConsulta cuando el " +
+                       "participante ya no se gestiona pero esta institución conserva registros suyos. " +
+                       "Sirve para rotular un historial y para preseleccionar el desplegable; NO abre " +
+                       "el expediente, que sigue exigiendo alcance sobre el participante.")
+    public ResponseEntity<APIResponse> getBasicoByUUID(
+            @Parameter(description = "UUID del paciente", required = true)
+            @PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
+        var acceso = pacienteApplicationService.resolverParaLectura(uuid);
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        var dto = PacienteMapper.toResponseDTO(acceso.paciente(), null, idInstActual);
+        dto.setSoloConsulta(acceso.soloPropio());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", dto, false, HttpStatus.OK));
+    }
+
     @GetMapping("/mi-uuid")
     @Operation(summary = "Obtener mi propio UUID de paciente",
                description = "Para el rol PACIENTE: resuelve el UUID de su propio expediente a partir de la sesión, " +
@@ -190,6 +207,17 @@ public class PacienteController {
     public ResponseEntity<APIResponse> getMiUuid() {
         Paciente propio = pacienteApplicationService.obtenerPacientePropio();
         return ResponseEntity.ok(new APIResponse("UUID propio", Map.of("uuid", propio.getUuid()), false, HttpStatus.OK));
+    }
+
+    /** Coincidencia por folio o nombre, como la busqueda normal. */
+    private boolean coincide(Paciente p, String filtro) {
+        String folio = p.getFolio() != null ? p.getFolio().toLowerCase() : "";
+        var per = p.getPersona();
+        String nombre = per == null ? "" : (
+                (per.getNombre() != null ? per.getNombre() : "") + " " +
+                (per.getApellidoPaterno() != null ? per.getApellidoPaterno() : "") + " " +
+                (per.getApellidoMaterno() != null ? per.getApellidoMaterno() : "")).toLowerCase();
+        return folio.contains(filtro) || nombre.contains(filtro);
     }
 
     @GetMapping("/buscar")
@@ -201,18 +229,38 @@ public class PacienteController {
                        "de participantes activos con jerarquia institucional aplicada.")
     public ResponseEntity<APIResponse> buscarParaLookup(
             @RequestParam(value = "q", required = false) String q,
-            @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia) {
+            @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia,
+            @RequestParam(value = "incluirSoloConsulta", defaultValue = "false") boolean incluirSoloConsulta) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Pageable pageable = PageRequest.of(0, 20);
         Page<Paciente> page = incluirJerarquia
                 ? pacienteApplicationService.buscarPaginadoConJerarquia(q, true, null, pageable)
                 : pacienteApplicationService.buscarPaginado(q, true, pageable);
 
+        List<Paciente> resultados = new java.util.ArrayList<>(page.getContent());
+
+        // Los de solo consulta se agregan aparte porque la busqueda normal no los ve:
+        // ya no se gestionan. Van al final y marcados, para consultar lo propio.
+        long extras = 0;
+        if (incluirSoloConsulta) {
+            String filtro = q != null ? q.trim().toLowerCase() : "";
+            List<Paciente> soloConsulta = pacienteApplicationService.getParticipantesConRegistrosPropios().stream()
+                    .filter(p -> filtro.isEmpty() || coincide(p, filtro))
+                    .limit(20)
+                    .toList();
+            resultados.addAll(soloConsulta);
+            extras = soloConsulta.size();
+        }
+
+        var alcanzables = pacienteApplicationService.getInstitucionesVisibles();
+
+        // El total tiene que contar los agregados: si no, un consumidor que se guie
+        // por totalElements concluye "sin resultados" mientras content trae filas.
         Map<String, Object> body = Map.of(
-            "content", PacienteMapper.toResponseDTOList(page.getContent(), idInstActual),
+            "content", PacienteMapper.toResponseDTOListMarcandoSoloConsulta(resultados, idInstActual, alcanzables),
             "page", page.getNumber(),
             "size", page.getSize(),
-            "totalElements", page.getTotalElements(),
+            "totalElements", page.getTotalElements() + extras,
             "totalPages", page.getTotalPages()
         );
         return ResponseEntity.ok(new APIResponse("Resultados de busqueda", body, false, HttpStatus.OK));

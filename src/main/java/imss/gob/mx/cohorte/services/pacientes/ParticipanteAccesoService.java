@@ -33,6 +33,7 @@ import java.util.List;
 public class ParticipanteAccesoService {
 
     private final PacienteService pacienteService;
+    private final imss.gob.mx.cohorte.modules.paciente.PacienteRepository pacienteRepository;
     private final InstitucionJerarquiaService institucionJerarquiaService;
     private final InstitucionContextService institucionContextService;
 
@@ -89,13 +90,59 @@ public class ParticipanteAccesoService {
      */
     @Transactional(readOnly = true)
     public void verificarLecturaRegistro(Institucion institucionRegistro, Paciente paciente) {
+        if (!puedeLeerRegistro(institucionRegistro, paciente)) {
+            throw new AccessDeniedException("El registro pertenece a otra institución");
+        }
+    }
+
+    /**
+     * La misma regla de {@link #verificarLecturaRegistro} pero como predicado.
+     *
+     * <p>Existe porque un documento puede colgar de más de una entidad y hay que
+     * poder preguntar por varias antes de negar: con una versión que solo lanza,
+     * la primera que fallara cortaría la evaluación de las demás.</p>
+     */
+    @Transactional(readOnly = true)
+    public boolean puedeLeerRegistro(Institucion institucionRegistro, Paciente paciente) {
         List<Long> alcanzables = institucionesAlcanzables();
 
-        if (institucionRegistro != null && alcanzables.contains(institucionRegistro.getId())) return;
-        if (paciente != null && paciente.getInstitucion() != null
-                && alcanzables.contains(paciente.getInstitucion().getId())) return;
+        if (institucionRegistro != null && alcanzables.contains(institucionRegistro.getId())) return true;
+        return paciente != null && paciente.getInstitucion() != null
+                && alcanzables.contains(paciente.getInstitucion().getId());
+    }
 
-        throw new AccessDeniedException("El registro pertenece a otra institución");
+    /**
+     * Resultado de abrir un participante para LEER su historial.
+     *
+     * <p>{@code soloPropio} distingue los dos modos: si la institucion alcanza al
+     * participante ve su historial completo; si no lo alcanza pero conserva
+     * registros suyos ve unicamente los que ella hizo. Es la misma regla de union
+     * que se aplica registro por registro, llevada al nivel de lista.</p>
+     */
+    public record AccesoLectura(Paciente paciente, boolean soloPropio) {}
+
+    /**
+     * Abre un participante para consulta. Lanza si no se alcanza y ademas no hay
+     * nada propio que mostrar.
+     */
+    @Transactional(readOnly = true)
+    public AccesoLectura resolverParaLectura(String uuidPaciente) {
+        Paciente alcanzable = pacienteService
+                .buscarPorUUID(uuidPaciente, institucionesAlcanzables())
+                .orElse(null);
+        if (alcanzable != null) {
+            return new AccesoLectura(alcanzable, false);
+        }
+
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        if (pacienteRepository.tieneRegistrosDeInstitucion(uuidPaciente, idInstitucion)) {
+            Paciente p = pacienteRepository.findByUuid(uuidPaciente)
+                    .orElseThrow(() -> new AccessDeniedException("No se encontró el participante"));
+            return new AccesoLectura(p, true);
+        }
+
+        throw new AccessDeniedException(
+                "No gestionas a este participante y no conservas registros suyos");
     }
 
     /** ¿Alcanzo a este participante? Sin lanzar, para decidir qué mostrar en pantalla. */

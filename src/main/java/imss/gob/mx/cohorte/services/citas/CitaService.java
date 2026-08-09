@@ -61,6 +61,12 @@ public class CitaService {
         return cita;
     }
 
+    /** Solo lo que agendo mi institucion a este participante. */
+    public List<Cita> findAllByPacienteUuidDeMiInstitucion(String uuid) {
+        return citaRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(
+                uuid, institucionContextService.getIdInstitucionActual());
+    }
+
     public List<Cita> findAllByPacienteUuid(String uuid) {
         return citaRepository.findAllByPaciente_UuidOrderByStartAtUtcDesc(uuid);
     }

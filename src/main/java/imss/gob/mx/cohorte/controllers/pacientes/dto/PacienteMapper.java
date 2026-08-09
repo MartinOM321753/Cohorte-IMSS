@@ -106,6 +106,21 @@ public class PacienteMapper {
         return list.stream().map(PacienteMapper::toResponseDTO).toList();
     }
 
+    /**
+     * Variante que marca a los participantes de solo consulta: los que la institucion
+     * ya no gestiona pero de los que conserva registros. El desplegable los ofrece
+     * distinguidos para que no se intente registrarles nada nuevo.
+     */
+    public static List<PacienteResponseDTO> toResponseDTOListMarcandoSoloConsulta(
+            List<Paciente> list, Long idInstitucionActual, java.util.Collection<Long> alcanzables) {
+        return list.stream().map(p -> {
+            PacienteResponseDTO dto = toResponseDTO(p, null, idInstitucionActual);
+            Long idInst = p.getInstitucion() != null ? p.getInstitucion().getId() : null;
+            dto.setSoloConsulta(idInst != null && !alcanzables.contains(idInst));
+            return dto;
+        }).toList();
+    }
+
     public static List<PacienteResponseDTO> toResponseDTOList(List<Paciente> list, Long idInstitucionActual) {
         return list.stream().map(p -> toResponseDTO(p, null, idInstitucionActual)).toList();
     }

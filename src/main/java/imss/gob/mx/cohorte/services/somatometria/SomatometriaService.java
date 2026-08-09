@@ -20,8 +20,15 @@ public class SomatometriaService {
     private final imss.gob.mx.cohorte.security.institucion.InstitucionContextService institucionContextService;
     private final ParticipanteAccesoService participanteAccesoService;
 
+    /** Solo lo que registro mi institucion a este participante (consulta historica). */
     @Transactional(readOnly = true)
+    public List<Somatometria> findByPacienteUuidDeMiInstitucion(String uuid) {
+        return repository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaMedicionDesc(
+                uuid, institucionContextService.getIdInstitucionActual());
+    }
+
     /** Somatometrias registradas por mi institucion, sin pasar por el participante. */
+    @Transactional(readOnly = true)
     public List<Somatometria> findAllDeMiInstitucion() {
         return repository.findAllByInstitucion_IdOrderByFechaMedicionDesc(
                 institucionContextService.getIdInstitucionActual());

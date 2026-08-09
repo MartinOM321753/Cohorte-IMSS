@@ -43,6 +43,19 @@ public class EstudioService {
         return estudioMedicoRepository.findAllByPaciente_UuidOrderByFechaEstudioDesc(uuid);
     }
 
+    /** Solo lo que registro mi institucion a este participante (modo consulta historica). */
+    @Transactional(readOnly = true)
+    public List<EstudioMedico> getAllByPacienteUUIDDeMiInstitucion(String uuid) {
+        return estudioMedicoRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaEstudioDesc(
+                uuid, institucionContextService.getIdInstitucionActual());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EstudioMedico> getAllByPacienteUUIDDeMiInstitucionPaginado(String uuid, Pageable pageable) {
+        return estudioMedicoRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaEstudioDesc(
+                uuid, institucionContextService.getIdInstitucionActual(), pageable);
+    }
+
     @Transactional(readOnly = true)
     public Page<EstudioMedico> getAllPaginado(Pageable pageable) {
         return estudioMedicoRepository.findAllByInstitucion_IdOrderByFechaEstudioDesc(

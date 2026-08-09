@@ -84,6 +84,31 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     List<Paciente> findConRegistrosDeInstitucion(@Param("idInstitucion") Long idInstitucion,
                                                   @Param("alcanzables") List<Long> alcanzables);
 
+    /**
+     * Version puntual de la anterior: ¿esta institucion conserva algun registro de
+     * este participante? Se consulta en cada lectura por participante, asi que
+     * pregunta por uno en vez de traer la lista completa.
+     *
+     * <p>Las muestras quedan fuera a proposito. Una muestra es inventario propio que
+     * se sigue usando —alicuotando, aplicandole estudios de calidad— con
+     * independencia de quien gestione hoy al participante, y su aislamiento va por
+     * propietaria/tenedora. Tenerla en cuenta aqui abriria el historial clinico a
+     * quien solo conserva tubos en su congelador.</p>
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END
+        FROM Paciente p
+        WHERE p.uuid = :uuid
+          AND (
+               EXISTS (SELECT 1 FROM EstudioMedico e   WHERE e.paciente = p AND e.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Cita c            WHERE c.paciente = p AND c.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Somatometria s    WHERE s.paciente = p AND s.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM ResultadoExamen r WHERE r.paciente = p AND r.institucion.id = :idInstitucion)
+          )
+    """)
+    boolean tieneRegistrosDeInstitucion(@Param("uuid") String uuid,
+                                         @Param("idInstitucion") Long idInstitucion);
+
     Optional<Paciente> findByFolioAndInstitucion_IdIn(String folio, List<Long> ids);
 
     Optional<Paciente> findByIdAndInstitucion_IdIn(Long id, List<Long> ids);

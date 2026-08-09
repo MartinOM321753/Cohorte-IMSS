@@ -33,11 +33,17 @@ public class ResultadoExamenService {
                 folioPaciente, participanteAccesoService.institucionesAlcanzables());
     }
     public List<ResultadoExamen> findAllByUUID(String uuidPaciente) {
-        participanteAccesoService.resolver(uuidPaciente);
-        return resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente);
+        var acceso = participanteAccesoService.resolverParaLectura(uuidPaciente);
+        return acceso.soloPropio()
+                ? findAllByUUIDDeMiInstitucion(uuidPaciente)
+                : resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente);
     }
     public Page<ResultadoExamen> findAllByUUIDPaginado(String uuidPaciente, Pageable pageable) {
-        participanteAccesoService.resolver(uuidPaciente);
+        var acceso = participanteAccesoService.resolverParaLectura(uuidPaciente);
+        if (acceso.soloPropio()) {
+            return resultadoExamenRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+                    uuidPaciente, institucionContextService.getIdInstitucionActual(), pageable);
+        }
         return resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente, pageable);
     }
     public ResultadoExamen getResultado(Long id) {
@@ -47,6 +53,12 @@ public class ResultadoExamenService {
         // asi que su lectura se decide unicamente por el alcance al participante.
         participanteAccesoService.verificarLecturaRegistro(null, resultado.getPaciente());
         return resultado;
+    }
+
+    /** Solo lo que capturo mi institucion a este participante. */
+    public List<ResultadoExamen> findAllByUUIDDeMiInstitucion(String uuidPaciente) {
+        return resultadoExamenRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+                uuidPaciente, institucionContextService.getIdInstitucionActual());
     }
 
     /** Resultados capturados por mi institucion, sin pasar por el participante. */
@@ -61,8 +73,10 @@ public class ResultadoExamenService {
     }
 
     public long countByPacienteUuid(String uuid) {
-        participanteAccesoService.resolver(uuid);
-        return resultadoExamenRepository.countByPaciente_Uuid(uuid);
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? findAllByUUIDDeMiInstitucion(uuid).size()
+                : resultadoExamenRepository.countByPaciente_Uuid(uuid);
     }
 
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {

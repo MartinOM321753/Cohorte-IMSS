@@ -90,7 +90,9 @@ public class MuestraApplicationService {
 
     @Transactional(readOnly = true)
     public long countMuestrasByPacienteUuid(String uuid) {
-        participanteAccesoService.resolver(uuid);
+        // Sin puerta por participante: una muestra es inventario de quien la tomo y se
+        // sigue alicuotando y estudiando aunque el participante ya no este a su alcance.
+        // El aislamiento de muestras va por propietaria/tenedora, no por participante.
         return muestraService.countByPacienteUuid(uuid);
     }
 
