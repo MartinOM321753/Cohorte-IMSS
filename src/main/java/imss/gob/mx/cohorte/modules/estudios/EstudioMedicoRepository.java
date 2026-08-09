@@ -107,4 +107,27 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
 
     boolean existsByTipoEstudio_Id(Long id);
+
+    /**
+     * ¿Hay algún estudio de este tipo que el consultante tenga derecho a leer?
+     *
+     * <p>El catálogo de tipos es por institución, así que consultar un estudio ajeno
+     * obliga a leer su definición para pintar los parámetros. Filtrar el tipo por el
+     * conjunto alcanzable no basta: con la colaboración entre sedes se puede leer un
+     * estudio de una institución que no está en ese conjunto —porque el permiso lo
+     * da el participante, no la sede— y entonces la consulta rebotaba al pedir los
+     * parámetros.</p>
+     *
+     * <p>Es la misma regla de unión que gobierna la lectura del estudio, aplicada al
+     * tipo: se abre la definición solo si existe al menos un estudio de ese tipo que
+     * ya se podía abrir.</p>
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END
+        FROM EstudioMedico e
+        WHERE e.tipoEstudio.Id = :idTipo
+          AND (e.institucion.id IN :alcanzables OR e.paciente.institucion.id IN :alcanzables)
+    """)
+    boolean existeEstudioLegibleDeTipo(@Param("idTipo") Long idTipo,
+                                       @Param("alcanzables") List<Long> alcanzables);
 }

@@ -19,6 +19,7 @@ public class TipoService {
     private final TipoEstudioRepository tipoEstudioRepository;
     private final InstitucionContextService institucionContextService;
     private final imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService institucionJerarquiaService;
+    private final imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository estudioMedicoRepository;
 
     /** Todos los TipoEstudio de la institución actual, filtrados por estado. */
     public List<TipoEstudio> getAllByStatus(Boolean status) {
@@ -50,13 +51,20 @@ public class TipoService {
     public TipoEstudio getOneParaLectura(Long id) {
         TipoEstudio tipo = tipoEstudioRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));
-        if (!institucionJerarquiaService.getInstitucionesVisibles(
-                institucionContextService.getIdInstitucionActual())
-                .contains(tipo.getInstitucion().getId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "El tipo de estudio pertenece a otra institución");
-        }
-        return tipo;
+
+        java.util.List<Long> alcanzables = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+
+        if (alcanzables.contains(tipo.getInstitucion().getId())) return tipo;
+
+        // Alcanzar la sede del catalogo no es la unica via: con la colaboracion entre
+        // sedes se puede leer un estudio de una institucion que no se alcanza, porque
+        // el permiso lo da el participante. En ese caso la definicion se abre solo si
+        // hay algun estudio de este tipo que ya se podia consultar.
+        if (estudioMedicoRepository.existeEstudioLegibleDeTipo(id, alcanzables)) return tipo;
+
+        throw new org.springframework.security.access.AccessDeniedException(
+                "El tipo de estudio pertenece a otra institución");
     }
 
     public TipoEstudio getOne(Long id) {
