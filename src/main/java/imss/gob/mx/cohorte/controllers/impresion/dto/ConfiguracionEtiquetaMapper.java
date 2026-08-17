@@ -2,7 +2,9 @@ package imss.gob.mx.cohorte.controllers.impresion.dto;
 
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
 import imss.gob.mx.cohorte.modules.impresion.DisposicionEtiqueta;
+import imss.gob.mx.cohorte.modules.impresion.TamanoHoja;
 import imss.gob.mx.cohorte.modules.impresion.TipoCodigo;
+import imss.gob.mx.cohorte.modules.impresion.TipoMedio;
 
 import java.util.List;
 
@@ -43,6 +45,27 @@ public class ConfiguracionEtiquetaMapper {
                 .espacioVerticalMm(entity.getEspacioVerticalMm())
                 .margenPaginaSuperiorMm(entity.getMargenPaginaSuperiorMm())
                 .margenPaginaIzquierdoMm(entity.getMargenPaginaIzquierdoMm())
+                .tipoMedio(entity.getTipoMedio().name())
+                .tamanoHoja(entity.getTamanoHoja().name())
+                // Crudos: son los que el formulario devuelve al guardar.
+                .pasoHorizontalMm(entity.getPasoHorizontalMm())
+                .pasoVerticalMm(entity.getPasoVerticalMm())
+                .margenDerechoMm(entity.getMargenDerechoMm())
+                .margenInferiorMm(entity.getMargenInferiorMm())
+                .ajusteXMm(entity.getAjusteXMm())
+                .ajusteYMm(entity.getAjusteYMm())
+                // Resueltos: son los que el frontend usa para dibujar.
+                .pasoHorizontalEfectivoMm(entity.getPasoHorizontalMmEfectivo())
+                .pasoVerticalEfectivoMm(entity.getPasoVerticalMmEfectivo())
+                .margenDerechoEfectivoMm(entity.getMargenDerechoMmEfectivo())
+                .margenInferiorEfectivoMm(entity.getMargenInferiorMmEfectivo())
+                .hojaAnchoMm(entity.getHojaAnchoMm())
+                .hojaAltoMm(entity.getHojaAltoMm())
+                .carrilesRollo(entity.getCarrilesRollo())
+                .carrilesRolloEfectivo(entity.getCarrilesRolloEfectivo())
+                .anchoCabezalMm(entity.getAnchoCabezalMm())
+                .offsetLhXDots(entity.getOffsetLhXDots())
+                .offsetLhYDots(entity.getOffsetLhYDots())
                 .build();
     }
 
@@ -77,6 +100,20 @@ public class ConfiguracionEtiquetaMapper {
         entity.setEspacioVerticalMm(dto.getEspacioVerticalMm() != null ? dto.getEspacioVerticalMm() : 2.0);
         entity.setMargenPaginaSuperiorMm(dto.getMargenPaginaSuperiorMm() != null ? dto.getMargenPaginaSuperiorMm() : 12.7);
         entity.setMargenPaginaIzquierdoMm(dto.getMargenPaginaIzquierdoMm() != null ? dto.getMargenPaginaIzquierdoMm() : 4.8);
+        entity.setTipoMedio(dto.getTipoMedio() != null
+                ? TipoMedio.valueOf(dto.getTipoMedio()) : TipoMedio.HOJA_AVERY);
+        entity.setTamanoHoja(dto.getTamanoHoja() != null
+                ? TamanoHoja.valueOf(dto.getTamanoHoja()) : TamanoHoja.CARTA);
+        entity.setPasoHorizontalMm(dto.getPasoHorizontalMm() != null ? dto.getPasoHorizontalMm() : 0.0);
+        entity.setPasoVerticalMm(dto.getPasoVerticalMm() != null ? dto.getPasoVerticalMm() : 0.0);
+        entity.setMargenDerechoMm(dto.getMargenDerechoMm() != null ? dto.getMargenDerechoMm() : 0.0);
+        entity.setMargenInferiorMm(dto.getMargenInferiorMm() != null ? dto.getMargenInferiorMm() : 0.0);
+        entity.setAjusteXMm(dto.getAjusteXMm() != null ? dto.getAjusteXMm() : 0.0);
+        entity.setAjusteYMm(dto.getAjusteYMm() != null ? dto.getAjusteYMm() : 0.0);
+        entity.setCarrilesRollo(dto.getCarrilesRollo() != null ? dto.getCarrilesRollo() : 0);
+        entity.setAnchoCabezalMm(dto.getAnchoCabezalMm() != null ? dto.getAnchoCabezalMm() : 104.0);
+        entity.setOffsetLhXDots(dto.getOffsetLhXDots() != null ? dto.getOffsetLhXDots() : 0);
+        entity.setOffsetLhYDots(dto.getOffsetLhYDots() != null ? dto.getOffsetLhYDots() : 0);
         return entity;
     }
 }
