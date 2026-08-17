@@ -108,6 +108,85 @@ public class ConfiguracionEtiquetaRequestDTO {
     @DecimalMax(value = "50.0", message = "El margen máximo es 50mm")
     private Double margenPaginaIzquierdoMm = 4.8;
 
+    private String tipoMedio = "HOJA_AVERY";
+
+    private String tamanoHoja = "CARTA";
+
+    /**
+     * Paso entre etiquetas. Cero es válido y significa "dedúcelo de tamaño más
+     * separación", que es como se comportaba antes de que el campo existiera.
+     */
+    @DecimalMin(value = "0.0", message = "El paso no puede ser negativo")
+    @DecimalMax(value = "250.0", message = "El paso máximo es 250mm")
+    private Double pasoHorizontalMm = 0.0;
+
+    @DecimalMin(value = "0.0", message = "El paso no puede ser negativo")
+    @DecimalMax(value = "250.0", message = "El paso máximo es 250mm")
+    private Double pasoVerticalMm = 0.0;
+
+    @DecimalMin(value = "0.0", message = "El margen no puede ser negativo")
+    @DecimalMax(value = "20.0", message = "El margen máximo es 20mm")
+    private Double margenDerechoMm = 0.0;
+
+    @DecimalMin(value = "0.0", message = "El margen no puede ser negativo")
+    @DecimalMax(value = "20.0", message = "El margen máximo es 20mm")
+    private Double margenInferiorMm = 0.0;
+
+    /** La calibración corrige en los dos sentidos, así que admite negativos. */
+    @DecimalMin(value = "-20.0", message = "El ajuste mínimo es -20mm")
+    @DecimalMax(value = "20.0", message = "El ajuste máximo es 20mm")
+    private Double ajusteXMm = 0.0;
+
+    @DecimalMin(value = "-20.0", message = "El ajuste mínimo es -20mm")
+    @DecimalMax(value = "20.0", message = "El ajuste máximo es 20mm")
+    private Double ajusteYMm = 0.0;
+
+    @Min(value = 0, message = "Los carriles no pueden ser negativos")
+    @Max(value = 12, message = "Máximo 12 carriles")
+    private Integer carrilesRollo = 0;
+
+    @DecimalMin(value = "10.0", message = "El ancho de cabezal mínimo es 10mm")
+    @DecimalMax(value = "300.0", message = "El ancho de cabezal máximo es 300mm")
+    private Double anchoCabezalMm = 104.0;
+
+    @Min(value = -600, message = "El desplazamiento mínimo es -600 dots")
+    @Max(value = 600, message = "El desplazamiento máximo es 600 dots")
+    private Integer offsetLhXDots = 0;
+
+    @Min(value = -600, message = "El desplazamiento mínimo es -600 dots")
+    @Max(value = 600, message = "El desplazamiento máximo es 600 dots")
+    private Integer offsetLhYDots = 0;
+
+    /**
+     * El paso tiene que dar cabida a la etiqueta: un paso menor al tamaño hace
+     * que las etiquetas se encimen, y es un error de captura fácil de cometer al
+     * confundir paso con separación.
+     */
+    @AssertTrue(message = "El paso vertical no puede ser menor que el alto de la etiqueta")
+    public boolean isPasoVerticalCoherente() {
+        if (pasoVerticalMm == null || pasoVerticalMm == 0.0 || altoMm == null) return true;
+        return pasoVerticalMm >= altoMm;
+    }
+
+    @AssertTrue(message = "El paso horizontal no puede ser menor que el ancho de la etiqueta")
+    public boolean isPasoHorizontalCoherente() {
+        if (pasoHorizontalMm == null || pasoHorizontalMm == 0.0 || anchoMm == null) return true;
+        return pasoHorizontalMm >= anchoMm;
+    }
+
+    /** Los márgenes internos no pueden comerse el área útil por completo. */
+    @AssertTrue(message = "Los márgenes internos no dejan área útil dentro de la etiqueta")
+    public boolean isAreaUtilPositiva() {
+        if (anchoMm == null || altoMm == null) return true;
+        double der = (margenDerechoMm != null && margenDerechoMm > 0)
+                ? margenDerechoMm
+                : (margenIzquierdoMm != null ? margenIzquierdoMm : 0.0);
+        double inf = margenInferiorMm != null ? margenInferiorMm : 0.0;
+        double izq = margenIzquierdoMm != null ? margenIzquierdoMm : 0.0;
+        double sup = margenSuperiorMm != null ? margenSuperiorMm : 0.0;
+        return (anchoMm - izq - der) > 0 && (altoMm - sup - inf) > 0;
+    }
+
     /**
      * El QR se genera con {@code ^BQN,2,<modulo>}, y la magnificacion de ^BQ solo
      * admite de 1 a 10: por encima de eso el ZPL sale fuera de rango y la Zebra no

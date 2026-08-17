@@ -12,6 +12,9 @@ import java.util.Optional;
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Long> {
 
+    /** Sin filtro de institucion: se usa para saber si un participante ya quedo vinculado a alguna. */
+    long countByPaciente_Uuid(String uuid);
+
     Optional<Cita> findByUuid(String uuid);
 
     Optional<Cita> findByUuidAndInstitucion_Id(String uuid, Long idInstitucion);
@@ -25,6 +28,9 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     List<Cita> findByStartAtUtcBetweenAndInstitucion_Id(Instant start, Instant end, Long idInstitucion);
 
     List<Cita> findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(String pacienteUuid, Long idInstitucion);
+
+    /** Variante por conjunto de instituciones (atencion entre sedes del grupo). */
+    List<Cita> findAllByPaciente_UuidAndInstitucion_IdInOrderByStartAtUtcDesc(String pacienteUuid, java.util.List<Long> idsInstituciones);
 
     @Query("SELECT c FROM Cita c WHERE c.usuarioAgenda.UUID = :usuarioUuid " +
            "AND c.estadoCita <> 'Cancelada' " +

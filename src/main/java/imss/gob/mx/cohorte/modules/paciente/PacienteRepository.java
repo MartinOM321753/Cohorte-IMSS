@@ -55,6 +55,60 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     Optional<Paciente> findByUuidAndInstitucion_IdIn(String uuid, List<Long> ids);
 
+    /**
+     * Participantes que ya NO estan al alcance de la institucion pero de los que
+     * conserva registros propios.
+     *
+     * <p>Es el caso de una sede a la que le revocaron el permiso: dejo de gestionar
+     * al participante, pero los estudios, muestras, citas, somatometrias y
+     * resultados que ella capturo siguen siendo suyos. Sin esta consulta esa
+     * informacion queda inalcanzable, porque buscar al participante ya no lo
+     * encuentra.</p>
+     *
+     * @param idInstitucion la institucion que conserva los registros
+     * @param alcanzables   instituciones que ya ve por la via normal; se excluyen
+     *                      para no duplicar lo que la busqueda habitual ya muestra
+     */
+    @Query("""
+        SELECT DISTINCT p FROM Paciente p
+        WHERE p.institucion.id NOT IN :alcanzables
+          AND (
+               EXISTS (SELECT 1 FROM EstudioMedico e   WHERE e.paciente = p AND e.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Muestra m         WHERE m.paciente = p AND m.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Cita c            WHERE c.paciente = p AND c.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Somatometria s    WHERE s.paciente = p AND s.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM ResultadoExamen r WHERE r.paciente = p AND r.institucion.id = :idInstitucion)
+          )
+        ORDER BY p.folio ASC
+    """)
+    List<Paciente> findConRegistrosDeInstitucion(@Param("idInstitucion") Long idInstitucion,
+                                                  @Param("alcanzables") List<Long> alcanzables);
+
+    /**
+     * Version puntual de la anterior: ¿esta institucion conserva algun registro de
+     * este participante? Se consulta en cada lectura por participante, asi que
+     * pregunta por uno en vez de traer la lista completa.
+     *
+     * <p>Las muestras quedan fuera a proposito. Una muestra es inventario propio que
+     * se sigue usando —alicuotando, aplicandole estudios de calidad— con
+     * independencia de quien gestione hoy al participante, y su aislamiento va por
+     * propietaria/tenedora. Tenerla en cuenta aqui abriria el historial clinico a
+     * quien solo conserva tubos en su congelador.</p>
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END
+        FROM Paciente p
+        WHERE p.uuid = :uuid
+          AND (
+               EXISTS (SELECT 1 FROM EstudioMedico e   WHERE e.paciente = p AND e.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Cita c            WHERE c.paciente = p AND c.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM Somatometria s    WHERE s.paciente = p AND s.institucion.id = :idInstitucion)
+            OR EXISTS (SELECT 1 FROM ResultadoExamen r WHERE r.paciente = p AND r.institucion.id = :idInstitucion)
+          )
+    """)
+    boolean tieneRegistrosDeInstitucion(@Param("uuid") String uuid,
+                                         @Param("idInstitucion") Long idInstitucion);
+
     Optional<Paciente> findByFolioAndInstitucion_IdIn(String folio, List<Long> ids);
 
     Optional<Paciente> findByIdAndInstitucion_IdIn(Long id, List<Long> ids);

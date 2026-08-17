@@ -37,6 +37,8 @@ public final class CitaResumenMapper {
                 .tipo(cita.getObservaciones())
                 .estado(cita.getEstadoCita() != null ? cita.getEstadoCita().name() : null)
                 .profesional(profesional)
+                .institucionUuid(cita.getInstitucion() != null ? cita.getInstitucion().getUuid() : null)
+                .institucionNombre(cita.getInstitucion() != null ? cita.getInstitucion().getNombre() : null)
                 .build();
     }
 

@@ -128,4 +128,32 @@ public class TrasladoMuestra {
      */
     @Column(name = "grupo_devolucion", length = 36)
     private String grupoDevolucion;
+
+    /**
+     * Distingue las dos formas que puede tener una fila en {@code EN_DEVOLUCION},
+     * que hasta ahora se confundían.
+     *
+     * <p>Un préstamo de ida (este campo en {@code false}) reutiliza su propia fila
+     * para representar la vuelta: no se crea un registro nuevo, solo cambia de
+     * estado. Ahí {@code institucionDestino} sigue siendo <em>quien tiene la
+     * muestra</em> y el retorno va hacia {@code institucionOrigen} o hacia el
+     * atajo.</p>
+     *
+     * <p>Un movimiento de devolución (este campo en {@code true}) es una fila
+     * creada por la propia devolución, para las alícuotas que viajan con su
+     * padre. Como la alícuota tiene su propia dueña y su propia cadena —puede
+     * haberse generado en la institución receptora y no haber pisado nunca el
+     * eslabón anterior del padre—, su fila describe el trayecto tal cual:
+     * {@code institucionOrigen} es <em>quien la tiene</em> y
+     * {@code institucionDestino} es <em>a dónde va</em>.</p>
+     *
+     * <p>Sin esta marca, confirmar la devolución leía la fila de la alícuota con
+     * las reglas de la del padre: comparaba el tenedor contra el destino final y
+     * concluía que la muestra "ya no estaba" donde debía. Y de haber pasado esa
+     * comprobación, habría mandado la alícuota a donde ya estaba, separándola de
+     * su padre sin aviso.</p>
+     */
+    @Column(name = "es_movimiento_devolucion", nullable = false,
+            columnDefinition = "BIT(1) NOT NULL DEFAULT b'0'")
+    private Boolean esMovimientoDevolucion = false;
 }

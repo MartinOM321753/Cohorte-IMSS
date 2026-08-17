@@ -26,5 +26,11 @@ public class PacienteResponseDTO {
     private Long institucionId;
     private String institucionNombre;
     private Boolean propiaInstitucion;
+
+    /**
+     * true → ya no se gestiona a este participante, pero esta institución conserva
+     * registros suyos. Se puede consultar lo propio; no registrar ni actualizar.
+     */
+    private Boolean soloConsulta;
     private Boolean tieneAcceso;
 }

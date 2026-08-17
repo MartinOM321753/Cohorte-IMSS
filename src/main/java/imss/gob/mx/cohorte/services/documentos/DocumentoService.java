@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.documentos;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.controllers.documentos.dto.DocumentoResponseDTO;
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
@@ -51,6 +53,7 @@ public class DocumentoService {
     private final DocumentoPermisosConfig permisosConfig;
     private final DocumentoEtiquetaService etiquetaService;
     private final InstitucionContextService institucionCtx;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final TrasladoMuestraRepository trasladoMuestraRepository;
 
     public DocumentoService(
@@ -67,7 +70,8 @@ public class DocumentoService {
             DocumentoPermisosConfig permisosConfig,
             DocumentoEtiquetaService etiquetaService,
             InstitucionContextService institucionCtx,
-            TrasladoMuestraRepository trasladoMuestraRepository
+            TrasladoMuestraRepository trasladoMuestraRepository,
+            ParticipanteAccesoService participanteAccesoService
     ) {
         this.minioService = minioService;
         this.documentoRepository = documentoRepository;
@@ -83,6 +87,7 @@ public class DocumentoService {
         this.etiquetaService = etiquetaService;
         this.institucionCtx = institucionCtx;
         this.trasladoMuestraRepository = trasladoMuestraRepository;
+        this.participanteAccesoService = participanteAccesoService;
     }
 
     // ─── Validación de permisos ───────────────────────────────────────────────────
@@ -119,7 +124,7 @@ public class DocumentoService {
     ) {
         EstudioMedico estudio = estudioMedicoRepository.findById(estudioId)
                 .orElseThrow(() -> new ObjNotFoundException("Estudio no encontrado con id: " + estudioId));
-        validarEstudioPertenece(estudio);
+        validarEscrituraEstudio(estudio);
 
         String objectKey = buildKey("estudios/" + estudioId, file.getOriginalFilename());
         uploadToMinio(file, objectKey);
@@ -139,7 +144,7 @@ public class DocumentoService {
     public List<DocumentoResponseDTO> getDocumentosByEstudio(Long estudioId) {
         EstudioMedico estudio = estudioMedicoRepository.findById(estudioId)
                 .orElseThrow(() -> new ObjNotFoundException("Estudio no encontrado con id: " + estudioId));
-        validarEstudioPertenece(estudio);
+        validarLecturaEstudio(estudio);
 
         return estudioDocumentoRepository.findByEstudio_IdOrderByOrdenAsc(estudioId)
                 .stream()
@@ -249,7 +254,7 @@ public class DocumentoService {
     public DocumentoResponseDTO adjuntarArchivo(Long documentoId, MultipartFile file) {
         Documento doc = documentoRepository.findById(documentoId)
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con id: " + documentoId));
-        validarDocumentoAccesible(doc);
+        validarEscrituraDocumento(doc);
 
         if (doc.isArchivoSubido()) {
             throw new ValidationException("Este documento ya tiene un archivo adjunto");
@@ -324,7 +329,7 @@ public class DocumentoService {
     ) {
         ResultadoExamen resultado = resultadoExamenRepository.findById(resultadoId)
                 .orElseThrow(() -> new ObjNotFoundException("Resultado de examen no encontrado con id: " + resultadoId));
-        validarPacientePertenece(resultado.getPaciente());
+        validarEscrituraResultado(resultado);
 
         String objectKey = buildKey("resultados-examen/" + resultadoId, file.getOriginalFilename());
         uploadToMinio(file, objectKey);
@@ -343,7 +348,7 @@ public class DocumentoService {
     public List<DocumentoResponseDTO> getDocumentosByResultadoExamen(Long resultadoId) {
         ResultadoExamen resultado = resultadoExamenRepository.findById(resultadoId)
                 .orElseThrow(() -> new ObjNotFoundException("Resultado de examen no encontrado con id: " + resultadoId));
-        validarPacientePertenece(resultado.getPaciente());
+        validarLecturaResultado(resultado);
 
         return resultadoExamenDocumentoRepository
                 .findByResultadoExamen_IdOrderByDocumento_FechaSubidaDesc(resultadoId)
@@ -359,11 +364,7 @@ public class DocumentoService {
     public Documento getDocumentoById(Long documentoId) {
         Documento doc = documentoRepository.findById(documentoId)
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con id: " + documentoId));
-        if (doc.getTipoEntidad() == TipoEntidadDocumento.MUESTRA) {
-            validarAccesoDocumentoMuestra(documentoId);
-        } else {
-            validarDocumentoAccesible(doc);
-        }
+        validarLecturaDocumento(doc);
         return doc;
     }
 
@@ -371,8 +372,18 @@ public class DocumentoService {
     public Documento getDocumentoPorEtiqueta(String etiqueta) {
         Documento doc = documentoRepository.findByEtiqueta(etiqueta)
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con etiqueta: " + etiqueta));
-        validarDocumentoAccesible(doc);
+        validarLecturaDocumento(doc);
         return doc;
+    }
+
+    /**
+     * La puerta de lectura, expuesta para quien resuelve el documento por su cuenta
+     * —el servicio de tokens de etiqueta— y necesita aplicar exactamente la misma
+     * regla. Tenerla repetida allí era otra copia que se podía desincronizar.
+     */
+    @Transactional(readOnly = true)
+    public void verificarLectura(Documento doc) {
+        validarLecturaDocumento(doc);
     }
 
     /**
@@ -391,7 +402,7 @@ public class DocumentoService {
     public void deleteDocumento(Long documentoId) {
         Documento doc = documentoRepository.findById(documentoId)
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con id: " + documentoId));
-        validarDocumentoAccesible(doc);
+        validarEscrituraDocumento(doc);
 
         if (doc.getTipoEntidad() == TipoEntidadDocumento.MUESTRA) {
             validarCustodiaMuestraDocumento(documentoId);
@@ -441,19 +452,126 @@ public class DocumentoService {
         return previas + 1;
     }
 
-    // ─── Helpers privados ────────────────────────────────────────────────────────
+    // ─── Puertas de los adjuntos ────────────────────────────────────────────────
+    //
+    // Un adjunto no tiene criterio propio: hereda el de la entidad de la que cuelga.
+    // Antes cada tipo miraba una cosa distinta —el estudio miraba el estudio, el
+    // examen miraba al participante— y eso producía dos incoherencias: se podía
+    // abrir en lectura el estudio de otra sede pero no sus adjuntos, y se podían
+    // adjuntar archivos nuevos a un participante que ya no se gestiona.
+    //
+    // La regla queda en dos niveles: para LEER basta con poder leer el registro
+    // (regla de unión, ver ParticipanteAccesoService); para ESCRIBIR hace falta
+    // además que el registro sea propio y que el participante siga al alcance,
+    // porque adjuntar o borrar un archivo es modificar el expediente.
 
-    /**
-     * Valida mimeType y tamaño en el servidor antes de subir a MinIO.
-     * El frontend ya filtra, pero esa validación es trivialmente evadible
-     * (petición directa a la API), así que se repite aquí como última línea de defensa.
-     */
-    private void validarEstudioPertenece(EstudioMedico estudio) {
-        institucionCtx.verificarPertenece(estudio.getInstitucion());
+    /** Lectura de los adjuntos de un estudio: la misma puerta que el estudio. */
+    private void validarLecturaEstudio(EstudioMedico estudio) {
+        participanteAccesoService.verificarLecturaRegistro(estudio.getInstitucion(), estudio.getPaciente());
     }
 
+    /** Lectura de los adjuntos de un resultado: la misma puerta que el resultado. */
+    private void validarLecturaResultado(ResultadoExamen resultado) {
+        participanteAccesoService.verificarLecturaRegistro(resultado.getInstitucion(), resultado.getPaciente());
+    }
+
+    private void validarEscrituraEstudio(EstudioMedico estudio) {
+        institucionCtx.verificarPertenece(estudio.getInstitucion());
+        participanteAccesoService.verificarAlcance(estudio.getPaciente());
+    }
+
+    private void validarEscrituraResultado(ResultadoExamen resultado) {
+        institucionCtx.verificarPertenece(resultado.getInstitucion());
+        participanteAccesoService.verificarAlcance(resultado.getPaciente());
+    }
+
+    /**
+     * Puerta de lectura de un documento suelto (descarga, vista previa, etiqueta),
+     * donde solo se tiene el id y hay que averiguar de qué cuelga.
+     *
+     * <p>Se resuelve por las tablas de relación y no por {@code tipoEntidad}: ese
+     * campo es una etiqueta que se asigna al crear y nada garantiza que siga
+     * describiendo los vínculos reales del documento. Las relaciones sí.</p>
+     */
+    private void validarLecturaDocumento(Documento doc) {
+        Long id = doc.getId();
+
+        List<EstudioDocumento> deEstudio = estudioDocumentoRepository.findByDocumento_Id(id);
+        if (!deEstudio.isEmpty()) {
+            for (EstudioDocumento rel : deEstudio) {
+                EstudioMedico e = rel.getEstudio();
+                if (participanteAccesoService.puedeLeerRegistro(e.getInstitucion(), e.getPaciente())) return;
+            }
+            throw new AccessDeniedException("El estudio de este documento pertenece a otra institución");
+        }
+
+        List<ResultadoExamenDocumento> deResultado = resultadoExamenDocumentoRepository.findByDocumento_Id(id);
+        if (!deResultado.isEmpty()) {
+            for (ResultadoExamenDocumento rel : deResultado) {
+                ResultadoExamen r = rel.getResultadoExamen();
+                if (participanteAccesoService.puedeLeerRegistro(r.getInstitucion(), r.getPaciente())) return;
+            }
+            throw new AccessDeniedException("El resultado de este documento pertenece a otra institución");
+        }
+
+        if (!muestraDocumentoRepository.findByDocumento_Id(id).isEmpty()) {
+            validarAccesoDocumentoMuestra(id);
+            return;
+        }
+
+        List<PacienteDocumento> dePaciente = pacienteDocumentoRepository.findByDocumento_Id(id);
+        if (!dePaciente.isEmpty()) {
+            for (PacienteDocumento rel : dePaciente) {
+                if (participanteAccesoService.alcanza(rel.getPaciente())) return;
+            }
+            throw new AccessDeniedException("El participante de este documento pertenece a otra institución");
+        }
+
+        // Documento sin vínculos todavía (se creó la etiqueta pero no se asoció):
+        // no hay entidad de la que heredar, así que manda su propia institución.
+        validarDocumentoAccesible(doc);
+    }
+
+    /**
+     * Puerta de escritura de un documento suelto: adjuntar archivo y eliminar.
+     * Exige lo mismo que modificar el registro del que cuelga.
+     */
+    private void validarEscrituraDocumento(Documento doc) {
+        Long id = doc.getId();
+
+        List<EstudioDocumento> deEstudio = estudioDocumentoRepository.findByDocumento_Id(id);
+        if (!deEstudio.isEmpty()) {
+            for (EstudioDocumento rel : deEstudio) validarEscrituraEstudio(rel.getEstudio());
+            return;
+        }
+
+        List<ResultadoExamenDocumento> deResultado = resultadoExamenDocumentoRepository.findByDocumento_Id(id);
+        if (!deResultado.isEmpty()) {
+            for (ResultadoExamenDocumento rel : deResultado) validarEscrituraResultado(rel.getResultadoExamen());
+            return;
+        }
+
+        if (!muestraDocumentoRepository.findByDocumento_Id(id).isEmpty()) {
+            validarAccesoDocumentoMuestra(id);
+            return;
+        }
+
+        List<PacienteDocumento> dePaciente = pacienteDocumentoRepository.findByDocumento_Id(id);
+        if (!dePaciente.isEmpty()) {
+            for (PacienteDocumento rel : dePaciente) validarPacientePertenece(rel.getPaciente());
+            return;
+        }
+
+        validarDocumentoAccesible(doc);
+    }
+
+    /**
+     * Puerta de los documentos de un participante. Pasa por el conjunto alcanzable
+     * y no por la institucion propia: si se atiende a un participante de otra sede,
+     * tambien hay que poder ver y adjuntar sus documentos.
+     */
     private void validarPacientePertenece(Paciente paciente) {
-        institucionCtx.verificarPertenece(paciente.getInstitucion());
+        participanteAccesoService.verificarAlcance(paciente);
     }
 
     private void validarMuestraAccesible(Muestra muestra) {

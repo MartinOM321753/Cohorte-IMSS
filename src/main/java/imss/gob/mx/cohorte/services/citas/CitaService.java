@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.citas;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 
 import imss.gob.mx.cohorte.controllers.citas.dto.CitaPatchDTO;
 import imss.gob.mx.cohorte.modules.cita.Cita;
@@ -28,6 +30,7 @@ import java.util.List;
 public class CitaService {
 
     private final CitaRepository citaRepository;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final InstitucionContextService institucionContextService;
 
     public List<Cita> getAll() {
@@ -39,27 +42,33 @@ public class CitaService {
     }
 
     public Cita getByUuid(String uuid) {
-        return citaRepository.findByUuidAndInstitucion_Id(uuid, institucionContextService.getIdInstitucionActual())
+        // Sin filtro de institucion aqui: quien llama decide. Consultar una cita de
+        // otra sede pasa por la regla de lectura; actualizar y cancelar siguen
+        // exigiendo que la cita sea propia (ver CitaApplicationService).
+        return citaRepository.findByUuid(uuid)
                 .orElseThrow(() -> new ObjNotFoundException("La cita no existe con UUID: " + uuid));
     }
 
     public Cita findPatientFolio(String folio){
         Cita cita = citaRepository.findByPaciente_Folio(folio)
                 .orElseThrow(() -> new ObjNotFoundException("El folio no cuenta con una cita asignada"));
-        institucionContextService.verificarPertenece(cita.getInstitucion());
         return cita;
     }
 
     public Cita findPatientUuid(String uuid){
         Cita cita = citaRepository.findByPaciente_Uuid(uuid)
                 .orElseThrow(() -> new ObjNotFoundException("El participante no cuenta con una cita asignada"));
-        institucionContextService.verificarPertenece(cita.getInstitucion());
         return cita;
     }
 
-    public List<Cita> findAllByPacienteUuid(String uuid) {
+    /** Solo lo que agendo mi institucion a este participante. */
+    public List<Cita> findAllByPacienteUuidDeMiInstitucion(String uuid) {
         return citaRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(
                 uuid, institucionContextService.getIdInstitucionActual());
+    }
+
+    public List<Cita> findAllByPacienteUuid(String uuid) {
+        return citaRepository.findAllByPaciente_UuidOrderByStartAtUtcDesc(uuid);
     }
 
     @Transactional

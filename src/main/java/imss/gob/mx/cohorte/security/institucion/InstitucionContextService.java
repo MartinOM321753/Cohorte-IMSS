@@ -34,6 +34,7 @@ public class InstitucionContextService {
 
     private final UserRepository userRepository;
     private final InstitucionRepository institucionRepository;
+    private final imss.gob.mx.cohorte.services.institucion.InstitucionArbolService institucionArbolService;
 
     /**
      * Obtiene el {@link BeanUser} autenticado actual a partir del
@@ -118,19 +119,11 @@ public class InstitucionContextService {
     }
 
     /**
-     * Recorre la cadena de padres de {@code idInstitucionHija} buscando a
-     * {@code idInstitucionPosibleAncestra}.
+     * ¿La institución indicada es ancestra de la otra? El recorrido del árbol vive
+     * en {@code InstitucionArbolService}; aquí solo se delega para que exista una
+     * sola definición de parentesco en todo el sistema.
      */
     public boolean esAncestra(Long idInstitucionPosibleAncestra, Long idInstitucionHija) {
-        Institucion cursor = institucionRepository.findById(idInstitucionHija).orElse(null);
-        if (cursor == null) return false;
-        cursor = cursor.getInstitucionPadre();
-        while (cursor != null) {
-            if (cursor.getId().equals(idInstitucionPosibleAncestra)) {
-                return true;
-            }
-            cursor = cursor.getInstitucionPadre();
-        }
-        return false;
+        return institucionArbolService.esAncestra(idInstitucionPosibleAncestra, idInstitucionHija);
     }
 }

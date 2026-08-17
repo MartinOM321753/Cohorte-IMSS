@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.reclutamiento;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
@@ -26,17 +28,18 @@ public class ReclutamientoParticipanteService {
     private final InstitucionRepository institucionRepository;
     private final UserRepository userRepository;
     private final InstitucionContextService institucionContextService;
+    private final ParticipanteAccesoService participanteAccesoService;
 
     @Transactional(readOnly = true)
     public Optional<ReclutamientoParticipante> findByPaciente(Long idPaciente) {
-        return reclutamientoRepository.findByPaciente_IdAndPaciente_Institucion_Id(
-                idPaciente, institucionContextService.getIdInstitucionActual());
+        return reclutamientoRepository.findByPaciente_IdAndPaciente_Institucion_IdIn(
+                idPaciente, participanteAccesoService.institucionesAlcanzables());
     }
 
     @Transactional(readOnly = true)
     public Optional<ReclutamientoParticipante> findByPacienteUuid(String uuidPaciente) {
-        return reclutamientoRepository.findByPaciente_UuidAndPaciente_Institucion_Id(
-                uuidPaciente, institucionContextService.getIdInstitucionActual());
+        return reclutamientoRepository.findByPaciente_UuidAndPaciente_Institucion_IdIn(
+                uuidPaciente, participanteAccesoService.institucionesAlcanzables());
     }
 
     @Transactional(readOnly = true)

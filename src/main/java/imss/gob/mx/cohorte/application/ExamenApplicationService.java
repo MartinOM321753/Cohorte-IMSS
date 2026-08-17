@@ -14,6 +14,7 @@ import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.examenes.ExamenService;
 import imss.gob.mx.cohorte.services.examenes.ResultadoExamenService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 public class ExamenApplicationService {
     private final ExamenService examenService;
     private final PacienteService pacienteService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
     private final ResultadoExamenService resultadoExamenService;
     private final ResultadoExamenRepository resultadoExamenRepository;
@@ -93,6 +95,18 @@ public class ExamenApplicationService {
         return resultadoExamenService.findAllByFolio(folio);
     }
 
+    /**
+     * Resultados capturados por mi institucion, sin pasar por el participante.
+     *
+     * <p>Es la via para alcanzar lo que uno mismo registro a un participante que ya
+     * no gestiona: buscarlo por participante ya no lo encuentra, pero el registro
+     * sigue siendo de esta sede.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<ResultadoExamen> findAllResultadosDeMiInstitucion() {
+        return resultadoExamenService.findAllDeMiInstitucion();
+    }
+
     @Transactional(readOnly = true)
     public List<ResultadoExamen> findAllResultadoByUUID(String uuid) {
         return resultadoExamenService.findAllByUUID(uuid);
@@ -110,7 +124,7 @@ public class ExamenApplicationService {
     @Transactional
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
 
-       Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
+       Paciente findPatient =  participanteAccesoService.resolver(resultadoExamen.getPaciente().getUuid());
        Examen findExamen =  examenService.getExamen(resultadoExamen.getExamen().getId());
        BeanUser usuarioRegistro = userService.getByUUID(resultadoExamen.getUsuarioRegistro().getUUID());
 
@@ -123,7 +137,7 @@ public class ExamenApplicationService {
     @Transactional
     public ResultadoExamen updateResultado(ResultadoExamen resultadoExamen) {
 
-        Paciente findPatient =  pacienteService.getByUUID(resultadoExamen.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
+        Paciente findPatient =  participanteAccesoService.resolver(resultadoExamen.getPaciente().getUuid());
         Examen findExamen =  examenService.getExamen(resultadoExamen.getExamen().getId());
         BeanUser usuarioRegistro = userService.getByUUID(resultadoExamen.getUsuarioRegistro().getUUID());
 

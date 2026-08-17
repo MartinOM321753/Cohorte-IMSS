@@ -57,7 +57,8 @@ public class EstudioMedicoController {
     @PreAuthorize("hasAuthority('ESTUDIOS_LLENADO_ACCEDER')")
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
-        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
+        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(
+                estudios, pacienteApplicationService.getInstitucionesVisibles());
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios obtenidos correctamente", HttpStatus.OK, false));
     }
 
@@ -75,7 +76,8 @@ public class EstudioMedicoController {
     public ResponseEntity<APIResponse> getAllPaginado(Pageable pageable) {
         Page<EstudioMedico> estudios = estudiosApplicationService.getAllEstudiosPaginado(pageable);
         Map<String, Object> body = Map.of(
-            "content", EstudioMapper.toResponseDTOList(estudios.getContent()),
+            "content", EstudioMapper.toResponseDTOList(
+                    estudios.getContent(), pacienteApplicationService.getInstitucionesVisibles()),
             "page", estudios.getNumber(),
             "size", estudios.getSize(),
             "totalElements", estudios.getTotalElements(),

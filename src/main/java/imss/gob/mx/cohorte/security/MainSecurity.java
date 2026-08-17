@@ -105,6 +105,13 @@ public class MainSecurity {
                         // PacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid),
                         // que ese UUID sea el del propio participante — nunca el de otro.
                         .requestMatchers(HttpMethod.GET, "/api/pacientes/mi-uuid").hasAuthority("EXPEDIENTE_VER")
+                        // Identidad para rotular un historial de consulta. Abierta a quien puede
+                        // entrar a los modulos clinicos: sin ella, el desplegable de Estudios o
+                        // Examenes muestra un UUID en vez del nombre del participante.
+                        .requestMatchers(HttpMethod.GET, "/api/pacientes/uuid/*/basico")
+                                .hasAnyAuthority("PACIENTES_LOOKUP", "PACIENTES_ACCEDER", "EXPEDIENTE_VER",
+                                                 "ESTUDIOS_LLENADO_ACCEDER", "EXAMENES_LLENADO_ACCEDER",
+                                                 "CITAS_VER", "SOMATOMETRIA_VER")
                         .requestMatchers(HttpMethod.GET, "/api/pacientes/uuid/*")
                                 .hasAnyAuthority("PACIENTES_LOOKUP", "PACIENTES_ACCEDER", "EXPEDIENTE_VER")
                         .requestMatchers(HttpMethod.GET, "/api/citas/paciente/*/resumen")

@@ -26,6 +26,7 @@ import imss.gob.mx.cohorte.services.impresion.ConfiguracionEtiquetaService;
 import imss.gob.mx.cohorte.services.impresion.DirectPrintService;
 import imss.gob.mx.cohorte.services.impresion.ZplLabelService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
@@ -49,6 +50,7 @@ public class MuestraApplicationService {
     private final MuestraService muestraService;
     private final MuestraRepository muestraRepository;
     private final PacienteService pacienteService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
     private final PosicionCajaService posicionCajaService;
     private final TipoMuestraService tipoMuestraService;
@@ -88,18 +90,21 @@ public class MuestraApplicationService {
 
     @Transactional(readOnly = true)
     public long countMuestrasByPacienteUuid(String uuid) {
+        // Sin puerta por participante: una muestra es inventario de quien la tomo y se
+        // sigue alicuotando y estudiando aunque el participante ya no este a su alcance.
+        // El aislamiento de muestras va por propietaria/tenedora, no por participante.
         return muestraService.countByPacienteUuid(uuid);
     }
 
     @Transactional
     public Muestra createMuestra(Muestra muestra) {
         // La institución propietaria de la muestra la determina el contexto del
-        // usuario logueado, no el paciente. pacienteService.getByUUID ya valida
-        // que el paciente pertenece a la institución del contexto, así que en la
-        // práctica coinciden — pero asignarla explícitamente desde el contexto
-        // desacopla ambos y hace la propiedad explícita en el código.
+        // usuario logueado, no el paciente. Y ahora pueden no coincidir: al atender
+        // participantes de otra sede, la muestra es de quien la toma aunque el
+        // participante sea de otra institución. Eso es deliberado — el registro
+        // guarda quién lo hizo.
         Institucion miInstitucion = institucionContextService.getInstitucionActual();
-        Paciente paciente = pacienteService.getByUUID(muestra.getPaciente().getUuid(), miInstitucion.getId());
+        Paciente paciente = participanteAccesoService.resolver(muestra.getPaciente().getUuid());
         muestra.setPaciente(paciente);
         muestra.setInstitucion(miInstitucion);
         muestra.setInstitucionActual(miInstitucion);
@@ -380,7 +385,7 @@ public class MuestraApplicationService {
 
     private void generarAlicuotas(Muestra primaria, int cantidad) {
         // Cuarentena: bloquear si el participante está inactivo (defensa en profundidad;
-        // createMuestra ya lo valida vía pacienteService.getByUUID, pero mantener el
+        // createMuestra ya lo valida al resolver el participante, pero mantener el
         // chequeo explícito aquí evita futuras regresiones si se agregan más llamadores).
         imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
                 .requirePacienteActivo(primaria, "generar alícuotas");
@@ -458,6 +463,37 @@ public class MuestraApplicationService {
         aImprimir.addAll(alicuotas);
         String zpl = zplLabelService.generarZplLote(aImprimir, config);
         return new ZplLoteResponseDTO(zpl, aImprimir.size());
+    }
+
+    /**
+     * ZPL con las etiquetas en los carriles que eligió el operador.
+     *
+     * Cada posición de {@code slots} es un carril del rollo, en orden de avance;
+     * las nulas quedan en blanco. Se resuelve cada muestra con la comprobación de
+     * acceso habitual: el acomodo llega del navegador y no puede servir para
+     * imprimir etiquetas de muestras que no estén en el biobanco de quien lo pide.
+     */
+    @Transactional(readOnly = true)
+    public ZplLoteResponseDTO generarZplAcomodado(List<Long> slots, Long configuracionId,
+                                                   boolean marcoDepuracion) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+
+        List<Muestra> acomodo = new java.util.ArrayList<>(slots.size());
+        int impresas = 0;
+        for (Long id : slots) {
+            if (id == null) {
+                acomodo.add(null);
+            } else {
+                acomodo.add(muestraService.getByIdConAcceso(id));
+                impresas++;
+            }
+        }
+        if (impresas == 0) {
+            throw new ValidationException("El acomodo no tiene ninguna etiqueta que imprimir.");
+        }
+
+        String zpl = zplLabelService.generarZplAcomodado(acomodo, config, marcoDepuracion);
+        return new ZplLoteResponseDTO(zpl, impresas);
     }
 
     // ── Datos estructurados para impresión por navegador ──────────────────

@@ -380,10 +380,17 @@ public class TrasladoMuestraService {
                 // institucionActual NO cambia — sigue en destino hasta confirmarDevolucion
                 muestraRepository.save(alicuota);
 
+                // La fila describe el trayecto de la alícuota tal cual: sale de
+                // quien la tiene y va al destino de la devolución. No se copia la
+                // orientación de la fila del padre porque la alícuota tiene su
+                // propia cadena: puede haberse generado aquí mismo y no haber
+                // estado nunca en el eslabón anterior del padre, así que apuntarla
+                // a ese eslabón inventaría un tramo de custodia que no ocurrió.
                 TrasladoMuestra trasladoAlicuota = new TrasladoMuestra();
                 trasladoAlicuota.setMuestra(alicuota);
                 trasladoAlicuota.setInstitucionOrigen(instDestino);
                 trasladoAlicuota.setInstitucionDestino(destinoDevolucion);
+                trasladoAlicuota.setEsMovimientoDevolucion(true);
                 trasladoAlicuota.setAutorizadoPor(inicia);
                 trasladoAlicuota.setEstado(EstadoTraslado.EN_DEVOLUCION);
                 trasladoAlicuota.setFechaTraslado(LocalDateTime.now());
@@ -452,18 +459,27 @@ public class TrasladoMuestraService {
                                                           BeanUser confirma, String observaciones) {
         Muestra muestra = traslado.getMuestra();
 
+        // Quién debe tener la muestra ahora, y a dónde va, según la forma de la
+        // fila. Ver TrasladoMuestra.esMovimientoDevolucion: la fila de un préstamo
+        // de ida guarda al tenedor en institucionDestino, mientras que la creada
+        // por la propia devolución lo guarda en institucionOrigen. Leer ambas con
+        // la misma regla hacía imposible confirmar la devolución de una alícuota.
+        boolean esMovimiento = Boolean.TRUE.equals(traslado.getEsMovimientoDevolucion());
+        Institucion tenedorEsperado = esMovimiento
+                ? traslado.getInstitucionOrigen()
+                : traslado.getInstitucionDestino();
+        Institucion destinoFinal = esMovimiento
+                ? traslado.getInstitucionDestino()
+                : resolverDestinoDevolucion(traslado);
+
         // Defensa en profundidad: entre iniciarDevolucion y confirmarDevolucion
         // no debe haberse re-prestado esta muestra a otro tenedor.
-        if (!muestra.getInstitucionActual().getId().equals(traslado.getInstitucionDestino().getId())) {
+        if (!muestra.getInstitucionActual().getId().equals(tenedorEsperado.getId())) {
             throw new ObjConflictException(
                     "La muestra '" + muestra.getEtiqueta() + "' ya no se encuentra en "
-                    + traslado.getInstitucionDestino().getNombre()
+                    + tenedorEsperado.getNombre()
                     + "; no se puede confirmar la devolución de este traslado.");
         }
-
-        // Determinar destino real: si el traslado padre tiene atajo, usarlo;
-        // si no, el eslabón anterior (comportamiento estándar).
-        Institucion destinoFinal = resolverDestinoDevolucion(traslado);
 
         muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
         muestra.setInstitucionActual(destinoFinal);
@@ -479,9 +495,12 @@ public class TrasladoMuestraService {
 
         TrasladoMuestra saved = trasladoRepository.save(traslado);
 
+        // El "desde" del historial es quien la tenía, no el destino de la fila:
+        // en un movimiento de devolución esos dos campos son opuestos, y usar el
+        // destino dejaba el rastro de custodia invertido.
         historialService.registrarEvento(muestra, confirma,
                 TipoEventoMuestra.PRESTAMO_DEVUELTO,
-                traslado.getInstitucionDestino().getNombre(),
+                tenedorEsperado.getNombre(),
                 destinoFinal.getNombre(),
                 "Devolución confirmada", saved);
 

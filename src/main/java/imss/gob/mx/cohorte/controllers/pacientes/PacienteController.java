@@ -1,6 +1,8 @@
 package imss.gob.mx.cohorte.controllers.pacientes;
 
 import imss.gob.mx.cohorte.application.PacienteApplicationService;
+import imss.gob.mx.cohorte.controllers.pacientes.dto.CambioInstitucionDTO;
+import imss.gob.mx.cohorte.controllers.pacientes.dto.InstitucionRegistroOpcionDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteMapper;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteRequestDTO;
 import imss.gob.mx.cohorte.controllers.pacientes.dto.PacienteResponseDTO;
@@ -41,6 +43,7 @@ import java.util.Set;
 public class PacienteController {
 
     private final PacienteApplicationService pacienteApplicationService;
+    private final imss.gob.mx.cohorte.services.pacientes.RegistrosPropiosService registrosPropiosService;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -179,6 +182,23 @@ public class PacienteController {
         return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
+    @GetMapping("/uuid/{uuid}/basico")
+    @Operation(summary = "Identidad del participante para pantallas de consulta",
+               description = "Devuelve nombre, folio e institución, y marca soloConsulta cuando el " +
+                       "participante ya no se gestiona pero esta institución conserva registros suyos. " +
+                       "Sirve para rotular un historial y para preseleccionar el desplegable; NO abre " +
+                       "el expediente, que sigue exigiendo alcance sobre el participante.")
+    public ResponseEntity<APIResponse> getBasicoByUUID(
+            @Parameter(description = "UUID del paciente", required = true)
+            @PathVariable String uuid) {
+        pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
+        var acceso = pacienteApplicationService.resolverParaLectura(uuid);
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        var dto = PacienteMapper.toResponseDTO(acceso.paciente(), null, idInstActual);
+        dto.setSoloConsulta(acceso.soloPropio());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado", dto, false, HttpStatus.OK));
+    }
+
     @GetMapping("/mi-uuid")
     @Operation(summary = "Obtener mi propio UUID de paciente",
                description = "Para el rol PACIENTE: resuelve el UUID de su propio expediente a partir de la sesión, " +
@@ -187,6 +207,17 @@ public class PacienteController {
     public ResponseEntity<APIResponse> getMiUuid() {
         Paciente propio = pacienteApplicationService.obtenerPacientePropio();
         return ResponseEntity.ok(new APIResponse("UUID propio", Map.of("uuid", propio.getUuid()), false, HttpStatus.OK));
+    }
+
+    /** Coincidencia por folio o nombre, como la busqueda normal. */
+    private boolean coincide(Paciente p, String filtro) {
+        String folio = p.getFolio() != null ? p.getFolio().toLowerCase() : "";
+        var per = p.getPersona();
+        String nombre = per == null ? "" : (
+                (per.getNombre() != null ? per.getNombre() : "") + " " +
+                (per.getApellidoPaterno() != null ? per.getApellidoPaterno() : "") + " " +
+                (per.getApellidoMaterno() != null ? per.getApellidoMaterno() : "")).toLowerCase();
+        return folio.contains(filtro) || nombre.contains(filtro);
     }
 
     @GetMapping("/buscar")
@@ -198,18 +229,38 @@ public class PacienteController {
                        "de participantes activos con jerarquia institucional aplicada.")
     public ResponseEntity<APIResponse> buscarParaLookup(
             @RequestParam(value = "q", required = false) String q,
-            @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia) {
+            @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia,
+            @RequestParam(value = "incluirSoloConsulta", defaultValue = "false") boolean incluirSoloConsulta) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Pageable pageable = PageRequest.of(0, 20);
         Page<Paciente> page = incluirJerarquia
                 ? pacienteApplicationService.buscarPaginadoConJerarquia(q, true, null, pageable)
                 : pacienteApplicationService.buscarPaginado(q, true, pageable);
 
+        List<Paciente> resultados = new java.util.ArrayList<>(page.getContent());
+
+        // Los de solo consulta se agregan aparte porque la busqueda normal no los ve:
+        // ya no se gestionan. Van al final y marcados, para consultar lo propio.
+        long extras = 0;
+        if (incluirSoloConsulta) {
+            String filtro = q != null ? q.trim().toLowerCase() : "";
+            List<Paciente> soloConsulta = pacienteApplicationService.getParticipantesConRegistrosPropios().stream()
+                    .filter(p -> filtro.isEmpty() || coincide(p, filtro))
+                    .limit(20)
+                    .toList();
+            resultados.addAll(soloConsulta);
+            extras = soloConsulta.size();
+        }
+
+        var alcanzables = pacienteApplicationService.getInstitucionesVisibles();
+
+        // El total tiene que contar los agregados: si no, un consumidor que se guie
+        // por totalElements concluye "sin resultados" mientras content trae filas.
         Map<String, Object> body = Map.of(
-            "content", PacienteMapper.toResponseDTOList(page.getContent(), idInstActual),
+            "content", PacienteMapper.toResponseDTOListMarcandoSoloConsulta(resultados, idInstActual, alcanzables),
             "page", page.getNumber(),
             "size", page.getSize(),
-            "totalElements", page.getTotalElements(),
+            "totalElements", page.getTotalElements() + extras,
             "totalPages", page.getTotalPages()
         );
         return ResponseEntity.ok(new APIResponse("Resultados de busqueda", body, false, HttpStatus.OK));
@@ -258,11 +309,119 @@ public class PacienteController {
                                               @AuthenticationPrincipal UserDetails userDetails) {
         Paciente paciente = PacienteMapper.toEntity(dto);
         String uuidUsuarioAutenticado = userDetails != null ? userDetails.getUsername() : null;
-        Paciente saved = pacienteApplicationService.saveUserConReclutamiento(paciente, dto.getReclutamiento(), uuidUsuarioAutenticado);
+        Paciente saved = pacienteApplicationService.saveUserConReclutamiento(
+                paciente, dto.getReclutamiento(), uuidUsuarioAutenticado, dto.getIdInstitucion());
         var reclutamiento = pacienteApplicationService.getReclutamiento(saved.getId());
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Participante registrado exitosamente", PacienteMapper.toResponseDTO(saved, reclutamiento, idInstActual), false, HttpStatus.CREATED));
+    }
+
+    @GetMapping("/con-registros-propios")
+    @Operation(summary = "Participantes que ya no gestionas pero de los que conservas registros",
+               description = "Aparecen cuando a tu institución le revocaron el acceso: dejaste de gestionarlos, "
+                       + "pero los estudios, muestras, citas, somatometrías y resultados que registraste siguen "
+                       + "siendo tuyos. Solo se puede consultar lo propio.")
+    public ResponseEntity<APIResponse> participantesConRegistrosPropios() {
+        var participantes = pacienteApplicationService.getParticipantesConRegistrosPropios();
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Participantes con registros propios",
+                PacienteMapper.toResponseDTOList(participantes, idInstActual), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/uuid/{uuid}/mis-registros")
+    @Operation(summary = "Lo que mi institución le registró a este participante",
+               description = "No es el expediente: solo los registros de esta sede. El historial completo "
+                       + "le corresponde a la institución dueña del participante.")
+    public ResponseEntity<APIResponse> misRegistrosDeParticipante(@PathVariable String uuid) {
+        Paciente paciente = pacienteApplicationService.resolverParaConsultaHistorica(uuid);
+        return ResponseEntity.ok(new APIResponse("Registros de tu institución",
+                registrosPropiosService.recopilar(paciente), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/instituciones-registro")
+    @Operation(summary = "Instituciones a las que se puede asignar un participante nuevo",
+               description = "Devuelve la institución del usuario y aquellas del grupo para las que su institución "
+                       + "está autorizada a registrar. La marcada como propia es la que debe venir preseleccionada.")
+    public ResponseEntity<APIResponse> institucionesParaRegistro() {
+        Long idActual = pacienteApplicationService.getIdInstitucionActual();
+        var visibles = new java.util.HashSet<>(pacienteApplicationService.getInstitucionesVisibles());
+
+        var opciones = pacienteApplicationService.getInstitucionesParaRegistro().stream()
+                .map(i -> InstitucionRegistroOpcionDTO.builder()
+                        .id(i.getId())
+                        .nombre(i.getNombre())
+                        .propia(i.getId().equals(idActual))
+                        .visible(visibles.contains(i.getId()))
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(new APIResponse("Instituciones disponibles para registro", opciones, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/uuid/{uuid}/cambio-institucion")
+    @Operation(summary = "¿Se puede cambiar la institución de este participante?",
+               description = "Un participante solo cambia de institución mientras nada lo ate a la actual. "
+                       + "Si ya tiene estudios, muestras, somatometrías, exámenes, citas o documentos, se "
+                       + "devuelve el detalle con conteos para saber qué lo impide.")
+    public ResponseEntity<APIResponse> puedeCambiarInstitucion(@PathVariable String uuid) {
+        var vinculos = pacienteApplicationService.vinculosQueImpidenCambio(uuid);
+
+        var dto = CambioInstitucionDTO.Elegibilidad.builder()
+                .puedeCambiar(vinculos.isEmpty())
+                .vinculos(vinculos.stream()
+                        .map(v -> CambioInstitucionDTO.Vinculo.builder()
+                                .tipo(v.tipo()).etiqueta(v.etiqueta()).cantidad(v.cantidad()).build())
+                        .toList())
+                .motivo(vinculos.isEmpty() ? null
+                        : "El participante ya tiene " + pacienteApplicationService.describirVinculos(vinculos)
+                          + " registrados en su institución actual.")
+                .build();
+
+        return ResponseEntity.ok(new APIResponse("Elegibilidad de cambio de institución", dto, false, HttpStatus.OK));
+    }
+
+    @PutMapping("/uuid/{uuid}/institucion")
+    @PreAuthorize("hasAuthority('PACIENTES_EDITAR')")
+    @Operation(summary = "Cambiar la institución de un participante",
+               description = "Solo procede si el participante no tiene registros que lo aten a su institución actual. "
+                       + "La comprobación se repite dentro de la transacción.")
+    public ResponseEntity<APIResponse> cambiarInstitucion(
+            @PathVariable String uuid,
+            @Validated @RequestBody CambioInstitucionDTO.CambioRequest body) {
+        Paciente actualizado = pacienteApplicationService.cambiarInstitucion(uuid, body.getIdInstitucion());
+        var reclutamiento = pacienteApplicationService.getReclutamiento(actualizado.getId());
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        return ResponseEntity.ok(new APIResponse("Institución del participante actualizada",
+                PacienteMapper.toResponseDTO(actualizado, reclutamiento, idInstActual), false, HttpStatus.OK));
+    }
+
+    @PutMapping("/reasignar-institucion")
+    @PreAuthorize("hasAuthority('PACIENTES_EDITAR')")
+    @Operation(summary = "Reasignar en lote la institución de varios participantes",
+               description = "Pensado para redistribuir lo que una importación masiva dejó a nombre de una sola sede. "
+                       + "Los que no se puedan mover se reportan con su motivo sin abortar el resto.")
+    public ResponseEntity<APIResponse> reasignarInstitucion(
+            @Validated @RequestBody CambioInstitucionDTO.ReasignacionRequest body) {
+        var resultados = pacienteApplicationService.reasignarInstitucion(body.getUuids(), body.getIdInstitucion());
+
+        var detalle = resultados.stream()
+                .map(r -> CambioInstitucionDTO.ResultadoReasignacion.builder()
+                        .uuid(r.uuid()).folio(r.folio()).movido(r.movido()).motivo(r.motivo()).build())
+                .toList();
+        int movidos = (int) detalle.stream().filter(CambioInstitucionDTO.ResultadoReasignacion::isMovido).count();
+
+        var resumen = CambioInstitucionDTO.ResumenReasignacion.builder()
+                .solicitados(detalle.size())
+                .movidos(movidos)
+                .rechazados(detalle.size() - movidos)
+                .detalle(detalle)
+                .build();
+
+        String msg = movidos == detalle.size()
+                ? "Se reasignaron " + movidos + " participante(s)"
+                : "Se reasignaron " + movidos + " de " + detalle.size() + " participante(s)";
+        return ResponseEntity.ok(new APIResponse(msg, resumen, false, HttpStatus.OK));
     }
 
     @PatchMapping("/uuid/{uuid}/toggle-activo")

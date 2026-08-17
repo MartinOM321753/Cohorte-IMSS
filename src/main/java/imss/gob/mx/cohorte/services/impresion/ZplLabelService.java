@@ -21,24 +21,120 @@ public class ZplLabelService {
     private String frontendUrl;
 
     public String generarZplMuestra(Muestra muestra, ConfiguracionEtiqueta config) {
-        return generarZplLote(List.of(muestra), config);
+        return generarZplLote(List.of(muestra), config, false);
     }
 
     public String generarZplLoteCompleto(Muestra padre, List<Muestra> alicuotas, ConfiguracionEtiqueta config) {
         List<Muestra> todas = new ArrayList<>();
         todas.add(padre);
         todas.addAll(alicuotas);
-        return generarZplLote(todas, config);
+        return generarZplLote(todas, config, false);
     }
 
     public String generarZplLote(List<Muestra> muestras, ConfiguracionEtiqueta config) {
-        int perRow = config.getEtiquetasPorFila();
+        return generarZplLote(muestras, config, false);
+    }
+
+    /**
+     * @param marcoDepuracion dibuja el contorno de cada etiqueta. Sirve para
+     *                        calibrar contra el troquel del rollo; no debe quedar
+     *                        encendido para impresión normal.
+     */
+    public String generarZplLote(List<Muestra> muestras, ConfiguracionEtiqueta config,
+                                  boolean marcoDepuracion) {
+        int carriles = config.getCarrilesRolloEfectivo();
         StringBuilder zpl = new StringBuilder();
-        for (int i = 0; i < muestras.size(); i += perRow) {
-            int end = Math.min(i + perRow, muestras.size());
-            zpl.append(generarZplFila(muestras.subList(i, end), config));
+        for (int i = 0; i < muestras.size(); i += carriles) {
+            int end = Math.min(i + carriles, muestras.size());
+            zpl.append(generarZplFila(muestras.subList(i, end), config, marcoDepuracion));
         }
         return zpl.toString();
+    }
+
+    /**
+     * Imprime las muestras en los carriles que el operador eligió.
+     *
+     * {@code acomodo} describe la superficie del rollo tal como se ve en pantalla:
+     * una posición por carril, en orden de avance, con {@code null} donde el
+     * carril queda en blanco. La lista se corta en filas del tamaño del rollo.
+     *
+     * Existe porque la Zebra consume el papel por filas completas: si se manda
+     * una sola etiqueta en un rollo de tres carriles, los otros dos troqueles
+     * salen vacíos y no se recuperan. No se puede evitar el gasto, pero sí se
+     * puede decidir en qué carril cae cada etiqueta, que es lo que el operador
+     * necesita para aprovechar una tira ya empezada.
+     */
+    public String generarZplAcomodado(List<Muestra> acomodo, ConfiguracionEtiqueta config,
+                                       boolean marcoDepuracion) {
+        int carriles = config.getCarrilesRolloEfectivo();
+        int labelW = config.getAnchoDots();
+        StringBuilder zpl = new StringBuilder();
+
+        for (int inicio = 0; inicio < acomodo.size(); inicio += carriles) {
+            int fin = Math.min(inicio + carriles, acomodo.size());
+            List<Muestra> fila = acomodo.subList(inicio, fin);
+
+            // Una fila entera vacía no se imprime: mandarla gastaría una vuelta
+            // de rollo para no dibujar nada.
+            if (fila.stream().allMatch(java.util.Objects::isNull)) continue;
+
+            abrirFormato(zpl, config, carriles);
+            for (int carril = 0; carril < fila.size(); carril++) {
+                Muestra m = fila.get(carril);
+                if (m == null) continue;
+                int xBase = carril * labelW;
+                if (marcoDepuracion) appendMarco(zpl, xBase, config);
+                String etiqueta = sanitizar(m.getEtiqueta());
+                String nombre = truncar(sanitizar(construirNombrePaciente(m.getPaciente())), 24);
+                appendEtiqueta(zpl, xBase, nombre, etiqueta, etiqueta, config);
+            }
+            zpl.append("^XZ\n");
+        }
+        return zpl.toString();
+    }
+
+    // ── Emisión del formato ─────────────────────────────────────────────────
+
+    /**
+     * Preámbulo de cada formato.
+     *
+     * Antes solo se emitía {@code ^XA ^CI28 ^PW ^LL}, y eso dejaba dos cabos
+     * sueltos que explican por qué la Zebra no respetaba el margen izquierdo:
+     *
+     * <ul>
+     *   <li>Sin {@code ^LH} el formato hereda el origen que la impresora tenga
+     *       guardado de un trabajo anterior o de su configuración de fábrica, así
+     *       que las mismas coordenadas caen en sitios distintos según la máquina.
+     *   <li>{@code ^PW} se fijaba en carriles por ancho de etiqueta, sin comparar
+     *       contra el cabezal. Pedir más ancho del que la impresora tiene hace que
+     *       ella lo recorte por su cuenta y corra el origen.
+     * </ul>
+     *
+     * {@code ^LT0} devuelve el desplazamiento vertical a cero por el mismo motivo
+     * que {@code ^LH}: es estado que sobrevive entre trabajos.
+     */
+    private void abrirFormato(StringBuilder zpl, ConfiguracionEtiqueta config, int carriles) {
+        int anchoCabezalDots = (int) (config.getAnchoCabezalMm() / 25.4 * config.getDpi());
+        int anchoPedido = carriles * config.getAnchoDots();
+        int anchoImpresion = Math.min(anchoPedido, anchoCabezalDots);
+
+        zpl.append("^XA\n^CI28\n");
+        zpl.append("^LH").append(config.getOffsetLhXDots()).append(",")
+           .append(config.getOffsetLhYDots()).append("\n");
+        zpl.append("^LT0\n");
+        zpl.append("^PW").append(anchoImpresion)
+           .append("^LL").append(config.getAltoDots()).append("\n");
+    }
+
+    /**
+     * Contorno de la etiqueta, para depurar. Es el equivalente del marco de
+     * calibración de la hoja Avery: permite ver en el papel dónde cree la
+     * impresora que está el recuadro, en vez de deducirlo del contenido.
+     */
+    private void appendMarco(StringBuilder zpl, int xBase, ConfiguracionEtiqueta config) {
+        zpl.append("^FO").append(xBase).append(",0")
+           .append("^GB").append(config.getAnchoDots()).append(",")
+           .append(config.getAltoDots()).append(",2^FS\n");
     }
 
     /**
@@ -67,189 +163,97 @@ public class ZplLabelService {
 
     public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config,
                                         boolean incluirEnlace) {
-        int perRow = config.getEtiquetasPorFila();
+        return generarZplDocumentos(documentos, config, incluirEnlace, false);
+    }
+
+    public String generarZplDocumentos(List<Documento> documentos, ConfiguracionEtiqueta config,
+                                        boolean incluirEnlace, boolean marcoDepuracion) {
+        int carriles = config.getCarrilesRolloEfectivo();
+        int labelW = config.getAnchoDots();
+
         StringBuilder zpl = new StringBuilder();
-        for (int i = 0; i < documentos.size(); i += perRow) {
-            int end = Math.min(i + perRow, documentos.size());
+        for (int i = 0; i < documentos.size(); i += carriles) {
+            int end = Math.min(i + carriles, documentos.size());
             List<Documento> fila = documentos.subList(i, end);
 
-            int labelW = config.getAnchoDots();
-            int labelH = config.getAltoDots();
-            int topMargin = config.getMargenSuperiorDots();
-            int totalW = perRow * labelW;
-
-            zpl.append("^XA\n^CI28\n");
-            zpl.append("^PW").append(totalW).append("^LL").append(labelH).append("\n");
-
+            abrirFormato(zpl, config, carriles);
             for (int j = 0; j < fila.size(); j++) {
                 int xBase = j * labelW;
-                String etiqueta = sanitizar(fila.get(j).getEtiqueta());
-                String nombre = truncar(sanitizar(fila.get(j).getNombreOriginal()), 24);
-                String codigoData = contenidoCodigoDocumento(fila.get(j), config, incluirEnlace);
-                appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, xBase, labelW, topMargin, config);
+                if (marcoDepuracion) appendMarco(zpl, xBase, config);
+                appendDocumento(zpl, xBase, fila.get(j), config, incluirEnlace);
             }
-
             zpl.append("^XZ\n");
         }
         return zpl.toString();
     }
 
+    private void appendDocumento(StringBuilder zpl, int xBase, Documento documento,
+                                  ConfiguracionEtiqueta config, boolean incluirEnlace) {
+        String etiqueta = sanitizar(documento.getEtiqueta());
+        String nombre = truncar(sanitizar(documento.getNombreOriginal()), 24);
+        String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
+        appendEtiqueta(zpl, xBase, nombre, etiqueta, codigoData, config);
+    }
+
     private String generarZplGenericoConUrl(String etiqueta, String nombre, String codigoData,
                                              ConfiguracionEtiqueta config) {
-        int labelW = config.getAnchoDots();
-        int labelH = config.getAltoDots();
-        int topMargin = config.getMargenSuperiorDots();
-        int perRow = config.getEtiquetasPorFila();
-        int totalW = perRow * labelW;
-
         StringBuilder zpl = new StringBuilder();
-        zpl.append("^XA\n^CI28\n");
-        zpl.append("^PW").append(totalW).append("^LL").append(labelH).append("\n");
-        appendGenericLabelContent(zpl, etiqueta, nombre, codigoData, 0, labelW, topMargin, config);
+        abrirFormato(zpl, config, config.getCarrilesRolloEfectivo());
+        appendEtiqueta(zpl, 0, nombre, etiqueta, codigoData, config);
         zpl.append("^XZ\n");
         return zpl.toString();
     }
 
-    private void appendGenericLabelContent(StringBuilder zpl, String etiqueta, String nombre,
-                                            String codigoData,
-                                            int xBase, int labelW, int topMargin,
-                                            ConfiguracionEtiqueta config) {
-        int mx = config.getMargenIzquierdoDots();
-        int usableW = labelW - mx * 2;
+    /**
+     * Emite el contenido de una etiqueta en el carril que empieza en {@code xBase}.
+     *
+     * Las posiciones las decide {@link MaquetadoEtiquetaZpl}, que ya garantizó que
+     * todo cabe en el recuadro. Aquí solo se traducen a comandos.
+     */
+    private void appendEtiqueta(StringBuilder zpl, int xBase, String nombre, String etiqueta,
+                                 String codigoData, ConfiguracionEtiqueta config) {
+        var maquetado = MaquetadoEtiquetaZpl.calcular(config, nombre, etiqueta, codigoData);
+        String datos = (codigoData != null && !codigoData.isEmpty()) ? codigoData : etiqueta;
 
-        int fontNombre = config.getTamanoFuenteNombre();
-        int fontEtiqueta = config.getTamanoFuenteEtiqueta();
-        TipoCodigo tipoCodigo = config.getTipoCodigo();
-        int moduloCodigo = config.getModuloCodigo();
-        DisposicionEtiqueta disposicion = config.getDisposicion();
-        boolean showNombre = Boolean.TRUE.equals(config.getMostrarNombre());
-        boolean showCodigo = Boolean.TRUE.equals(config.getMostrarCodigo());
-        boolean showEtiqueta = Boolean.TRUE.equals(config.getMostrarEtiqueta());
-        int gapNombre = config.getEspaciadoNombre() != null ? config.getEspaciadoNombre() : 4;
-        int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
-        int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
-
-        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
-
-        String dataParaCodigo = (codigoData != null && !codigoData.isEmpty()) ? codigoData : etiqueta;
-        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo.length());
-        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, dataParaCodigo.length());
-
-        int y = topMargin;
-        List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
-
-        for (ElementoEtiqueta elem : elementos) {
-            switch (elem) {
-                case NOMBRE:
-                    if (showNombre) {
-                        appendTexto(zpl, xBase + mx, y, fontNombre, usableW, nombre);
-                        y += fontNombre + gapNombre;
-                    }
-                    break;
-                case CODIGO:
-                    if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, dataParaCodigo, labelW, mx, codigoW);
-                        y += codigoH + gapCodigo;
-                    }
-                    break;
-                case ETIQUETA:
-                    if (showEtiqueta) {
-                        appendTexto(zpl, xBase + mx, y, fontEtiqueta, usableW, etiqueta);
-                        y += fontEtiqueta + gapEtiqueta;
-                    }
-                    break;
+        for (var elem : maquetado.elementos()) {
+            switch (elem.tipo()) {
+                case NOMBRE -> appendTexto(zpl, xBase + elem.x(), elem.y(),
+                        elem.fuente(), elem.ancho(), nombre);
+                case ETIQUETA -> appendTexto(zpl, xBase + elem.x(), elem.y(),
+                        elem.fuente(), elem.ancho(), etiqueta);
+                case CODIGO -> appendCodigo(zpl, xBase + elem.x(), elem.y(),
+                        config.getTipoCodigo(), config.getModuloCodigo(), elem.escala(), datos);
             }
         }
     }
 
-    private String generarZplFila(List<Muestra> fila, ConfiguracionEtiqueta config) {
+    /**
+     * Una fila del rollo: tantas etiquetas como carriles tenga el medio.
+     *
+     * La Zebra avanza el papel por filas completas, así que el número de carriles
+     * decide cuántas etiquetas se consumen en cada avance. Antes se usaba
+     * {@code etiquetasPorFila}, que describe las columnas de la hoja Avery: una
+     * configuración de hoja con 3 columnas obligaba al rollo a gastar 3 etiquetas
+     * por avance aunque solo se hubiera mandado una.
+     */
+    private String generarZplFila(List<Muestra> fila, ConfiguracionEtiqueta config,
+                                   boolean marcoDepuracion) {
+        int carriles = config.getCarrilesRolloEfectivo();
         int labelW = config.getAnchoDots();
-        int labelH = config.getAltoDots();
-        int topMargin = config.getMargenSuperiorDots();
-        int perRow = config.getEtiquetasPorFila();
-        int totalW = perRow * labelW;
 
         StringBuilder zpl = new StringBuilder();
-        zpl.append("^XA\n");
-        zpl.append("^CI28\n");
-        zpl.append("^PW").append(totalW).append("^LL").append(labelH).append("\n");
+        abrirFormato(zpl, config, carriles);
 
         for (int i = 0; i < fila.size(); i++) {
             int xBase = i * labelW;
-            appendLabelContent(zpl, fila.get(i), xBase, labelW, topMargin, config);
+            if (marcoDepuracion) appendMarco(zpl, xBase, config);
+            String etiqueta = sanitizar(fila.get(i).getEtiqueta());
+            String nombre = truncar(sanitizar(construirNombrePaciente(fila.get(i).getPaciente())), 24);
+            appendEtiqueta(zpl, xBase, nombre, etiqueta, etiqueta, config);
         }
 
         zpl.append("^XZ\n");
         return zpl.toString();
-    }
-
-    private void appendLabelContent(StringBuilder zpl, Muestra muestra,
-                                     int xBase, int labelW, int topMargin,
-                                     ConfiguracionEtiqueta config) {
-        int mx = config.getMargenIzquierdoDots();
-        int usableW = labelW - mx * 2;
-
-        String etiqueta = sanitizar(muestra.getEtiqueta());
-        String nombre = truncar(sanitizar(construirNombrePaciente(muestra.getPaciente())), 24);
-
-        int fontNombre = config.getTamanoFuenteNombre();
-        int fontEtiqueta = config.getTamanoFuenteEtiqueta();
-        TipoCodigo tipoCodigo = config.getTipoCodigo();
-        int moduloCodigo = config.getModuloCodigo();
-        DisposicionEtiqueta disposicion = config.getDisposicion();
-        boolean showNombre = Boolean.TRUE.equals(config.getMostrarNombre());
-        boolean showCodigo = Boolean.TRUE.equals(config.getMostrarCodigo());
-        boolean showEtiqueta = Boolean.TRUE.equals(config.getMostrarEtiqueta());
-        int gapNombre = config.getEspaciadoNombre() != null ? config.getEspaciadoNombre() : 4;
-        int gapCodigo = config.getEspaciadoCodigo() != null ? config.getEspaciadoCodigo() : 10;
-        int gapEtiqueta = config.getEspaciadoEtiqueta() != null ? config.getEspaciadoEtiqueta() : 4;
-
-        int anchoBarra = config.getAnchoBarraCodigo() != null ? config.getAnchoBarraCodigo() : 2;
-        int codigoW = anchoCodigoDots(tipoCodigo, moduloCodigo, anchoBarra, etiqueta.length());
-        int codigoH = altoCodigoDots(tipoCodigo, moduloCodigo, etiqueta.length());
-
-        int y = topMargin;
-        List<ElementoEtiqueta> elementos = obtenerOrdenElementos(disposicion);
-
-        for (ElementoEtiqueta elem : elementos) {
-            switch (elem) {
-                case NOMBRE:
-                    if (showNombre) {
-                        appendTexto(zpl, xBase + mx, y, fontNombre, usableW, nombre);
-                        y += fontNombre + gapNombre;
-                    }
-                    break;
-                case CODIGO:
-                    if (showCodigo) {
-                        appendCodigo(zpl, xBase, y, tipoCodigo, moduloCodigo, anchoBarra, etiqueta, labelW, mx, codigoW);
-                        y += codigoH + gapCodigo;
-                    }
-                    break;
-                case ETIQUETA:
-                    if (showEtiqueta) {
-                        appendTexto(zpl, xBase + mx, y, fontEtiqueta, usableW, etiqueta);
-                        y += fontEtiqueta + gapEtiqueta;
-                    }
-                    break;
-            }
-        }
-    }
-
-    private enum ElementoEtiqueta { NOMBRE, CODIGO, ETIQUETA }
-
-    private List<ElementoEtiqueta> obtenerOrdenElementos(DisposicionEtiqueta disposicion) {
-        switch (disposicion) {
-            case NOMBRE_CODIGO_ETIQUETA:
-                return List.of(ElementoEtiqueta.NOMBRE, ElementoEtiqueta.CODIGO, ElementoEtiqueta.ETIQUETA);
-            case CODIGO_NOMBRE_ETIQUETA:
-                return List.of(ElementoEtiqueta.CODIGO, ElementoEtiqueta.NOMBRE, ElementoEtiqueta.ETIQUETA);
-            case CODIGO_ETIQUETA:
-                return List.of(ElementoEtiqueta.CODIGO, ElementoEtiqueta.ETIQUETA);
-            case NOMBRE_ETIQUETA_CODIGO:
-                return List.of(ElementoEtiqueta.NOMBRE, ElementoEtiqueta.ETIQUETA, ElementoEtiqueta.CODIGO);
-            default:
-                return List.of(ElementoEtiqueta.NOMBRE, ElementoEtiqueta.CODIGO, ElementoEtiqueta.ETIQUETA);
-        }
     }
 
     private void appendTexto(StringBuilder zpl, int x, int y, int fontSize, int usableW, String texto) {
@@ -259,72 +263,29 @@ public class ZplLabelService {
         zpl.append("^FD").append(texto).append("^FS\n");
     }
 
-    private void appendCodigo(StringBuilder zpl, int xBase, int y,
-                               TipoCodigo tipo, int modulo, int anchoBarra, String data,
-                               int labelW, int mx, int anchoCodigoDots) {
-        int usableW = labelW - mx * 2;
-        int codeX = xBase + mx + Math.max(0, (usableW - anchoCodigoDots) / 2);
-
+    /**
+     * Emite el símbolo en la posición que le asignó el maquetado.
+     *
+     * La {@code escala} ya viene reducida si el símbolo no cabía: dibujarlo con la
+     * configurada lo sacaría del recuadro. Antes se centraba usando un ancho que
+     * podía exceder el de la etiqueta y solo se acotaba por la izquierda, así que
+     * por la derecha se salía sin que nada lo advirtiera.
+     */
+    private void appendCodigo(StringBuilder zpl, int x, int y,
+                               TipoCodigo tipo, int modulo, int escala, String data) {
         // ^BY fija el ancho de la barra angosta. Solo tiene efecto en los codigos
         // lineales; en DataMatrix y QR el tamano va en el propio comando.
         if (tipo == TipoCodigo.CODE_128) {
-            zpl.append("^BY").append(anchoBarra).append("\n");
+            zpl.append("^BY").append(Math.max(1, escala)).append("\n");
         }
 
-        zpl.append("^FO").append(codeX).append(",").append(y);
+        zpl.append("^FO").append(x).append(",").append(y);
         switch (tipo) {
-            case DATAMATRIX:
-                zpl.append("^BXN,").append(modulo).append(",200");
-                break;
-            case CODE_128:
-                zpl.append("^BCN,").append(modulo * 10).append(",Y,N,N");
-                break;
-            case QR_CODE:
-                zpl.append("^BQN,2,").append(modulo);
-                break;
+            case DATAMATRIX -> zpl.append("^BXN,").append(escala).append(",200");
+            case CODE_128 -> zpl.append("^BCN,").append(modulo * 10).append(",Y,N,N");
+            case QR_CODE -> zpl.append("^BQN,2,").append(escala);
         }
         zpl.append("^FD").append(data).append("^FS\n");
-    }
-
-    /**
-     * Ancho del simbolo en dots; se usa para centrarlo dentro de la etiqueta.
-     *
-     * En Code 128 cada caracter ocupa 11 modulos, mas arranque, digito de control
-     * y cierre: 11*n + 35 en el peor caso (subconjunto B). Ese total se multiplica
-     * por el ancho de barra, no por el modulo.
-     */
-    private int anchoCodigoDots(TipoCodigo tipo, int modulo, int anchoBarra, int dataLen) {
-        if (tipo == TipoCodigo.CODE_128) {
-            return (11 * dataLen + 35) * anchoBarra;
-        }
-        return estimarTamanoCodigo(tipo, modulo, dataLen);
-    }
-
-    /**
-     * Alto del simbolo en dots; es lo que avanza el cursor vertical despues de
-     * dibujarlo. En Code 128 lo marca ^BC (modulo*10), no el ancho del simbolo:
-     * usar el ancho aqui empujaba el texto siguiente muy por debajo de la etiqueta.
-     */
-    private int altoCodigoDots(TipoCodigo tipo, int modulo, int dataLen) {
-        if (tipo == TipoCodigo.CODE_128) {
-            return modulo * 10;
-        }
-        return estimarTamanoCodigo(tipo, modulo, dataLen);
-    }
-
-    private int estimarTamanoCodigo(TipoCodigo tipo, int modulo, int dataLen) {
-        switch (tipo) {
-            case DATAMATRIX:
-                int cells = (int) Math.ceil(Math.sqrt(dataLen * 8.0));
-                return Math.max(cells * modulo, modulo * 12);
-            case CODE_128:
-                return (11 * dataLen + 35) * modulo;
-            case QR_CODE:
-                int qrCells = (int) Math.ceil(Math.sqrt(dataLen * 10.0));
-                return Math.max(qrCells * modulo, modulo * 15);
-            default:
-                return 100;
-        }
     }
 
     private String sanitizar(String texto) {
@@ -354,6 +315,7 @@ public class ZplLabelService {
         String etiqueta = muestra.getEtiqueta();
         String nombre = truncar(construirNombrePaciente(muestra.getPaciente()), 24);
         return LabelDataDTO.builder()
+                .id(muestra.getId())
                 .etiqueta(etiqueta)
                 .nombre(nombre)
                 .codigoDatos(etiqueta)
@@ -370,6 +332,7 @@ public class ZplLabelService {
         String nombre = truncar(documento.getNombreOriginal(), 24);
         String codigoData = contenidoCodigoDocumento(documento, config, incluirEnlace);
         return LabelDataDTO.builder()
+                .id(documento.getId())
                 .etiqueta(etiqueta)
                 .nombre(nombre)
                 .codigoDatos(codigoData)

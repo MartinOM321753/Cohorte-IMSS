@@ -14,6 +14,9 @@ public interface ResultadoExamenDocumentoRepository extends JpaRepository<Result
 
     List<ResultadoExamenDocumento> findByResultadoExamen_IdOrderByDocumento_FechaSubidaDesc(Long resultadoId);
 
+    /** Resuelve a qué resultado cuelga un documento, para heredar de él su puerta de acceso. */
+    List<ResultadoExamenDocumento> findByDocumento_Id(Long documentoId);
+
     void deleteByDocumento_Id(Long documentoId);
 
     @Modifying

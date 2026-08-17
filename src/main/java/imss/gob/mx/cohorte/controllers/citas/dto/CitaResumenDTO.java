@@ -14,4 +14,8 @@ public class CitaResumenDTO {
     private String tipo;        // observaciones del médico
     private String estado;      // estadoCita.name()
     private String profesional; // nombre completo del usuarioAgenda
+
+    /** Sede que agendó. Con la atención entre sedes puede no ser la del usuario. */
+    private String institucionUuid;
+    private String institucionNombre;
 }

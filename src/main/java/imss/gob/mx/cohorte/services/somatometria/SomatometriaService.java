@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.somatometria;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.modules.somatometria.Somatometria;
 import imss.gob.mx.cohorte.modules.somatometria.SomatometriaRepository;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -15,8 +17,28 @@ import java.util.Optional;
 public class SomatometriaService {
 
     private final SomatometriaRepository repository;
+    private final imss.gob.mx.cohorte.security.institucion.InstitucionContextService institucionContextService;
+    private final ParticipanteAccesoService participanteAccesoService;
 
+    /** Solo lo que registro mi institucion a este participante (consulta historica). */
     @Transactional(readOnly = true)
+    public List<Somatometria> findByPacienteUuidDeMiInstitucion(String uuid) {
+        return repository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaMedicionDesc(
+                uuid, institucionContextService.getIdInstitucionActual());
+    }
+
+    /** Somatometrias registradas por mi institucion, sin pasar por el participante. */
+    @Transactional(readOnly = true)
+    public List<Somatometria> findAllDeMiInstitucion() {
+        return repository.findAllByInstitucion_IdOrderByFechaMedicionDesc(
+                institucionContextService.getIdInstitucionActual());
+    }
+
+    /**
+     * Historial acotado a las instituciones alcanzables. Antes no filtraba nada:
+     * bastaba el permiso SOMATOMETRIA_VER y el UUID para leer el historial de un
+     * participante de otra sede.
+     */
     public List<Somatometria> findByPacienteUuid(String uuid) {
         return repository.findByPacienteUuidOrderByFechaMedicionDesc(uuid);
     }

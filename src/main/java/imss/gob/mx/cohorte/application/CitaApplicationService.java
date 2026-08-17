@@ -12,6 +12,7 @@ import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.citas.CitaService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +30,7 @@ import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 public class CitaApplicationService {
     private final CitaService citaService;
     private final PacienteService pacienteService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
     private final ApplicationEventPublisher eventPublisher;
     private final InstitucionRepository institucionRepository;
@@ -47,30 +49,38 @@ public class CitaApplicationService {
     @Transactional(readOnly = true)
     public Cita findByFolio(String folio){
         Cita cita = citaService.findPatientFolio(folio);
-        institucionContextService.verificarPertenece(cita.getInstitucion());
+        participanteAccesoService.verificarLecturaRegistro(cita.getInstitucion(), cita.getPaciente());
         return cita;
     }
 
     @Transactional(readOnly = true)
     public Cita findByUuid(String uuid){
         Cita cita = citaService.getByUuid(uuid);
-        institucionContextService.verificarPertenece(cita.getInstitucion());
+        participanteAccesoService.verificarLecturaRegistro(cita.getInstitucion(), cita.getPaciente());
         return cita;
     }
 
     @Transactional(readOnly = true)
     public Cita findByPatientUuid(String uuid){
-        return citaService.findPatientUuid(uuid);
+        Cita cita = citaService.findPatientUuid(uuid);
+        participanteAccesoService.verificarLecturaRegistro(cita.getInstitucion(), cita.getPaciente());
+        return cita;
     }
 
     @Transactional(readOnly = true)
     public List<Cita> findAllByPacienteUuid(String uuid) {
-        return citaService.findAllByPacienteUuid(uuid);
+        // Si alcanzo al participante veo su historial completo; si no lo alcanzo pero
+        // conservo registros suyos, veo solo los mios. Es la regla de union a nivel
+        // de lista — ver ParticipanteAccesoService.resolverParaLectura.
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? citaService.findAllByPacienteUuidDeMiInstitucion(uuid)
+                : citaService.findAllByPacienteUuid(uuid);
     }
 
     @Transactional
     public Cita save(Cita cita){
-        Paciente paciente = pacienteService.getByUUID(cita.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
+        Paciente paciente = participanteAccesoService.resolver(cita.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(cita.getUsuarioAgenda().getUUID());
         if (cita.getInstitucion() == null || cita.getInstitucion().getId() == null) {
             throw new ObjNotFoundException("Falta informacion de institucion responsable de la cita");

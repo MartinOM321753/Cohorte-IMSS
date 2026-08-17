@@ -18,7 +18,32 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     List<ResultadoExamen> findByPaciente_Folio(String uuid);
     long countByPaciente_Uuid(String uuid);
 
+    /** Lo que mi sede le capturo a un participante concreto. */
+    List<ResultadoExamen> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+            String uuid, Long idInstitucion);
+
+    Page<ResultadoExamen> findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+            String uuid, Long idInstitucion, Pageable pageable);
+
+    /** Lo que capturo mi sede, independientemente de a quien se lo hizo. */
+    List<ResultadoExamen> findAllByInstitucion_IdOrderByFechaResultadoDesc(Long idInstitucion);
+
+    Page<ResultadoExamen> findAllByInstitucion_IdOrderByFechaResultadoDesc(Long idInstitucion, Pageable pageable);
+
     List<ResultadoExamen> findByPaciente_UuidAndPaciente_Institucion_Id(String uuid, Long idInstitucion);
+
+    /**
+     * Variantes por conjunto de instituciones. El resultado de examen no lleva
+     * institucion propia: hereda la del paciente, asi que filtrar por el conjunto
+     * alcanzable equivale a "el participante esta a mi alcance".
+     */
+    List<ResultadoExamen> findByPaciente_UuidAndPaciente_Institucion_IdIn(String uuid, java.util.List<Long> ids);
+
+    Page<ResultadoExamen> findByPaciente_UuidAndPaciente_Institucion_IdIn(String uuid, java.util.List<Long> ids, Pageable pageable);
+
+    List<ResultadoExamen> findByPaciente_FolioAndPaciente_Institucion_IdIn(String folio, java.util.List<Long> ids);
+
+    long countByPaciente_UuidAndPaciente_Institucion_IdIn(String uuid, java.util.List<Long> ids);
     Page<ResultadoExamen> findByPaciente_UuidAndPaciente_Institucion_Id(String uuid, Long idInstitucion, Pageable pageable);
     List<ResultadoExamen> findByPaciente_FolioAndPaciente_Institucion_Id(String folio, Long idInstitucion);
     long countByPaciente_UuidAndPaciente_Institucion_Id(String uuid, Long idInstitucion);

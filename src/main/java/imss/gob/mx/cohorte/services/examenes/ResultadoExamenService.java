@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.services.examenes;
 
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
+
 import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.modules.examenes.ExamenRepository;
 import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
@@ -23,33 +25,64 @@ import java.util.List;
 public class ResultadoExamenService {
 
     private final ResultadoExamenRepository resultadoExamenRepository;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final InstitucionContextService institucionContextService;
 
     public List<ResultadoExamen> findAllByFolio(String folioPaciente) {
-        return resultadoExamenRepository.findByPaciente_FolioAndPaciente_Institucion_Id(
-                folioPaciente, institucionContextService.getIdInstitucionActual());
+        return resultadoExamenRepository.findByPaciente_FolioAndPaciente_Institucion_IdIn(
+                folioPaciente, participanteAccesoService.institucionesAlcanzables());
     }
     public List<ResultadoExamen> findAllByUUID(String uuidPaciente) {
-        return resultadoExamenRepository.findByPaciente_UuidAndPaciente_Institucion_Id(
-                uuidPaciente, institucionContextService.getIdInstitucionActual());
+        var acceso = participanteAccesoService.resolverParaLectura(uuidPaciente);
+        return acceso.soloPropio()
+                ? findAllByUUIDDeMiInstitucion(uuidPaciente)
+                : resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente);
     }
     public Page<ResultadoExamen> findAllByUUIDPaginado(String uuidPaciente, Pageable pageable) {
-        return resultadoExamenRepository.findByPaciente_UuidAndPaciente_Institucion_Id(
-                uuidPaciente, institucionContextService.getIdInstitucionActual(), pageable);
+        var acceso = participanteAccesoService.resolverParaLectura(uuidPaciente);
+        if (acceso.soloPropio()) {
+            return resultadoExamenRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+                    uuidPaciente, institucionContextService.getIdInstitucionActual(), pageable);
+        }
+        return resultadoExamenRepository.findByPaciente_Uuid(uuidPaciente, pageable);
     }
     public ResultadoExamen getResultado(Long id) {
         ResultadoExamen resultado = resultadoExamenRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró resultado de examen con id: " + id));
-        institucionContextService.verificarPertenece(resultado.getPaciente().getInstitucion());
+        // El resultado de examen no lleva institucion propia: hereda la del paciente,
+        // asi que su lectura se decide unicamente por el alcance al participante.
+        participanteAccesoService.verificarLecturaRegistro(null, resultado.getPaciente());
         return resultado;
     }
 
+    /** Solo lo que capturo mi institucion a este participante. */
+    public List<ResultadoExamen> findAllByUUIDDeMiInstitucion(String uuidPaciente) {
+        return resultadoExamenRepository.findAllByPaciente_UuidAndInstitucion_IdOrderByFechaResultadoDesc(
+                uuidPaciente, institucionContextService.getIdInstitucionActual());
+    }
+
+    /** Resultados capturados por mi institucion, sin pasar por el participante. */
+    public List<ResultadoExamen> findAllDeMiInstitucion() {
+        return resultadoExamenRepository.findAllByInstitucion_IdOrderByFechaResultadoDesc(
+                institucionContextService.getIdInstitucionActual());
+    }
+
+    public Page<ResultadoExamen> findAllDeMiInstitucionPaginado(Pageable pageable) {
+        return resultadoExamenRepository.findAllByInstitucion_IdOrderByFechaResultadoDesc(
+                institucionContextService.getIdInstitucionActual(), pageable);
+    }
+
     public long countByPacienteUuid(String uuid) {
-        return resultadoExamenRepository.countByPaciente_UuidAndPaciente_Institucion_Id(
-                uuid, institucionContextService.getIdInstitucionActual());
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? findAllByUUIDDeMiInstitucion(uuid).size()
+                : resultadoExamenRepository.countByPaciente_Uuid(uuid);
     }
 
     public ResultadoExamen createResultado(ResultadoExamen resultadoExamen) {
+        // La sede que captura, no la del participante: al atender entre sedes pueden
+        // ser distintas, y el registro debe guardar quien lo hizo.
+        resultadoExamen.setInstitucion(institucionContextService.getInstitucionActual());
         resultadoExamen.setFechaRegistro(new Timestamp(System.currentTimeMillis()));
         if (resultadoExamen.getFechaResultado() == null) {
             resultadoExamen.setFechaResultado(LocalDateTime.now());

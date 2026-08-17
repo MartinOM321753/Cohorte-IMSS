@@ -83,6 +83,19 @@ public class ConfiguracionEtiquetaService {
         config.setMargenPaginaSuperiorMm(datos.getMargenPaginaSuperiorMm());
         config.setMargenPaginaIzquierdoMm(datos.getMargenPaginaIzquierdoMm());
 
+        config.setTipoMedio(datos.getTipoMedio());
+        config.setTamanoHoja(datos.getTamanoHoja());
+        config.setPasoHorizontalMm(datos.getPasoHorizontalMm());
+        config.setPasoVerticalMm(datos.getPasoVerticalMm());
+        config.setMargenDerechoMm(datos.getMargenDerechoMm());
+        config.setMargenInferiorMm(datos.getMargenInferiorMm());
+        config.setAjusteXMm(datos.getAjusteXMm());
+        config.setAjusteYMm(datos.getAjusteYMm());
+        config.setCarrilesRollo(datos.getCarrilesRollo());
+        config.setAnchoCabezalMm(datos.getAnchoCabezalMm());
+        config.setOffsetLhXDots(datos.getOffsetLhXDots());
+        config.setOffsetLhYDots(datos.getOffsetLhYDots());
+
         if (Boolean.TRUE.equals(datos.getPredeterminada()) && !Boolean.TRUE.equals(config.getPredeterminada())) {
             quitarPredeterminadaActual(institucionId);
         }

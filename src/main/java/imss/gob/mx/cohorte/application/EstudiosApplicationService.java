@@ -15,6 +15,7 @@ import imss.gob.mx.cohorte.services.estudios.EstudioService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
+import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -45,6 +46,7 @@ public class EstudiosApplicationService {
     private final EstudioService estudioService;
     private final TipoService tipoEstudioService;
     private final PacienteService pacienteService;
+    private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
     private final ParametroEstudioService parametroService;
     private final ResultadoEstudioRepository resultadoRepository;
@@ -60,13 +62,21 @@ public class EstudiosApplicationService {
     @Transactional(readOnly = true)
     public EstudioMedico getEstudio(Long id) {
         EstudioMedico estudio = estudioService.getOne(id);
-        institucionContextService.verificarPertenece(estudio.getInstitucion());
+        // Lectura: basta con alcanzar el registro o al participante. Editarlo sigue
+        // reservado a la sede que lo hizo (ver updateEstudio).
+        participanteAccesoService.verificarLecturaRegistro(estudio.getInstitucion(), estudio.getPaciente());
         return estudio;
     }
 
     @Transactional(readOnly = true)
     public List<EstudioMedico> getEstudiosByPaciente(String uuid) {
-        return estudioService.getAllByPacienteUUID(uuid);
+        // Si alcanzo al participante veo su historial completo; si no lo alcanzo pero
+        // conservo registros suyos, veo solo los mios. Es la regla de union a nivel
+        // de lista — ver ParticipanteAccesoService.resolverParaLectura.
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? estudioService.getAllByPacienteUUIDDeMiInstitucion(uuid)
+                : estudioService.getAllByPacienteUUID(uuid);
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +86,10 @@ public class EstudiosApplicationService {
 
     @Transactional(readOnly = true)
     public Page<EstudioMedico> getEstudiosByPacientePaginado(String uuid, Pageable pageable) {
-        return estudioService.getAllByPacienteUUIDPaginado(uuid, pageable);
+        var acceso = participanteAccesoService.resolverParaLectura(uuid);
+        return acceso.soloPropio()
+                ? estudioService.getAllByPacienteUUIDDeMiInstitucionPaginado(uuid, pageable)
+                : estudioService.getAllByPacienteUUIDPaginado(uuid, pageable);
     }
 
     @Transactional
@@ -124,7 +137,7 @@ public class EstudiosApplicationService {
             throw new ObjNotFoundException("Falta informacion de institucion responsable del estudio");
         }
         System.out.println("USUARIO REALIZA= " + estudioMedico.getUsuarioRealiza().getUUID());
-        Paciente paciente = pacienteService.getByUUID(estudioMedico.getPaciente().getUuid(), institucionContextService.getIdInstitucionActual());
+        Paciente paciente = participanteAccesoService.resolver(estudioMedico.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(estudioMedico.getUsuarioRealiza().getUUID());
         TipoEstudio tipoEstudio = tipoEstudioService.getOne(estudioMedico.getTipoEstudio().getId());
         Institucion institucion = institucionRepository.findById(estudioMedico.getInstitucion().getId())

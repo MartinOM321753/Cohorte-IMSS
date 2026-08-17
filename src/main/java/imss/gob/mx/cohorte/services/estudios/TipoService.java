@@ -18,6 +18,8 @@ public class TipoService {
 
     private final TipoEstudioRepository tipoEstudioRepository;
     private final InstitucionContextService institucionContextService;
+    private final imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService institucionJerarquiaService;
+    private final imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository estudioMedicoRepository;
 
     /** Todos los TipoEstudio de la institución actual, filtrados por estado. */
     public List<TipoEstudio> getAllByStatus(Boolean status) {
@@ -35,6 +37,34 @@ public class TipoService {
         return tipoEstudioRepository.findByNombreIgnoreCaseAndInstitucion_Id(
                 nombre, institucionContextService.getIdInstitucionActual())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));
+    }
+
+    /**
+     * Lectura de la definicion de un tipo de estudio para CONSULTAR un estudio que
+     * lo usa. El catalogo es por institucion, asi que ver un estudio de otra sede
+     * obliga a leer su tipo: sin esto la consulta rebota al pedir los parametros.
+     *
+     * <p>Solo lectura. {@link #getOne(Long)} sigue exigiendo que el tipo sea de la
+     * institucion propia, de modo que no se puede crear ni editar un estudio a
+     * partir del catalogo de otra sede.</p>
+     */
+    public TipoEstudio getOneParaLectura(Long id) {
+        TipoEstudio tipo = tipoEstudioRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el tipo de estudio solicitado"));
+
+        java.util.List<Long> alcanzables = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+
+        if (alcanzables.contains(tipo.getInstitucion().getId())) return tipo;
+
+        // Alcanzar la sede del catalogo no es la unica via: con la colaboracion entre
+        // sedes se puede leer un estudio de una institucion que no se alcanza, porque
+        // el permiso lo da el participante. En ese caso la definicion se abre solo si
+        // hay algun estudio de este tipo que ya se podia consultar.
+        if (estudioMedicoRepository.existeEstudioLegibleDeTipo(id, alcanzables)) return tipo;
+
+        throw new org.springframework.security.access.AccessDeniedException(
+                "El tipo de estudio pertenece a otra institución");
     }
 
     public TipoEstudio getOne(Long id) {

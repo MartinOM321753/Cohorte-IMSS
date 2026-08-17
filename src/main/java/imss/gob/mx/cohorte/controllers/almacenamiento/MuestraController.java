@@ -387,6 +387,16 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("ZPL generado para lote completo", zpl, false, HttpStatus.OK));
     }
 
+    @PostMapping("/etiquetas/zpl-acomodado")
+    @Operation(summary = "Generar ZPL con las etiquetas en los carriles elegidos por el operador")
+    @PreAuthorize("hasAuthority('MUESTRAS_IMPRIMIR')")
+    public ResponseEntity<APIResponse> getZplAcomodado(
+            @Validated @RequestBody ZplAcomodoRequestDTO dto) {
+        ZplLoteResponseDTO zpl = muestraApplicationService.generarZplAcomodado(
+                dto.slots(), dto.configuracionId(), dto.marcoActivo());
+        return ResponseEntity.ok(new APIResponse("ZPL generado con acomodo", zpl, false, HttpStatus.OK));
+    }
+
     // ── Datos para impresión por navegador ─────────────────────────────────
 
     @GetMapping("/{id}/etiqueta/datos")

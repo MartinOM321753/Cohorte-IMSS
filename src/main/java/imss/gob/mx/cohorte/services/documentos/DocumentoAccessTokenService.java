@@ -26,15 +26,17 @@ public class DocumentoAccessTokenService {
     private final DocumentoAccessTokenRepository tokenRepository;
     private final DocumentoRepository documentoRepository;
     private final InstitucionContextService institucionCtx;
+    private final DocumentoService documentoService;
 
     @Transactional
     public DocumentoAccessToken generarToken(String etiqueta) {
         Documento doc = documentoRepository.findByEtiqueta(etiqueta)
                 .orElseThrow(() -> new ObjNotFoundException("Documento no encontrado con etiqueta: " + etiqueta));
 
-        if (doc.getIdInstitucion() != null) {
-            institucionCtx.verificarPerteneceOAncestra(doc.getIdInstitucion());
-        }
+        // La misma puerta que la descarga: el adjunto hereda de la entidad de la que
+        // cuelga. Antes miraba solo la institución del documento, así que un token
+        // podía abrir lo que la descarga negaba y al revés.
+        documentoService.verificarLectura(doc);
 
         String tokenStr = generarTokenSeguro();
         LocalDateTime ahora = LocalDateTime.now();
