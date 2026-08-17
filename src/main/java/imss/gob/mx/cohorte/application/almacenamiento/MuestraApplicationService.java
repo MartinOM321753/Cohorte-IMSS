@@ -465,6 +465,37 @@ public class MuestraApplicationService {
         return new ZplLoteResponseDTO(zpl, aImprimir.size());
     }
 
+    /**
+     * ZPL con las etiquetas en los carriles que eligió el operador.
+     *
+     * Cada posición de {@code slots} es un carril del rollo, en orden de avance;
+     * las nulas quedan en blanco. Se resuelve cada muestra con la comprobación de
+     * acceso habitual: el acomodo llega del navegador y no puede servir para
+     * imprimir etiquetas de muestras que no estén en el biobanco de quien lo pide.
+     */
+    @Transactional(readOnly = true)
+    public ZplLoteResponseDTO generarZplAcomodado(List<Long> slots, Long configuracionId,
+                                                   boolean marcoDepuracion) {
+        ConfiguracionEtiqueta config = resolverConfig(configuracionId);
+
+        List<Muestra> acomodo = new java.util.ArrayList<>(slots.size());
+        int impresas = 0;
+        for (Long id : slots) {
+            if (id == null) {
+                acomodo.add(null);
+            } else {
+                acomodo.add(muestraService.getByIdConAcceso(id));
+                impresas++;
+            }
+        }
+        if (impresas == 0) {
+            throw new ValidationException("El acomodo no tiene ninguna etiqueta que imprimir.");
+        }
+
+        String zpl = zplLabelService.generarZplAcomodado(acomodo, config, marcoDepuracion);
+        return new ZplLoteResponseDTO(zpl, impresas);
+    }
+
     // ── Datos estructurados para impresión por navegador ──────────────────
 
     @Transactional(readOnly = true)
