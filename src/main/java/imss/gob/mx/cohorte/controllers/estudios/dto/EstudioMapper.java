@@ -168,6 +168,8 @@ public class EstudioMapper {
             .valorMinHombres(p.getValorMinHombres())
             .valorMaxHombres(p.getValorMaxHombres())
             .opciones(opciones)
+            .alias(p.getAlias() == null ? List.of()
+                    : p.getAlias().stream().map(a -> a.getAlias()).collect(Collectors.toList()))
             .build();
     }
 

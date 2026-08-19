@@ -64,4 +64,16 @@ public class ParametroEstudio {
     @OrderBy("orden ASC")
     private List<OpcionParametro> opciones = new ArrayList<>();
 
+    /**
+     * Nombres con los que los instrumentos medicos titulan la columna de este
+     * parametro. Aplica a cualquier tipo de parametro, no solo a los numericos.
+     *
+     * <p>Se carga en modo EAGER como las opciones porque el catalogo y el
+     * importador siempre los necesitan junto al parametro; en LAZY, recorrer los
+     * parametros de un tipo dispararia una consulta por cada uno.</p>
+     */
+    @OneToMany(mappedBy = "parametro", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orden ASC")
+    private List<AliasParametroEstudio> alias = new ArrayList<>();
+
 }

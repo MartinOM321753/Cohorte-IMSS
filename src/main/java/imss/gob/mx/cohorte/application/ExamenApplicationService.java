@@ -31,6 +31,7 @@ import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 @RequireModulo(ModuloSistema.EXAMENES)
 public class ExamenApplicationService {
     private final ExamenService examenService;
+    private final imss.gob.mx.cohorte.services.examenes.AliasExamenService aliasExamenService;
     private final PacienteService pacienteService;
     private final ParticipanteAccesoService participanteAccesoService;
     private final UserService userService;
@@ -52,18 +53,22 @@ public class ExamenApplicationService {
     }
 
     @Transactional
-    public Examen create(Examen examen) {
+    public Examen create(Examen examen, java.util.List<String> alias) {
         examen.setInstitucion(resolverInstitucion(examen.getInstitucion()));
-        return examenService.createExamen(examen);
+        Examen creado = examenService.createExamen(examen);
+        aliasExamenService.reemplazarAlias(creado, alias);
+        return creado;
     }
     @Transactional
-    public Examen update(Examen examen) {
+    public Examen update(Examen examen, java.util.List<String> alias) {
         Examen existente = examenService.getExamen(examen.getId());
         institucionContextService.verificarPertenece(existente.getInstitucion());
         // La institución propietaria no es editable desde el DTO de edición (el
         // frontend no la envía al actualizar, solo al crear) — se conserva la actual.
         examen.setInstitucion(existente.getInstitucion());
-        return examenService.updateExamen(examen);
+        Examen actualizado = examenService.updateExamen(examen);
+        aliasExamenService.reemplazarAlias(actualizado, alias);
+        return actualizado;
     }
 
     private Institucion resolverInstitucion(Institucion referencia) {

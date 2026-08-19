@@ -25,4 +25,13 @@ public class ExamenRequestDTO {
     private Double valorMinHombres;
     private Double valorMaxHombres;
 
+
+    /**
+     * Nombres con los que los instrumentos titulan la columna de este examen.
+     * La lista reemplaza la anterior. Se comparan sin acentos, mayusculas ni
+     * espacios de sobra, y dentro de una institucion un alias pertenece a un
+     * solo examen.
+     */
+    private java.util.List<String> alias;
+
 }

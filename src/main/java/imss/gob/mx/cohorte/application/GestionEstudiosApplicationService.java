@@ -9,6 +9,7 @@ import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.services.estudios.AliasParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.OpcionParametroService;
 import imss.gob.mx.cohorte.services.estudios.ParametroEstudioService;
 import imss.gob.mx.cohorte.services.estudios.ResultadoService;
@@ -30,6 +31,7 @@ public class GestionEstudiosApplicationService {
     private final ParametroEstudioService parametroService;
     private final ResultadoService resultadoService;
     private final OpcionParametroService opcionService;
+    private final AliasParametroEstudioService aliasParametroService;
     private final EstudioMedicoRepository estudioMedicoRepository;
     private final ParametroEstudioRepository parametroEstudioRepository;
 
@@ -75,7 +77,8 @@ public class GestionEstudiosApplicationService {
     }
 
     @Transactional
-    public ParametroEstudio createParametro(ParametroEstudio parametroEstudio, List<String> opciones) {
+    public ParametroEstudio createParametro(ParametroEstudio parametroEstudio, List<String> opciones,
+                                            List<String> alias) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
         if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
@@ -83,11 +86,15 @@ public class GestionEstudiosApplicationService {
         if (creado.getTipo() == TipoParametro.TEXTO_OPCIONES && opciones != null && !opciones.isEmpty()) {
             opcionService.replaceAll(creado, opciones);
         }
+        // Los alias no dependen del tipo de parametro: cualquiera puede venir de
+        // un instrumento, sea numerico, texto o booleano.
+        aliasParametroService.reemplazarAlias(creado, alias);
         return creado;
     }
 
     @Transactional
-    public ParametroEstudio updateParametro(ParametroEstudio parametroEstudio, List<String> opciones) {
+    public ParametroEstudio updateParametro(ParametroEstudio parametroEstudio, List<String> opciones,
+                                            List<String> alias) {
         TipoEstudio tipoEstudio = tipoService.getOne(parametroEstudio.getTipoEstudio().getId());
         if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
         parametroEstudio.setTipoEstudio(tipoEstudio);
@@ -95,6 +102,7 @@ public class GestionEstudiosApplicationService {
         if (actualizado.getTipo() == TipoParametro.TEXTO_OPCIONES) {
             opcionService.replaceAll(actualizado, opciones != null ? opciones : List.of());
         }
+        aliasParametroService.reemplazarAlias(actualizado, alias);
         return actualizado;
     }
 
