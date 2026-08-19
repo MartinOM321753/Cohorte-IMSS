@@ -243,6 +243,12 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/*/alicuotas/etiquetas/zpl").hasAuthority("MUESTRAS_IMPRIMIR")
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/*/lote-completo/zpl").hasAuthority("MUESTRAS_IMPRIMIR")
 
+                        // ── Muestras — lectura de etiqueta (cámara o lector de códigos) ──
+                        // Va antes de la regla general de GET: es un permiso propio y no
+                        // debe quedar concedido por el simple hecho de poder ver muestras.
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/buscar-por-etiqueta")
+                                .hasAuthority("MUESTRAS_ESCANEAR")
+
                         // ── Muestras — posición (PrestamosTab asigna posición al confirmar recepción) ──
                         .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/muestras/*/posicion").hasAnyAuthority("MUESTRAS_EDITAR", "TRASLADOS_CONFIRMAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/almacenamiento/muestras/*/posicion").hasAuthority("MUESTRAS_EDITAR")

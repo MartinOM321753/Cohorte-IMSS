@@ -81,6 +81,18 @@ public class MuestraApplicationService {
         return muestraService.getById(id);
     }
 
+    /** Resuelve la etiqueta que devolvió el lector de códigos. */
+    @Transactional(readOnly = true)
+    public Muestra buscarPorEtiquetaEscaneada(String etiqueta) {
+        return muestraService.buscarPorEtiquetaEscaneada(etiqueta);
+    }
+
+    /** La institución del usuario, para que el controlador sepa cómo situar la muestra. */
+    @Transactional(readOnly = true)
+    public Long getIdInstitucionActual() {
+        return institucionContextService.getIdInstitucionActual();
+    }
+
     @Transactional(readOnly = true)
     public List<Muestra> getMuestrasByPacienteUUID(String uuid) {
         return muestraService.getAll().stream()

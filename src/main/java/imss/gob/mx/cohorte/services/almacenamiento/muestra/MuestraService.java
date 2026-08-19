@@ -95,6 +95,36 @@ public class MuestraService {
                 : muestraRepository.findAllVisiblesPorInstitucion(idInst);
     }
 
+    /**
+     * Resuelve la etiqueta que viene de un lector de códigos.
+     *
+     * <p>El código impreso en la etiqueta de una muestra contiene su texto de
+     * etiqueta y nada más —ver {@code ZplLabelService.extraerDatosMuestra}—, así
+     * que la búsqueda por escaneo es una búsqueda por etiqueta exacta.</p>
+     *
+     * <p>Se normaliza antes de comparar: los lectores de teclado suelen añadir
+     * espacios o un salto de línea al final, y algunos configurados en mayúsculas
+     * fijas cambian la caja. Comparar en crudo haría fallar lecturas correctas.</p>
+     */
+    @Transactional(readOnly = true)
+    public Muestra buscarPorEtiquetaEscaneada(String etiqueta) {
+        String limpia = etiqueta == null ? "" : etiqueta.trim();
+        if (limpia.isEmpty()) {
+            throw new ObjNotFoundException("No se recibió ninguna etiqueta que buscar");
+        }
+
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        List<Muestra> encontradas = muestraRepository.buscarVisiblesPorEtiqueta(limpia, idInst);
+        if (encontradas.isEmpty()) {
+            throw new ObjNotFoundException(
+                    "No se encontró ninguna muestra con la etiqueta " + limpia
+                            + " entre las de tu institución");
+        }
+        // La consulta ordena poniendo primero la propia: si dos sedes comparten el
+        // texto de etiqueta y ambas están a la vista, gana la de casa.
+        return encontradas.get(0);
+    }
+
     @Transactional(readOnly = true)
     public Muestra getById(Long id) {
         Muestra muestra = muestraRepository.findById(id)

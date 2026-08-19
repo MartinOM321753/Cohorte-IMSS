@@ -107,6 +107,44 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("Muestra encontrada", MuestraMapper.toResponseDTO(muestra), false, HttpStatus.OK));
     }
 
+    // La etiqueta lleva diagonales ("C1/001103/F4"), así que viaja como parámetro
+    // de consulta y no como segmento de ruta: en la ruta partiría el path, y
+    // codificada como %2F la rechaza el contenedor antes de llegar aquí.
+    @GetMapping("/buscar-por-etiqueta")
+    @Operation(summary = "Resolver una etiqueta leída con un lector de códigos",
+               description = "Devuelve la muestra cuya etiqueta coincide, dentro de las visibles para la "
+                       + "institución (propia, en posesión o con traslado previo). Además indica si es "
+                       + "alícuota —para poder desplegar su muestra padre— y si hace falta encender la "
+                       + "vista de histórico para que aparezca en el listado.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Etiqueta resuelta",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Ninguna muestra visible con esa etiqueta",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAuthority('MUESTRAS_ESCANEAR')")
+    public ResponseEntity<APIResponse> resolverPorEtiqueta(
+            @Parameter(description = "Texto codificado en la etiqueta impresa", required = true)
+            @RequestParam("etiqueta") String etiqueta) {
+        Muestra muestra = muestraApplicationService.buscarPorEtiquetaEscaneada(etiqueta);
+        Long idInstitucionActual = muestraApplicationService.getIdInstitucionActual();
+
+        boolean esPropia = muestra.getInstitucion() != null
+                && muestra.getInstitucion().getId().equals(idInstitucionActual);
+        boolean laTengo = muestra.getInstitucionActual() != null
+                && muestra.getInstitucionActual().getId().equals(idInstitucionActual);
+
+        MuestraEscaneadaDTO dto = MuestraEscaneadaDTO.builder()
+                .muestra(MuestraMapper.toResponseDTO(muestra))
+                .idMuestraPadre(muestra.getMuestraPadre() != null ? muestra.getMuestraPadre().getId() : null)
+                .requiereHistorico(!esPropia && !laTengo)
+                .build();
+
+        return ResponseEntity.ok(new APIResponse("Etiqueta resuelta", dto, false, HttpStatus.OK));
+    }
+
     @GetMapping("/paciente/uuid/{uuid}/count")
     @Operation(summary = "Contar muestras de un paciente por UUID")
     @PreAuthorize("hasAnyAuthority('MUESTRAS_VER', 'EXPEDIENTE_BIOBANCO')")
