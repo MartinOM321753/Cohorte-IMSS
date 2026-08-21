@@ -91,6 +91,48 @@ public class GlobalExceptionHandler {
                 .body(new APIResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, true));
     }
 
+    /**
+     * El cuerpo de la peticion no se pudo interpretar: un campo llego con un tipo
+     * o un formato que no corresponde.
+     *
+     * <p>Sin este manejador caia en el catch general y salia como 500 "Error
+     * interno del servidor" con un volcado de pila. Es enganoso: el servidor esta
+     * bien, lo que llego mal es la peticion. Y sobre todo deja al usuario sin
+     * saber que corregir, porque el motivo real —que campo y con que valor— se
+     * queda enterrado en el log.</p>
+     */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<APIResponse> handleCuerpoIlegible(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
+
+        String detalle = "El formato de la solicitud no es valido.";
+
+        if (ex.getCause() instanceof com.fasterxml.jackson.databind.exc.InvalidFormatException causa) {
+            String campo = causa.getPath().stream()
+                    .map(com.fasterxml.jackson.databind.JsonMappingException.Reference::getFieldName)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce((a, b) -> a + "." + b)
+                    .orElse(null);
+
+            String tipo = causa.getTargetType() != null ? causa.getTargetType().getSimpleName() : "";
+            String valor = String.valueOf(causa.getValue());
+
+            if (campo != null) {
+                detalle = "El campo \"" + campo + "\" recibio el valor \"" + valor
+                        + "\", que no corresponde al formato esperado"
+                        + ("LocalDateTime".equals(tipo) ? " (fecha y hora, por ejemplo 2026-08-07T14:30)" : "")
+                        + ".";
+            }
+        }
+
+        // WARN y no ERROR: no es un fallo del servidor, es una peticion mal formada.
+        log.warn("Cuerpo de peticion ilegible: {}", ex.getMostSpecificCause().getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new APIResponse(detalle, HttpStatus.BAD_REQUEST, true));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<APIResponse> handleGeneral(Exception ex){
         log.error("Error interno no controlado", ex);
