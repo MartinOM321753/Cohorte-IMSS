@@ -58,7 +58,8 @@ public class EstudioMedicoController {
     public ResponseEntity<APIResponse> getAll() {
         List<EstudioMedico> estudios = estudiosApplicationService.getAllEstudios();
         List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(
-                estudios, pacienteApplicationService.getInstitucionesVisibles());
+                estudios, pacienteApplicationService.getInstitucionesVisibles(),
+                estudiosApplicationService.contarAdjuntosPorEstudio(estudios));
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios obtenidos correctamente", HttpStatus.OK, false));
     }
 
@@ -77,7 +78,8 @@ public class EstudioMedicoController {
         Page<EstudioMedico> estudios = estudiosApplicationService.getAllEstudiosPaginado(pageable);
         Map<String, Object> body = Map.of(
             "content", EstudioMapper.toResponseDTOList(
-                    estudios.getContent(), pacienteApplicationService.getInstitucionesVisibles()),
+                    estudios.getContent(), pacienteApplicationService.getInstitucionesVisibles(),
+                    estudiosApplicationService.contarAdjuntosPorEstudio(estudios.getContent())),
             "page", estudios.getNumber(),
             "size", estudios.getSize(),
             "totalElements", estudios.getTotalElements(),
@@ -189,7 +191,8 @@ public class EstudioMedicoController {
         @PathVariable @NotBlank String uuid) {
         pacienteApplicationService.verificarAccesoPropioSiEsPaciente(uuid);
         List<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPaciente(uuid);
-        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(estudios);
+        List<EstudioListRequestDTO> dtos = EstudioMapper.toResponseDTOList(
+                estudios, estudiosApplicationService.contarAdjuntosPorEstudio(estudios));
         return ResponseEntity.ok(new APIResponse(dtos, "Estudios del participante obtenidos correctamente", HttpStatus.OK, false));
     }
 
@@ -213,7 +216,8 @@ public class EstudioMedicoController {
         Pageable pageable) {
         Page<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPacientePaginado(uuid, pageable);
         Map<String, Object> body = Map.of(
-            "content", EstudioMapper.toResponseDTOList(estudios.getContent()),
+            "content", EstudioMapper.toResponseDTOList(estudios.getContent(),
+                    estudiosApplicationService.contarAdjuntosPorEstudio(estudios.getContent())),
             "page", estudios.getNumber(),
             "size", estudios.getSize(),
             "totalElements", estudios.getTotalElements(),

@@ -125,9 +125,18 @@ public class EstudioMapper {
                 .build();
     }
 
-    public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e) {
+    /**
+     * @param adjuntos numero de documentos del estudio, calculado fuera.
+     *
+     * <p>Se recibe en lugar de leerlo de la entidad porque los adjuntos viven en
+     * EstudioDocumento, del modulo de documentos, y no en la coleccion
+     * {@code adjuntos} de EstudioMedico — esa apunta a Estudio_Adjunto, una tabla
+     * anterior a ese modulo que hoy no escribe nadie. Leerla devolvia siempre cero
+     * aunque el estudio tuviera archivos.</p>
+     */
+    public static EstudioListRequestDTO toResponseDTOList(EstudioMedico e, int adjuntos) {
         int numResultados = (e.getResultadoEstudio() != null) ? e.getResultadoEstudio().size() : 0;
-        int numAdjuntos   = (e.getAdjuntos() != null)        ? e.getAdjuntos().size()          : 0;
+        int numAdjuntos   = adjuntos;
         return EstudioListRequestDTO.builder()
                 .id(e.getId())
                 .fechaEstudio(e.getFechaEstudio())
@@ -162,8 +171,11 @@ public class EstudioMapper {
             .build();
     }
 
-    public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list) {
-        return list.stream().map(EstudioMapper::toResponseDTOList).collect(Collectors.toList());
+    public static List<EstudioListRequestDTO> toResponseDTOList(
+            List<EstudioMedico> list, java.util.Map<Long, Integer> adjuntosPorEstudio) {
+        return list.stream()
+                .map(e -> toResponseDTOList(e, adjuntosPorEstudio.getOrDefault(e.getId(), 0)))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -172,9 +184,10 @@ public class EstudioMapper {
      * revocado el acceso al participante: se muestra, pero sin invitar a abrirlo.
      */
     public static List<EstudioListRequestDTO> toResponseDTOList(List<EstudioMedico> list,
-                                                                 java.util.Collection<Long> institucionesAlcanzables) {
+                                                                 java.util.Collection<Long> institucionesAlcanzables,
+                                                                 java.util.Map<Long, Integer> adjuntosPorEstudio) {
         return list.stream().map(e -> {
-            EstudioListRequestDTO dto = toResponseDTOList(e);
+            EstudioListRequestDTO dto = toResponseDTOList(e, adjuntosPorEstudio.getOrDefault(e.getId(), 0));
             Long idInstPaciente = (e.getPaciente() != null && e.getPaciente().getInstitucion() != null)
                     ? e.getPaciente().getInstitucion().getId() : null;
             dto.setPacienteAlcanzable(idInstPaciente != null && institucionesAlcanzables.contains(idInstPaciente));

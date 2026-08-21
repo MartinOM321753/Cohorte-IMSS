@@ -224,4 +224,27 @@ public class EstudiosApplicationService {
     private String buildResultadoKey(Long parametroId, String grupoCodigo, Integer ordenResultado) {
         return parametroId + "|" + grupoCodigo + "|" + ordenResultado;
     }
+
+    /**
+     * Cuantos documentos tiene cada estudio de la lista.
+     *
+     * <p>Los adjuntos de un estudio viven en EstudioDocumento, del modulo de
+     * documentos. La tabla Estudio_Adjunto es anterior a ese modulo y hoy no la
+     * escribe nadie: contar sobre ella devolvia siempre cero, aunque el estudio
+     * tuviera archivos y el dialogo los mostrara.</p>
+     *
+     * @return id de estudio a numero de documentos; los estudios sin ninguno no
+     *         aparecen en el mapa
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, Integer> contarAdjuntosPorEstudio(java.util.List<EstudioMedico> estudios) {
+        if (estudios == null || estudios.isEmpty()) return java.util.Map.of();
+
+        java.util.List<Long> ids = estudios.stream().map(EstudioMedico::getId).toList();
+        java.util.Map<Long, Integer> conteo = new java.util.HashMap<>();
+        for (Object[] fila : estudioDocumentoRepository.contarPorEstudio(ids)) {
+            conteo.put((Long) fila[0], ((Number) fila[1]).intValue());
+        }
+        return conteo;
+    }
 }
