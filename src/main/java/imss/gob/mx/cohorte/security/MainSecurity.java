@@ -190,6 +190,11 @@ public class MainSecurity {
                                 .hasAuthority("ESTUDIOS_TIPOS_ELIMINAR")
                         // Llenado (estudios registrados)
                         .requestMatchers(HttpMethod.GET, "/api/estudios/**").hasAuthority("ESTUDIOS_LLENADO_ACCEDER")
+                        // Antes del generico de abajo: si no, "/api/estudios/**" se lo
+                        // tragaria y la carga masiva quedaria abierta a cualquiera que
+                        // pueda registrar un estudio suelto.
+                        .requestMatchers(HttpMethod.POST, "/api/estudios/carga-masiva/**")
+                                .hasAuthority("ESTUDIOS_CARGA_MASIVA")
                         .requestMatchers(HttpMethod.POST, "/api/estudios/**").hasAuthority("ESTUDIOS_CREAR")
                         .requestMatchers(HttpMethod.PUT, "/api/estudios/**").hasAuthority("ESTUDIOS_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/estudios/**").hasAuthority("ESTUDIOS_ELIMINAR")

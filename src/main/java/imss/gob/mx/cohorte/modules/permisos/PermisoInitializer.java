@@ -86,6 +86,7 @@ public class PermisoInitializer {
             new String[]{"ESTUDIOS_CREAR", "ESTUDIOS", "Registrar resultados de estudio (llenado)"},
             new String[]{"ESTUDIOS_EDITAR", "ESTUDIOS", "Editar resultados de estudio (llenado)"},
             new String[]{"ESTUDIOS_ELIMINAR", "ESTUDIOS", "Eliminar estudios (llenado)"},
+            new String[]{"ESTUDIOS_CARGA_MASIVA", "ESTUDIOS", "Cargar resultados de estudio desde un archivo del instrumento"},
             new String[]{"ESTUDIOS_TIPOS_CREAR", "ESTUDIOS", "Crear tipos de estudio en catalogo"},
             new String[]{"ESTUDIOS_TIPOS_EDITAR", "ESTUDIOS", "Editar tipos de estudio en catalogo"},
             new String[]{"ESTUDIOS_TIPOS_ELIMINAR", "ESTUDIOS", "Eliminar tipos de estudio en catalogo"},
