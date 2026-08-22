@@ -51,9 +51,16 @@ public record PrevisualizacionCarga(
         Resumen resumen
 ) {
 
-    /** @param aliasUsado el alias que hizo la coincidencia, para poder explicarla */
+    /**
+     * @param aliasUsado el alias que hizo la coincidencia, para poder explicarla
+     * @param opciones   las configuradas en el catalogo; solo en TEXTO_OPCIONES.
+     *                   Viajan para que la pantalla pueda ofrecerlas al corregir:
+     *                   sin ellas, quien tiene que arreglar una celda solo puede
+     *                   escribir a ciegas y acertar la ortografia exacta.
+     */
     public record ColumnaReconocida(int indice, String encabezado, Long idParametro,
-                                    String nombreParametro, String tipo, String aliasUsado) {}
+                                    String nombreParametro, String tipo, String aliasUsado,
+                                    List<String> opciones) {}
 
     /**
      * @param numeroDeFila   el del archivo, para buscarlo en la hoja de calculo
@@ -87,10 +94,15 @@ public record PrevisualizacionCarga(
     }
 
     /**
-     * @param crudo el texto tal como venia, para poder enseñarlo al corregir
-     * @param error null si se entendio
+     * @param crudo    el texto tal como venia, para poder enseñarlo al corregir
+     * @param error    null si se entendio
+     * @param canonico para los parametros de seleccion, la opcion del catalogo a
+     *                 la que corresponde el valor. Lo resuelve el servidor y no la
+     *                 pantalla porque la comparacion ignora acentos y mayusculas:
+     *                 repetir esa regla en el navegador crearia dos criterios para
+     *                 el mismo dato, y el que manda es este.
      */
-    public record ValorPrevisualizado(Long idParametro, String crudo, String error) {}
+    public record ValorPrevisualizado(Long idParametro, String crudo, String error, String canonico) {}
 
     /**
      * @param filasConProblemas cuantas necesitan correccion antes de guardar

@@ -376,12 +376,18 @@ public class CargaMasivaEstudiosService {
             ParametroEstudio p = parametroPorId.get(c.destino().id());
             String crudo = celdas.get(c.indice());
             String error = null;
+            String canonico = null;
             try {
-                ConversorValor.convertir(crudo, p.getTipo(), p.getOpciones());
+                var convertido = ConversorValor.convertir(crudo, p.getTipo(), p.getOpciones());
+                // Solo tiene sentido en los de seleccion; en el resto el propio
+                // texto ya es el valor y devolverlo aqui seria ruido.
+                if (p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES) {
+                    canonico = convertido.texto();
+                }
             } catch (ValorNoValidoException e) {
                 error = e.getMessage();
             }
-            valores.add(new PrevisualizacionCarga.ValorPrevisualizado(p.getId(), crudo, error));
+            valores.add(new PrevisualizacionCarga.ValorPrevisualizado(p.getId(), crudo, error, canonico));
         }
 
         // Solo tiene sentido buscar duplicado si ya se sabe de quien y de cuando.
@@ -503,7 +509,9 @@ public class CargaMasivaEstudiosService {
                     ParametroEstudio p = parametroPorId.get(c.destino().id());
                     return new PrevisualizacionCarga.ColumnaReconocida(
                             c.indice(), c.encabezado(), p.getId(), p.getNombre(),
-                            p.getTipo().name(), c.aliasUsado());
+                            p.getTipo().name(), c.aliasUsado(),
+                            p.getOpciones() == null ? List.of()
+                                    : p.getOpciones().stream().map(o -> o.getValor()).toList());
                 })
                 .toList();
     }
