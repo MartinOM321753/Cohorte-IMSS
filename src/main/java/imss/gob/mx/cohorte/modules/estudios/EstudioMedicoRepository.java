@@ -106,6 +106,21 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e WHERE e.paciente.Id = :pacienteId")
     List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
 
+    /**
+     * Los estudios ya registrados de un tipo para un grupo de participantes.
+     *
+     * <p>La usa la carga masiva para avisar de lo que ya existe antes de
+     * escribir. Se consulta en bloque y no fila a fila porque un archivo trae
+     * cientos de filas, y tambien porque el duplicado hay que detectarlo ANTES
+     * de empezar a guardar: descubrirlo a mitad dejaria media carga hecha.</p>
+     *
+     * @return tuplas (idPaciente, fechaEstudio, idEstudio)
+     */
+    @Query("SELECT e.paciente.id, e.fechaEstudio, e.id FROM EstudioMedico e "
+         + "WHERE e.tipoEstudio.id = :idTipo AND e.paciente.id IN :idsPacientes")
+    List<Object[]> buscarDeTipoParaPacientes(@Param("idTipo") Long idTipo,
+                                             @Param("idsPacientes") List<Long> idsPacientes);
+
     boolean existsByTipoEstudio_Id(Long id);
 
     /**

@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.estudios;
 
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaEstudiosService;
 import imss.gob.mx.cohorte.services.importacion.PrevisualizacionCarga;
+import imss.gob.mx.cohorte.services.importacion.ResultadoCarga;
 import imss.gob.mx.cohorte.services.importacion.TablaLeida;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,49 @@ public class CargaMasivaEstudiosController {
                         ? "Ya no queda nada por corregir"
                         : "Todavia hay datos por corregir",
                 HttpStatus.OK, false));
+    }
+
+    /**
+     * Cuerpo de la confirmacion.
+     *
+     * @param politicaDuplicados OMITIR (por defecto) o REEMPLAZAR
+     */
+    public record ConfirmarRequest(Long idTipoEstudio, TablaLeida tabla, String politicaDuplicados) {}
+
+    /**
+     * Escribe la carga. Es la unica llamada de este controlador que modifica datos.
+     *
+     * <p>El servidor vuelve a analizar la tabla entera antes de escribir: la
+     * previsualizacion la calculo el, pero paso por el cliente y volvio, asi que
+     * darla por buena permitiria guardar cualquier cosa manipulando la peticion.</p>
+     */
+    @PostMapping("/confirmar")
+    public ResponseEntity<APIResponse> confirmar(@RequestBody ConfirmarRequest peticion) {
+        // Por defecto se omiten los duplicados. Reemplazar destruye lo que ya
+        // estaba registrado, asi que tiene que pedirse a proposito.
+        var politica = "REEMPLAZAR".equalsIgnoreCase(peticion.politicaDuplicados())
+                ? CargaMasivaEstudiosService.PoliticaDuplicados.REEMPLAZAR
+                : CargaMasivaEstudiosService.PoliticaDuplicados.OMITIR;
+
+        ResultadoCarga resultado =
+                cargaMasivaService.confirmar(peticion.tabla(), peticion.idTipoEstudio(), politica);
+
+        return ResponseEntity.ok(new APIResponse(
+                resultado, resumen(resultado), HttpStatus.OK, false));
+    }
+
+    private static String resumen(ResultadoCarga r) {
+        StringBuilder sb = new StringBuilder();
+        if (r.registrados() > 0) sb.append(r.registrados()).append(" estudio(s) registrados");
+        if (r.reemplazados() > 0) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(r.reemplazados()).append(" reemplazados");
+        }
+        if (r.omitidosPorDuplicado() > 0) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(r.omitidosPorDuplicado()).append(" omitidos por estar ya registrados");
+        }
+        return sb.length() > 0 ? sb.toString() : "No habia nada que registrar";
     }
 
     /**

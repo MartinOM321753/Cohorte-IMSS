@@ -72,6 +72,12 @@ public record PrevisualizacionCarga(
             String errorParticipante,
             String fecha,
             String errorFecha,
+            /**
+             * El estudio que ya existe para este participante, tipo y dia; null
+             * si no hay ninguno. No es un error: es una decision que el usuario
+             * tiene que tomar antes de guardar.
+             */
+            Long idEstudioExistente,
             List<ValorPrevisualizado> valores
     ) {
         public boolean tieneProblemas() {
@@ -90,7 +96,9 @@ public record PrevisualizacionCarga(
      * @param filasConProblemas cuantas necesitan correccion antes de guardar
      */
     public record Resumen(int totalFilas, int filasListas, int filasConProblemas,
-                          int columnasReconocidas, int columnasIgnoradas) {}
+                          int columnasReconocidas, int columnasIgnoradas,
+                          /** Cuantas filas chocan con un estudio ya registrado. */
+                          int filasDuplicadas) {}
 
     /** Si no hay nada que corregir, la carga puede confirmarse tal cual. */
     public boolean puedeConfirmarse() {

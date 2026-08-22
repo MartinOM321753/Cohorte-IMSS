@@ -1,9 +1,16 @@
 package imss.gob.mx.cohorte.services.importacion;
 
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.estudios.EstudioMedicoRepository;
 import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
+import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
+import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudio;
+import imss.gob.mx.cohorte.modules.estudios.resultados.ResultadoEstudioRepository;
+import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.estudios.EstudioService;
 import imss.gob.mx.cohorte.services.estudios.TipoService;
 import imss.gob.mx.cohorte.services.importacion.ConversorValor.ValorNoValidoException;
 import imss.gob.mx.cohorte.services.importacion.EmparejadorColumnas.Columna;
@@ -41,6 +48,13 @@ public class CargaMasivaEstudiosService {
     private final TipoService tipoService;
     private final PacienteRepository pacienteRepository;
     private final ParticipanteAccesoService accesoService;
+    private final EstudioMedicoRepository estudioMedicoRepository;
+    private final EstudioService estudioService;
+    private final InstitucionContextService institucionContextService;
+    private final ResultadoEstudioRepository resultadoEstudioRepository;
+
+    /** Los estudios de captura normal viven todos en el grupo raiz. */
+    private static final String GRUPO_RAIZ = "ROOT";
 
     private static final DateTimeFormatter SALIDA = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
@@ -150,14 +164,18 @@ public class CargaMasivaEstudiosService {
         // fila: un archivo de 500 filas haria 500 viajes a la base.
         Map<String, Paciente> porFolio = resolverParticipantes(tabla, colFolio);
 
+        Map<String, Long> yaRegistrados = buscarYaRegistrados(tipo, porFolio.values());
+
         List<PrevisualizacionCarga.FilaPrevisualizada> filas = new ArrayList<>();
         int conProblemas = 0;
+        int duplicadas = 0;
 
         for (int i = 0; i < tabla.filas().size(); i++) {
             var fila = interpretarFila(
                     tabla.filas().get(i), tabla.numerosDeFila().get(i),
-                    colFolio, colFecha, deParametro, porFolio, interpretacion.orden());
+                    colFolio, colFecha, deParametro, porFolio, interpretacion.orden(), yaRegistrados);
             if (fila.tieneProblemas()) conProblemas++;
+            if (fila.idEstudioExistente() != null) duplicadas++;
             filas.add(fila);
         }
 
@@ -176,7 +194,145 @@ public class CargaMasivaEstudiosService {
                 filas,
                 new PrevisualizacionCarga.Resumen(
                         filas.size(), filas.size() - conProblemas, conProblemas,
-                        deParametro.size(), emparejado.conRol(Rol.IGNORADA).size()));
+                        deParametro.size(), emparejado.conRol(Rol.IGNORADA).size(), duplicadas));
+    }
+
+    /** Que hacer con las filas que chocan con un estudio ya registrado. */
+    public enum PoliticaDuplicados {
+        /** No se tocan; se cuentan y se informan. Es el comportamiento por defecto. */
+        OMITIR,
+        /** Se sustituyen los resultados del estudio que ya existe. */
+        REEMPLAZAR
+    }
+
+    /**
+     * Escribe la carga. Es el unico metodo de esta clase que modifica datos.
+     *
+     * <p>Vuelve a analizar la tabla desde cero en vez de fiarse de lo que la
+     * pantalla dice que estaba bien. La previsualizacion la calculo el servidor,
+     * pero viaja por el cliente y vuelve: darla por buena permitiria guardar
+     * cualquier cosa manipulando la peticion. Ademas, entre la revision y la
+     * confirmacion pueden haber cambiado los datos —un participante reasignado,
+     * un parametro borrado del catalogo— y el analisis nuevo lo detecta.</p>
+     *
+     * <p>Todo ocurre en una transaccion. Una carga a medias es peor que una
+     * fallida: nadie sabria donde se quedo, y reintentarla duplicaria la parte
+     * que si entro.</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ResultadoCarga confirmar(TablaLeida tabla, Long idTipoEstudio, PoliticaDuplicados politica) {
+        TipoEstudio tipo = tipoService.getOneParaLectura(idTipoEstudio);
+        verificarLimites(tabla);
+        PrevisualizacionCarga previa = analizar(tabla, tipo);
+
+        if (!previa.problemasDeEstructura().isEmpty() || !previa.parametrosSinColumna().isEmpty()) {
+            throw new ArchivoInvalidoException(
+                    "El archivo no encaja con \"" + tipo.getNombre() + "\". Vuelve a revisarlo antes de guardar.");
+        }
+        if (previa.resumen().filasConProblemas() > 0) {
+            throw new ArchivoInvalidoException(
+                    "Todavia hay " + previa.resumen().filasConProblemas()
+                            + " fila(s) con datos por corregir. Corrigelas antes de guardar.");
+        }
+
+        BeanUser usuarioActual = institucionContextService.getUsuarioActual();
+        Map<Long, ParametroEstudio> porId = tipo.getParametros().stream()
+                .collect(java.util.stream.Collectors.toMap(ParametroEstudio::getId, pa -> pa));
+
+        List<ResultadoCarga.Detalle> detalle = new ArrayList<>();
+        int registrados = 0, reemplazados = 0, omitidos = 0;
+
+        for (PrevisualizacionCarga.FilaPrevisualizada fila : previa.filas()) {
+            if (fila.idEstudioExistente() != null && politica == PoliticaDuplicados.OMITIR) {
+                omitidos++;
+                detalle.add(new ResultadoCarga.Detalle(fila.numeroDeFila(), fila.folio(),
+                        fila.nombreParticipante(), fila.fecha(), "OMITIDO", fila.idEstudioExistente()));
+                continue;
+            }
+
+            EstudioMedico estudio = fila.idEstudioExistente() != null
+                    ? estudioService.getOne(fila.idEstudioExistente())
+                    : new EstudioMedico();
+
+            estudio.setPaciente(accesoService.resolver(fila.uuidParticipante()));
+            estudio.setTipoEstudio(tipo);
+            estudio.setFechaEstudio(java.time.LocalDateTime.parse(fila.fecha()));
+            estudio.setUsuarioRealiza(usuarioActual);
+
+            List<ResultadoEstudio> resultados = construirResultados(fila, porId, estudio);
+
+            if (fila.idEstudioExistente() != null) {
+                reemplazarResultados(estudio, resultados);
+                estudioService.update(estudio);
+                reemplazados++;
+                detalle.add(new ResultadoCarga.Detalle(fila.numeroDeFila(), fila.folio(),
+                        fila.nombreParticipante(), fila.fecha(), "REEMPLAZADO", estudio.getId()));
+            } else {
+                estudio.setResultadoEstudio(resultados);
+                EstudioMedico guardado = estudioService.create(estudio);
+                registrados++;
+                detalle.add(new ResultadoCarga.Detalle(fila.numeroDeFila(), fila.folio(),
+                        fila.nombreParticipante(), fila.fecha(), "REGISTRADO", guardado.getId()));
+            }
+        }
+
+        return new ResultadoCarga(registrados, reemplazados, omitidos, detalle);
+    }
+
+    /**
+     * Sustituye los resultados de un estudio que ya existia.
+     *
+     * <p>Se trabaja sobre la coleccion y no se cambia la referencia: con
+     * orphanRemoval, sustituir la lista deja a Hibernate sin saber que borrar.</p>
+     *
+     * <p>El flush intermedio no es opcional. Hibernate ordena las sentencias por
+     * tipo y emite los INSERT antes que los DELETE, asi que sin forzar el borrado
+     * primero los resultados nuevos chocan con los viejos. Es el mismo patron
+     * que usa la edicion de un estudio desde el formulario.</p>
+     */
+    private void reemplazarResultados(EstudioMedico estudio, List<ResultadoEstudio> nuevos) {
+        if (estudio.getResultadoEstudio() == null) {
+            estudio.setResultadoEstudio(new ArrayList<>());
+        }
+        estudio.getResultadoEstudio().clear();
+        resultadoEstudioRepository.flush();
+        estudio.getResultadoEstudio().addAll(nuevos);
+    }
+
+    /**
+     * Convierte los valores ya validados de una fila en resultados.
+     *
+     * <p>La conversion se repite aqui en vez de reutilizar la de la
+     * previsualizacion porque alli solo interesaba saber si el valor se entendia;
+     * aqui hace falta el valor en si. Es la misma funcion, asi que no puede dar
+     * un resultado distinto.</p>
+     */
+    private List<ResultadoEstudio> construirResultados(
+            PrevisualizacionCarga.FilaPrevisualizada fila,
+            Map<Long, ParametroEstudio> porId,
+            EstudioMedico estudio) {
+
+        List<ResultadoEstudio> resultados = new ArrayList<>();
+        int orden = 0;
+        for (PrevisualizacionCarga.ValorPrevisualizado v : fila.valores()) {
+            ParametroEstudio parametro = porId.get(v.idParametro());
+            if (parametro == null) continue;
+
+            var convertido = ConversorValor.convertir(v.crudo(), parametro.getTipo(), parametro.getOpciones());
+
+            ResultadoEstudio r = new ResultadoEstudio();
+            r.setParametro(parametro);
+            r.setEstudio(estudio);
+            r.setValorNumerico(convertido.numerico());
+            r.setValorTexto(convertido.texto());
+            r.setValorBooleano(convertido.booleano());
+            // Los estudios de captura normal viven todos en el grupo raiz; la
+            // carga masiva no admite grupos, asi que aqui siempre es ROOT.
+            r.setGrupoCodigo(GRUPO_RAIZ);
+            r.setOrdenResultado(orden++);
+            resultados.add(r);
+        }
+        return resultados;
     }
 
     // ── Filas ────────────────────────────────────────────────────────────────
@@ -184,7 +340,8 @@ public class CargaMasivaEstudiosService {
     private PrevisualizacionCarga.FilaPrevisualizada interpretarFila(
             List<String> celdas, int numeroDeFila,
             int colFolio, int colFecha, List<Columna> deParametro,
-            Map<String, Paciente> porFolio, NormalizadorFecha.Orden orden) {
+            Map<String, Paciente> porFolio, NormalizadorFecha.Orden orden,
+            Map<String, Long> yaRegistrados) {
 
         String folio = celdas.get(colFolio).trim();
         Paciente paciente = porFolio.get(claveFolio(folio));
@@ -218,12 +375,17 @@ public class CargaMasivaEstudiosService {
                     c.parametro().getId(), crudo, error));
         }
 
+        // Solo tiene sentido buscar duplicado si ya se sabe de quien y de cuando.
+        Long idExistente = (paciente != null && fechaTexto != null)
+                ? yaRegistrados.get(claveDia(paciente.getId(), fechaTexto))
+                : null;
+
         return new PrevisualizacionCarga.FilaPrevisualizada(
                 numeroDeFila, folio,
                 paciente != null ? paciente.getUuid() : null,
                 paciente != null ? nombreCompleto(paciente) : null,
                 errorParticipante,
-                fechaTexto, errorFecha, valores);
+                fechaTexto, errorFecha, idExistente, valores);
     }
 
     /**
@@ -259,6 +421,36 @@ public class CargaMasivaEstudiosService {
         return folio.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
+    /**
+     * Lo que ya esta registrado de este tipo para los participantes del archivo.
+     *
+     * <p>El choque se mide por DIA, no por instante. Un aparato puede exportar
+     * la misma medicion con una hora distinta a la que se capturo a mano, y
+     * comparar el instante exacto dejaria pasar como nuevo un estudio que
+     * cualquiera reconoceria como el mismo.</p>
+     */
+    private Map<String, Long> buscarYaRegistrados(TipoEstudio tipo, java.util.Collection<Paciente> pacientes) {
+        if (pacientes.isEmpty()) return Map.of();
+
+        List<Long> ids = pacientes.stream().map(Paciente::getId).distinct().toList();
+        Map<String, Long> mapa = new HashMap<>();
+        for (Object[] fila : estudioMedicoRepository.buscarDeTipoParaPacientes(tipo.getId(), ids)) {
+            Long idPaciente = (Long) fila[0];
+            java.time.LocalDateTime fecha = (java.time.LocalDateTime) fila[1];
+            Long idEstudio = (Long) fila[2];
+            if (fecha == null) continue;
+            // Si ya hay varios el mismo dia basta con senalar uno: la decision
+            // que toma el usuario es la misma.
+            mapa.putIfAbsent(claveDia(idPaciente, fecha.format(SALIDA)), idEstudio);
+        }
+        return mapa;
+    }
+
+    /** Participante + dia, que es la granularidad con la que se detecta el choque. */
+    private static String claveDia(Long idPaciente, String fechaIso) {
+        return idPaciente + "|" + fechaIso.substring(0, 10);
+    }
+
     private static String nombreCompleto(Paciente p) {
         if (p.getPersona() == null) return "";
         var per = p.getPersona();
@@ -284,7 +476,7 @@ public class CargaMasivaEstudiosService {
                 e.indiceDe(Rol.FECHA),
                 List.of(),
                 new PrevisualizacionCarga.Resumen(0, 0, 0,
-                        e.conRol(Rol.PARAMETRO).size(), e.conRol(Rol.IGNORADA).size()));
+                        e.conRol(Rol.PARAMETRO).size(), e.conRol(Rol.IGNORADA).size(), 0));
     }
 
     private static List<String> encabezadosIgnorados(EmparejadorColumnas.Emparejado e) {
