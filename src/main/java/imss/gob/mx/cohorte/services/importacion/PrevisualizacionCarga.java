@@ -35,6 +35,16 @@ public record PrevisualizacionCarga(
         /** Las columnas que si se reconocieron, en el orden del archivo. */
         List<ColumnaReconocida> columnas,
 
+        /**
+         * La tabla tal como se leyo, para que la pantalla pueda editarla y
+         * devolverla a revalidar sin obligar a subir el archivo otra vez.
+         */
+        TablaLeida tabla,
+
+        /** Donde estan las columnas de control dentro de la tabla; -1 si faltan. */
+        int indiceFolio,
+        int indiceFecha,
+
         /** Una entrada por fila del archivo. */
         List<FilaPrevisualizada> filas,
 
@@ -42,7 +52,7 @@ public record PrevisualizacionCarga(
 ) {
 
     /** @param aliasUsado el alias que hizo la coincidencia, para poder explicarla */
-    public record ColumnaReconocida(String encabezado, Long idParametro,
+    public record ColumnaReconocida(int indice, String encabezado, Long idParametro,
                                     String nombreParametro, String tipo, String aliasUsado) {}
 
     /**

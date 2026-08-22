@@ -47,6 +47,66 @@ public class CargaMasivaEstudiosService {
     @Transactional(readOnly = true)
     public PrevisualizacionCarga previsualizar(MultipartFile archivo, Long idTipoEstudio) {
         TipoEstudio tipo = tipoService.getOneParaLectura(idTipoEstudio);
+        TablaLeida tabla = lector.leer(archivo);
+        return analizar(tabla, tipo);
+    }
+
+    /**
+     * Vuelve a analizar una tabla que el usuario ya corrigio en pantalla.
+     *
+     * <p>Recibe la tabla en JSON en vez del archivo para no obligar a subirlo de
+     * nuevo en cada correccion. Lo importante es que pasa por exactamente el
+     * mismo analisis que la primera lectura: si la pantalla validara por su
+     * cuenta, acabaria habiendo dos reglas distintas para el mismo dato y la que
+     * manda —la del servidor— seria la que nadie ve.</p>
+     */
+    @Transactional(readOnly = true)
+    public PrevisualizacionCarga revalidar(TablaLeida tabla, Long idTipoEstudio) {
+        TipoEstudio tipo = tipoService.getOneParaLectura(idTipoEstudio);
+        verificarLimites(tabla);
+        return analizar(tabla, tipo);
+    }
+
+    /**
+     * Los mismos topes que aplica el lector de archivos.
+     *
+     * <p>Hacen falta otra vez porque esta vía no pasa por el lector: sin esto,
+     * mandar un JSON con un millon de filas seria una forma de tumbar el
+     * servidor saltandose el limite del archivo.</p>
+     */
+    private void verificarLimites(TablaLeida tabla) {
+        if (tabla.encabezados() == null || tabla.encabezados().isEmpty()) {
+            throw new ArchivoInvalidoException("La tabla no trae encabezados.");
+        }
+        if (tabla.encabezados().size() > LimitesArchivo.MAX_COLUMNAS) {
+            throw new ArchivoInvalidoException(
+                    "La tabla tiene " + tabla.encabezados().size() + " columnas y el maximo es "
+                            + LimitesArchivo.MAX_COLUMNAS + ".");
+        }
+        if (tabla.filas() == null) {
+            throw new ArchivoInvalidoException("La tabla no trae filas.");
+        }
+        if (tabla.filas().size() > LimitesArchivo.MAX_FILAS) {
+            throw new ArchivoInvalidoException(
+                    "La tabla tiene " + tabla.filas().size() + " filas y el maximo es "
+                            + LimitesArchivo.MAX_FILAS + ".");
+        }
+        for (int i = 0; i < tabla.filas().size(); i++) {
+            List<String> fila = tabla.filas().get(i);
+            if (fila == null || fila.size() != tabla.encabezados().size()) {
+                throw new ArchivoInvalidoException(
+                        "La fila " + (i + 1) + " no tiene el mismo numero de celdas que los encabezados.");
+            }
+            for (String celda : fila) {
+                if (celda != null && celda.length() > LimitesArchivo.MAX_CARACTERES_CELDA) {
+                    throw new ArchivoInvalidoException(
+                            "Hay una celda con mas de " + LimitesArchivo.MAX_CARACTERES_CELDA + " caracteres.");
+                }
+            }
+        }
+    }
+
+    private PrevisualizacionCarga analizar(TablaLeida tabla, TipoEstudio tipo) {
 
         // La captura por grupos repite el mismo cuadro de parametros varias veces
         // dentro de un estudio, y una tabla plana no tiene forma de expresar a que
@@ -64,7 +124,6 @@ public class CargaMasivaEstudiosService {
                     "\"" + tipo.getNombre() + "\" no tiene parametros configurados, asi que no hay nada que cargar.");
         }
 
-        TablaLeida tabla = lector.leer(archivo);
         if (tabla.vacia()) {
             throw new ArchivoInvalidoException("El archivo no tiene ninguna fila de datos.");
         }
@@ -74,7 +133,7 @@ public class CargaMasivaEstudiosService {
         // Sin estructura valida no tiene sentido interpretar las filas: se
         // devolveria una lista de errores derivados que esconderia la causa real.
         if (!emparejado.utilizable()) {
-            return soloEstructura(tipo, emparejado);
+            return soloEstructura(tipo, tabla, emparejado);
         }
 
         int colFolio = emparejado.indiceDe(Rol.FOLIO);
@@ -111,6 +170,9 @@ public class CargaMasivaEstudiosService {
                 interpretacion.orden().name(),
                 interpretacion.ambiguo(),
                 columnasReconocidas(deParametro),
+                tabla,
+                colFolio,
+                colFecha,
                 filas,
                 new PrevisualizacionCarga.Resumen(
                         filas.size(), filas.size() - conProblemas, conProblemas,
@@ -208,7 +270,8 @@ public class CargaMasivaEstudiosService {
 
     // ── Armado del resultado ─────────────────────────────────────────────────
 
-    private PrevisualizacionCarga soloEstructura(TipoEstudio tipo, EmparejadorColumnas.Emparejado e) {
+    private PrevisualizacionCarga soloEstructura(TipoEstudio tipo, TablaLeida tabla,
+                                                 EmparejadorColumnas.Emparejado e) {
         return new PrevisualizacionCarga(
                 tipo.getId(), tipo.getNombre(),
                 e.problemas(),
@@ -216,6 +279,9 @@ public class CargaMasivaEstudiosService {
                 e.parametrosSinColumna().stream().map(ParametroEstudio::getNombre).toList(),
                 null, false,
                 columnasReconocidas(e.conRol(Rol.PARAMETRO)),
+                tabla,
+                e.indiceDe(Rol.FOLIO),
+                e.indiceDe(Rol.FECHA),
                 List.of(),
                 new PrevisualizacionCarga.Resumen(0, 0, 0,
                         e.conRol(Rol.PARAMETRO).size(), e.conRol(Rol.IGNORADA).size()));
@@ -228,7 +294,7 @@ public class CargaMasivaEstudiosService {
     private static List<PrevisualizacionCarga.ColumnaReconocida> columnasReconocidas(List<Columna> cols) {
         return cols.stream()
                 .map(c -> new PrevisualizacionCarga.ColumnaReconocida(
-                        c.encabezado(), c.parametro().getId(), c.parametro().getNombre(),
+                        c.indice(), c.encabezado(), c.parametro().getId(), c.parametro().getNombre(),
                         c.parametro().getTipo().name(), c.aliasUsado()))
                 .toList();
     }
