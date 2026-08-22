@@ -97,6 +97,7 @@ public class PermisoInitializer {
             new String[]{"EXAMENES_CREAR", "EXAMENES", "Registrar resultados de examen (llenado)"},
             new String[]{"EXAMENES_EDITAR", "EXAMENES", "Editar resultados de examen (llenado)"},
             new String[]{"EXAMENES_ELIMINAR", "EXAMENES", "Eliminar resultados de examen (llenado)"},
+            new String[]{"EXAMENES_CARGA_MASIVA", "EXAMENES", "Cargar resultados de laboratorio desde un archivo"},
             new String[]{"EXAMENES_CATALOGO_CREAR", "EXAMENES", "Crear examenes en catalogo"},
             new String[]{"EXAMENES_CATALOGO_EDITAR", "EXAMENES", "Editar examenes en catalogo"},
             new String[]{"EXAMENES_CATALOGO_ELIMINAR", "EXAMENES", "Eliminar examenes en catalogo"},

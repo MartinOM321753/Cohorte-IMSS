@@ -142,17 +142,24 @@ public class CargaMasivaEstudiosService {
             throw new ArchivoInvalidoException("El archivo no tiene ninguna fila de datos.");
         }
 
-        var emparejado = EmparejadorColumnas.emparejar(tabla.encabezados(), parametros);
+        var emparejado = EmparejadorColumnas.emparejar(tabla.encabezados(),
+                parametros.stream().map(EmparejadorColumnas::desdeParametro).toList());
 
+        // En un estudio todos los parametros son obligatorios, asi que un destino
+        // sin columna detiene la carga igual que un conflicto. En examenes no es
+        // asi, y por eso la regla vive aqui y no en el emparejador.
+        //
         // Sin estructura valida no tiene sentido interpretar las filas: se
         // devolveria una lista de errores derivados que esconderia la causa real.
-        if (!emparejado.utilizable()) {
+        if (!emparejado.sinConflictos() || !emparejado.destinosSinColumna().isEmpty()) {
             return soloEstructura(tipo, tabla, emparejado);
         }
 
         int colFolio = emparejado.indiceDe(Rol.FOLIO);
         int colFecha = emparejado.indiceDe(Rol.FECHA);
         List<Columna> deParametro = emparejado.conRol(Rol.PARAMETRO);
+        Map<Long, ParametroEstudio> parametroPorId = parametros.stream()
+                .collect(java.util.stream.Collectors.toMap(ParametroEstudio::getId, pa -> pa));
 
         // El orden dia/mes se decide mirando el archivo completo, nunca fila a
         // fila: leerlo distinto en dos filas del mismo archivo es lo que mueve
@@ -173,7 +180,8 @@ public class CargaMasivaEstudiosService {
         for (int i = 0; i < tabla.filas().size(); i++) {
             var fila = interpretarFila(
                     tabla.filas().get(i), tabla.numerosDeFila().get(i),
-                    colFolio, colFecha, deParametro, porFolio, interpretacion.orden(), yaRegistrados);
+                    colFolio, colFecha, deParametro, parametroPorId, porFolio,
+                    interpretacion.orden(), yaRegistrados);
             if (fila.tieneProblemas()) conProblemas++;
             if (fila.idEstudioExistente() != null) duplicadas++;
             filas.add(fila);
@@ -187,7 +195,7 @@ public class CargaMasivaEstudiosService {
                 List.of(),
                 interpretacion.orden().name(),
                 interpretacion.ambiguo(),
-                columnasReconocidas(deParametro),
+                columnasReconocidas(deParametro, parametroPorId),
                 tabla,
                 colFolio,
                 colFecha,
@@ -340,6 +348,7 @@ public class CargaMasivaEstudiosService {
     private PrevisualizacionCarga.FilaPrevisualizada interpretarFila(
             List<String> celdas, int numeroDeFila,
             int colFolio, int colFecha, List<Columna> deParametro,
+            Map<Long, ParametroEstudio> parametroPorId,
             Map<String, Paciente> porFolio, NormalizadorFecha.Orden orden,
             Map<String, Long> yaRegistrados) {
 
@@ -364,15 +373,15 @@ public class CargaMasivaEstudiosService {
 
         List<PrevisualizacionCarga.ValorPrevisualizado> valores = new ArrayList<>();
         for (Columna c : deParametro) {
+            ParametroEstudio p = parametroPorId.get(c.destino().id());
             String crudo = celdas.get(c.indice());
             String error = null;
             try {
-                ConversorValor.convertir(crudo, c.parametro().getTipo(), c.parametro().getOpciones());
+                ConversorValor.convertir(crudo, p.getTipo(), p.getOpciones());
             } catch (ValorNoValidoException e) {
                 error = e.getMessage();
             }
-            valores.add(new PrevisualizacionCarga.ValorPrevisualizado(
-                    c.parametro().getId(), crudo, error));
+            valores.add(new PrevisualizacionCarga.ValorPrevisualizado(p.getId(), crudo, error));
         }
 
         // Solo tiene sentido buscar duplicado si ya se sabe de quien y de cuando.
@@ -462,15 +471,19 @@ public class CargaMasivaEstudiosService {
 
     // ── Armado del resultado ─────────────────────────────────────────────────
 
+    /**
+     * Cuando la estructura no encaja no se enseñan las columnas reconocidas: lo
+     * util es el motivo, y una lista parcial invita a pensar que casi funciona.
+     */
     private PrevisualizacionCarga soloEstructura(TipoEstudio tipo, TablaLeida tabla,
                                                  EmparejadorColumnas.Emparejado e) {
         return new PrevisualizacionCarga(
                 tipo.getId(), tipo.getNombre(),
                 e.problemas(),
                 encabezadosIgnorados(e),
-                e.parametrosSinColumna().stream().map(ParametroEstudio::getNombre).toList(),
+                e.destinosSinColumna().stream().map(EmparejadorColumnas.Destino::nombre).toList(),
                 null, false,
-                columnasReconocidas(e.conRol(Rol.PARAMETRO)),
+                List.of(),
                 tabla,
                 e.indiceDe(Rol.FOLIO),
                 e.indiceDe(Rol.FECHA),
@@ -483,11 +496,15 @@ public class CargaMasivaEstudiosService {
         return e.conRol(Rol.IGNORADA).stream().map(Columna::encabezado).toList();
     }
 
-    private static List<PrevisualizacionCarga.ColumnaReconocida> columnasReconocidas(List<Columna> cols) {
+    private List<PrevisualizacionCarga.ColumnaReconocida> columnasReconocidas(
+            List<Columna> cols, Map<Long, ParametroEstudio> parametroPorId) {
         return cols.stream()
-                .map(c -> new PrevisualizacionCarga.ColumnaReconocida(
-                        c.indice(), c.encabezado(), c.parametro().getId(), c.parametro().getNombre(),
-                        c.parametro().getTipo().name(), c.aliasUsado()))
+                .map(c -> {
+                    ParametroEstudio p = parametroPorId.get(c.destino().id());
+                    return new PrevisualizacionCarga.ColumnaReconocida(
+                            c.indice(), c.encabezado(), p.getId(), p.getNombre(),
+                            p.getTipo().name(), c.aliasUsado());
+                })
                 .toList();
     }
 }

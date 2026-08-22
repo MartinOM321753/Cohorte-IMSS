@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.services.importacion;
 
 import imss.gob.mx.cohorte.modules.estudios.parametros.AliasParametroEstudio;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.modules.examenes.AliasExamen;
+import imss.gob.mx.cohorte.modules.examenes.Examen;
 import imss.gob.mx.cohorte.utils.texto.NormalizadorAlias;
 
 import java.util.ArrayList;
@@ -14,20 +16,27 @@ import java.util.Set;
  * Decide que representa cada columna del archivo.
  *
  * <p>Hay tres clases de columna: las dos que identifican la fila —el folio del
- * participante y la fecha del estudio—, las que corresponden a un parametro por
- * su alias, y las que no son ninguna de las anteriores.</p>
+ * participante y la fecha—, las que corresponden a algo del catalogo por su
+ * alias, y las que no son ninguna de las anteriores.</p>
  *
  * <h3>Lo que se ignora y lo que detiene la carga</h3>
  *
  * <p>Una columna sobrante se avisa y se ignora: los aparatos exportan cosas que
- * al estudio no le interesan y obligar a limpiar el archivo a mano no aporta
- * nada. Un parametro sin columna, en cambio, detiene la carga, porque todos los
- * parametros son obligatorios y el estudio quedaria incompleto.</p>
+ * al registro no le interesan y obligar a limpiar el archivo a mano no aporta
+ * nada.</p>
  *
- * <p>Tambien detiene la carga que dos columnas reclamen el mismo parametro o que
- * dos parametros reclamen la misma columna. Elegir una en silencio guardaria una
+ * <p>Lo que si detiene la carga es que dos columnas apunten a lo mismo, o que una
+ * columna coincida con varios destinos. Elegir uno en silencio guardaria una
  * medicion en el sitio de otra, que es el peor resultado posible: el dato existe,
  * parece correcto y esta mal.</p>
+ *
+ * <h3>Por que no conoce ni parametros ni examenes</h3>
+ *
+ * <p>Trabaja sobre {@link Destino}, que es solo un id, un nombre y unos alias. Un
+ * parametro de estudio y un examen de laboratorio son cosas distintas, pero se
+ * emparejan igual, y la parte delicada —detectar el alias ambiguo, reconocer los
+ * titulos de control— no deberia existir dos veces: la segunda copia es la que se
+ * queda sin arreglar cuando aparece un caso nuevo.</p>
  */
 public final class EmparejadorColumnas {
 
@@ -41,10 +50,21 @@ public final class EmparejadorColumnas {
     /** Nombres con los que un archivo puede titular la columna de la fecha. */
     private static final Set<String> TITULOS_FECHA = Set.of(
             "FECHA", "FECHA ESTUDIO", "FECHA DEL ESTUDIO", "FECHA DE ESTUDIO",
-            "FECHA MEDICION", "FECHA DE MEDICION", "FECHA Y HORA");
+            "FECHA MEDICION", "FECHA DE MEDICION", "FECHA Y HORA",
+            "FECHA RESULTADO", "FECHA DEL RESULTADO", "FECHA DE RESULTADO",
+            "FECHA MUESTRA", "FECHA DE MUESTRA", "FECHA DE TOMA");
 
     /** A que se resolvio una columna del archivo. */
     public enum Rol { FOLIO, FECHA, PARAMETRO, IGNORADA }
+
+    /**
+     * Algo del catalogo a lo que una columna puede corresponder: un parametro de
+     * estudio o un examen de laboratorio.
+     *
+     * @param aliasNormalizados en la forma en que estan guardados en la base
+     * @param alias             tal como los escribio el usuario, para poder citarlos
+     */
+    public record Destino(Long id, String nombre, List<String> aliasNormalizados, List<String> alias) {}
 
     /**
      * Una columna del archivo ya interpretada.
@@ -52,26 +72,30 @@ public final class EmparejadorColumnas {
      * @param indice     posicion en el archivo, base 0
      * @param encabezado el titulo tal como venia
      * @param rol        a que se resolvio
-     * @param parametro  el parametro al que corresponde; solo con rol PARAMETRO
+     * @param destino    a que apunta; solo viene con rol PARAMETRO
      * @param aliasUsado el alias que hizo la coincidencia, para poder explicarla
      */
     public record Columna(int indice, String encabezado, Rol rol,
-                          ParametroEstudio parametro, String aliasUsado) {}
+                          Destino destino, String aliasUsado) {}
 
     /**
      * El resultado del emparejado.
      *
-     * @param columnas            todas las del archivo, en su orden
-     * @param parametrosSinColumna los que no encontraron columna; si hay alguno,
-     *                            la carga no puede continuar
-     * @param problemas           conflictos que impiden continuar, ya redactados
+     * @param columnas           todas las del archivo, en su orden
+     * @param destinosSinColumna los que no encontraron columna. Que eso impida o no
+     *                           continuar lo decide quien llama: en un estudio todos
+     *                           los parametros son obligatorios, pero un archivo de
+     *                           laboratorio puede traer solo algunos examenes y ser
+     *                           perfectamente valido
+     * @param problemas          conflictos que impiden continuar, ya redactados
      */
     public record Emparejado(List<Columna> columnas,
-                             List<ParametroEstudio> parametrosSinColumna,
+                             List<Destino> destinosSinColumna,
                              List<String> problemas) {
 
-        public boolean utilizable() {
-            return problemas.isEmpty() && parametrosSinColumna.isEmpty();
+        /** Sin conflictos. No dice nada sobre los destinos que se quedaron sin columna. */
+        public boolean sinConflictos() {
+            return problemas.isEmpty();
         }
 
         public List<Columna> conRol(Rol rol) {
@@ -85,13 +109,13 @@ public final class EmparejadorColumnas {
         }
     }
 
-    public static Emparejado emparejar(List<String> encabezados, List<ParametroEstudio> parametros) {
+    public static Emparejado emparejar(List<String> encabezados, List<Destino> destinos) {
         List<Columna> columnas = new ArrayList<>();
         List<String> problemas = new ArrayList<>();
 
-        // Que parametro se lleva cada columna, y a la inversa, para poder
-        // detectar los dos sentidos del conflicto.
-        Map<Long, Integer> columnaPorParametro = new LinkedHashMap<>();
+        // Que destino se lleva cada columna, para poder detectar los dos sentidos
+        // del conflicto: dos columnas al mismo destino, y una columna a varios.
+        Map<Long, Integer> columnaPorDestino = new LinkedHashMap<>();
 
         int vistasFolio = 0;
         int vistasFecha = 0;
@@ -99,7 +123,6 @@ public final class EmparejadorColumnas {
         for (int i = 0; i < encabezados.size(); i++) {
             String encabezado = encabezados.get(i);
             String normalizado = NormalizadorAlias.normalizar(encabezado);
-
             String comoControl = sinPuntuacion(normalizado);
 
             if (TITULOS_FOLIO.contains(comoControl)) {
@@ -113,32 +136,31 @@ public final class EmparejadorColumnas {
                 continue;
             }
 
-            List<ParametroEstudio> candidatos = candidatosPara(normalizado, parametros);
+            List<Destino> candidatos = candidatosPara(normalizado, destinos);
 
             if (candidatos.isEmpty()) {
                 columnas.add(new Columna(i, encabezado, Rol.IGNORADA, null, null));
                 continue;
             }
             if (candidatos.size() > 1) {
-                problemas.add("La columna \"" + encabezado + "\" coincide con varios parametros ("
+                problemas.add("La columna \"" + encabezado + "\" coincide con varios destinos ("
                         + nombres(candidatos) + "). Revisa los alias en el catalogo: "
-                        + "un alias no puede repetirse entre parametros del mismo tipo de estudio.");
+                        + "un alias no puede repetirse.");
                 columnas.add(new Columna(i, encabezado, Rol.IGNORADA, null, null));
                 continue;
             }
 
-            ParametroEstudio p = candidatos.get(0);
-            Integer yaAsignada = columnaPorParametro.get(p.getId());
+            Destino d = candidatos.get(0);
+            Integer yaAsignada = columnaPorDestino.get(d.id());
             if (yaAsignada != null) {
                 problemas.add("Las columnas \"" + encabezados.get(yaAsignada) + "\" y \"" + encabezado
-                        + "\" apuntan al mismo parametro (" + p.getNombre() + "). "
-                        + "Deja solo una en el archivo.");
+                        + "\" apuntan a lo mismo (" + d.nombre() + "). Deja solo una en el archivo.");
                 columnas.add(new Columna(i, encabezado, Rol.IGNORADA, null, null));
                 continue;
             }
 
-            columnaPorParametro.put(p.getId(), i);
-            columnas.add(new Columna(i, encabezado, Rol.PARAMETRO, p, aliasQueCoincide(normalizado, p)));
+            columnaPorDestino.put(d.id(), i);
+            columnas.add(new Columna(i, encabezado, Rol.PARAMETRO, d, aliasQueCoincide(normalizado, d)));
         }
 
         if (vistasFolio == 0) {
@@ -153,24 +175,37 @@ public final class EmparejadorColumnas {
             problemas.add("Hay " + vistasFecha + " columnas de fecha. Deja solo una.");
         }
 
-        List<ParametroEstudio> sinColumna = parametros.stream()
-                .filter(p -> !columnaPorParametro.containsKey(p.getId()))
+        List<Destino> sinColumna = destinos.stream()
+                .filter(d -> !columnaPorDestino.containsKey(d.id()))
                 .toList();
 
         return new Emparejado(columnas, sinColumna, problemas);
     }
 
     /**
-     * Un parametro es candidato si alguno de sus alias coincide con el
-     * encabezado. El nombre del parametro NO se usa como alias implicito: son
-     * nombres clinicos que casi nunca coinciden con lo que titula el aparato, y
-     * aceptarlos produciria coincidencias por casualidad.
+     * Un destino es candidato si alguno de sus alias coincide con el encabezado.
+     * El nombre NO se usa como alias implicito: son nombres clinicos que casi
+     * nunca coinciden con lo que titula el aparato, y aceptarlos produciria
+     * coincidencias por casualidad.
      */
-    private static List<ParametroEstudio> candidatosPara(String encabezadoNormalizado,
-                                                         List<ParametroEstudio> parametros) {
-        return parametros.stream()
-                .filter(p -> aliasQueCoincide(encabezadoNormalizado, p) != null)
+    private static List<Destino> candidatosPara(String encabezadoNormalizado, List<Destino> destinos) {
+        return destinos.stream()
+                .filter(d -> aliasQueCoincide(encabezadoNormalizado, d) != null)
                 .toList();
+    }
+
+    private static String aliasQueCoincide(String encabezadoNormalizado, Destino d) {
+        if (d.aliasNormalizados() == null) return null;
+        for (int i = 0; i < d.aliasNormalizados().size(); i++) {
+            if (encabezadoNormalizado.equals(d.aliasNormalizados().get(i))) {
+                return i < d.alias().size() ? d.alias().get(i) : d.aliasNormalizados().get(i);
+            }
+        }
+        return null;
+    }
+
+    private static String nombres(List<Destino> ds) {
+        return ds.stream().map(Destino::nombre).reduce((a, b) -> a + ", " + b).orElse("");
     }
 
     /**
@@ -180,27 +215,31 @@ public final class EmparejadorColumnas {
      * aqui: asi "No. Folio", "Nº folio" y "no folio" caen todos en el mismo
      * sitio sin tener que enumerar cada variante de puntuacion.</p>
      *
-     * <p>A proposito NO se hace lo mismo con los alias de parametro. Su forma
-     * normalizada esta guardada en la base, en alias_normalizado, y cambiar como
-     * se calcula dejaria de emparejar con lo ya escrito. Ademas, un alias es
-     * texto que escribe el usuario: cuanto mas se manipule, mas facil es que dos
-     * alias distintos acaben colisionando.</p>
+     * <p>A proposito NO se hace lo mismo con los alias. Su forma normalizada esta
+     * guardada en la base, en alias_normalizado, y cambiar como se calcula dejaria
+     * de emparejar con lo ya escrito. Ademas, un alias es texto que escribe el
+     * usuario: cuanto mas se manipule, mas facil es que dos alias distintos acaben
+     * colisionando.</p>
      */
     private static String sinPuntuacion(String normalizado) {
         return normalizado.replaceAll("[^\\p{L}\\p{N} ]", "").replaceAll("\\s+", " ").trim();
     }
 
-    private static String aliasQueCoincide(String encabezadoNormalizado, ParametroEstudio p) {
-        if (p.getAlias() == null) return null;
-        for (AliasParametroEstudio a : p.getAlias()) {
-            if (encabezadoNormalizado.equals(a.getAliasNormalizado())) {
-                return a.getAlias();
-            }
-        }
-        return null;
+    // ── Adaptadores desde el catalogo ────────────────────────────────────────
+
+    /** Un parametro de estudio visto como destino. */
+    public static Destino desdeParametro(ParametroEstudio p) {
+        List<AliasParametroEstudio> as = p.getAlias() == null ? List.of() : p.getAlias();
+        return new Destino(p.getId(), p.getNombre(),
+                as.stream().map(AliasParametroEstudio::getAliasNormalizado).toList(),
+                as.stream().map(AliasParametroEstudio::getAlias).toList());
     }
 
-    private static String nombres(List<ParametroEstudio> ps) {
-        return ps.stream().map(ParametroEstudio::getNombre).reduce((a, b) -> a + ", " + b).orElse("");
+    /** Un examen de laboratorio visto como destino. */
+    public static Destino desdeExamen(Examen e, List<AliasExamen> alias) {
+        List<AliasExamen> as = alias == null ? List.of() : alias;
+        return new Destino(e.getId(), e.getParametro(),
+                as.stream().map(AliasExamen::getAliasNormalizado).toList(),
+                as.stream().map(AliasExamen::getAlias).toList());
     }
 }

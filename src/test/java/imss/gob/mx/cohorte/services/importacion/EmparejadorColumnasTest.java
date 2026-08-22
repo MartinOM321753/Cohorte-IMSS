@@ -1,8 +1,6 @@
 package imss.gob.mx.cohorte.services.importacion;
 
-import imss.gob.mx.cohorte.modules.estudios.parametros.AliasParametroEstudio;
-import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
-import imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro;
+import imss.gob.mx.cohorte.services.importacion.EmparejadorColumnas.Destino;
 import imss.gob.mx.cohorte.services.importacion.EmparejadorColumnas.Rol;
 import org.junit.jupiter.api.Test;
 
@@ -18,20 +16,17 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class EmparejadorColumnasTest {
 
-    private static ParametroEstudio parametro(long id, String nombre, String... alias) {
-        ParametroEstudio p = new ParametroEstudio();
-        p.setId(id);
-        p.setNombre(nombre);
-        p.setTipo(TipoParametro.NUMERICO);
-        List<AliasParametroEstudio> lista = new ArrayList<>();
+    private static Destino parametro(long id, String nombre, String... alias) {
+        List<String> normalizados = new ArrayList<>();
         for (String a : alias) {
-            AliasParametroEstudio ap = new AliasParametroEstudio();
-            ap.setAlias(a);
-            ap.setAliasNormalizado(imss.gob.mx.cohorte.utils.texto.NormalizadorAlias.normalizar(a));
-            lista.add(ap);
+            normalizados.add(imss.gob.mx.cohorte.utils.texto.NormalizadorAlias.normalizar(a));
         }
-        p.setAlias(lista);
-        return p;
+        return new Destino(id, nombre, normalizados, List.of(alias));
+    }
+
+    /** En estudios faltar una columna detiene la carga; el emparejador solo la reporta. */
+    private static boolean utilizableComoEstudio(EmparejadorColumnas.Emparejado r) {
+        return r.sinConflictos() && r.destinosSinColumna().isEmpty();
     }
 
     // ── El caso que funciona ─────────────────────────────────────────────────
@@ -44,11 +39,11 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Weight", "Body Fat %"), List.of(peso, grasa));
 
-        assertTrue(r.utilizable(), r.problemas().toString());
+        assertTrue(utilizableComoEstudio(r), r.problemas().toString());
         assertEquals(0, r.indiceDe(Rol.FOLIO));
         assertEquals(1, r.indiceDe(Rol.FECHA));
         assertEquals(2, r.conRol(Rol.PARAMETRO).size());
-        assertEquals("Peso corporal", r.conRol(Rol.PARAMETRO).get(0).parametro().getNombre());
+        assertEquals("Peso corporal", r.conRol(Rol.PARAMETRO).get(0).destino().nombre());
     }
 
     @Test
@@ -58,7 +53,7 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "INDICE DE MASA"), List.of(p));
 
-        assertTrue(r.utilizable(), r.problemas().toString());
+        assertTrue(utilizableComoEstudio(r), r.problemas().toString());
         assertEquals("Índice  de   Masa", r.conRol(Rol.PARAMETRO).get(0).aliasUsado());
     }
 
@@ -69,7 +64,7 @@ class EmparejadorColumnasTest {
 
         for (String titulo : List.of("Weight", "peso (kg)", "PESO CORPORAL")) {
             var r = EmparejadorColumnas.emparejar(List.of("folio", "fecha", titulo), List.of(p));
-            assertTrue(r.utilizable(), titulo + " -> " + r.problemas());
+            assertTrue(utilizableComoEstudio(r), titulo + " -> " + r.problemas());
         }
     }
 
@@ -82,11 +77,28 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Weight", "Serie del aparato", "Operador"), List.of(p));
 
-        assertTrue(r.utilizable(), "una columna de mas no debe impedir la carga");
+        assertTrue(utilizableComoEstudio(r), "una columna de mas no debe impedir la carga");
         assertEquals(2, r.conRol(Rol.IGNORADA).size());
     }
 
     // ── Lo que si detiene la carga ───────────────────────────────────────────
+
+    @Test
+    void faltarDestinosNoEsUnConflicto() {
+        // La diferencia entre estudios y examenes: en un estudio faltar un
+        // parametro detiene la carga, pero un archivo de laboratorio que solo
+        // trae glucosa es perfectamente valido. El emparejador se limita a
+        // reportarlo y deja la decision a quien llama.
+        var glucosa = parametro(1, "Glucosa", "GLU");
+        var colesterol = parametro(2, "Colesterol", "COL");
+
+        var r = EmparejadorColumnas.emparejar(
+                List.of("folio", "fecha", "GLU"), List.of(glucosa, colesterol));
+
+        assertTrue(r.sinConflictos(), "faltar un destino no es un conflicto");
+        assertEquals(1, r.destinosSinColumna().size());
+        assertFalse(utilizableComoEstudio(r), "como estudio si detendria la carga");
+    }
 
     @Test
     void unParametroSinColumnaDetieneLaCarga() {
@@ -97,9 +109,9 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Weight"), List.of(peso, talla));
 
-        assertFalse(r.utilizable());
-        assertEquals(1, r.parametrosSinColumna().size());
-        assertEquals("Talla", r.parametrosSinColumna().get(0).getNombre());
+        assertFalse(utilizableComoEstudio(r));
+        assertEquals(1, r.destinosSinColumna().size());
+        assertEquals("Talla", r.destinosSinColumna().get(0).nombre());
     }
 
     @Test
@@ -111,8 +123,8 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Weight", "PESO"), List.of(p));
 
-        assertFalse(r.utilizable());
-        assertTrue(r.problemas().get(0).contains("mismo parametro"), r.problemas().toString());
+        assertFalse(utilizableComoEstudio(r));
+        assertTrue(r.problemas().get(0).contains("apuntan a lo mismo"), r.problemas().toString());
     }
 
     @Test
@@ -124,8 +136,8 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Porcentaje"), List.of(grasa, agua));
 
-        assertFalse(r.utilizable());
-        assertTrue(r.problemas().get(0).contains("varios parametros"), r.problemas().toString());
+        assertFalse(utilizableComoEstudio(r));
+        assertTrue(r.problemas().get(0).contains("varios destinos"), r.problemas().toString());
         assertTrue(r.problemas().get(0).contains("Grasa"), r.problemas().toString());
     }
 
@@ -135,7 +147,7 @@ class EmparejadorColumnasTest {
 
         var r = EmparejadorColumnas.emparejar(List.of("fecha", "Weight"), List.of(p));
 
-        assertFalse(r.utilizable());
+        assertFalse(utilizableComoEstudio(r));
         assertTrue(r.problemas().stream().anyMatch(m -> m.contains("folio")), r.problemas().toString());
     }
 
@@ -145,7 +157,7 @@ class EmparejadorColumnasTest {
 
         var r = EmparejadorColumnas.emparejar(List.of("folio", "Weight"), List.of(p));
 
-        assertFalse(r.utilizable());
+        assertFalse(utilizableComoEstudio(r));
         assertTrue(r.problemas().stream().anyMatch(m -> m.contains("fecha")), r.problemas().toString());
     }
 
@@ -156,7 +168,7 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "No. Folio", "fecha", "Weight"), List.of(p));
 
-        assertFalse(r.utilizable());
+        assertFalse(utilizableComoEstudio(r));
         assertTrue(r.problemas().stream().anyMatch(m -> m.contains("2 columnas de folio")),
                 r.problemas().toString());
     }
@@ -172,8 +184,8 @@ class EmparejadorColumnasTest {
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Peso corporal"), List.of(p));
 
-        assertFalse(r.utilizable());
-        assertEquals(1, r.parametrosSinColumna().size());
+        assertFalse(utilizableComoEstudio(r));
+        assertEquals(1, r.destinosSinColumna().size());
         assertEquals(1, r.conRol(Rol.IGNORADA).size());
     }
 
@@ -186,7 +198,7 @@ class EmparejadorColumnasTest {
         for (String folio : List.of("folio", "No. Folio", "FOLIO PARTICIPANTE", "id participante")) {
             for (String fecha : List.of("fecha", "Fecha del estudio", "FECHA DE MEDICION")) {
                 var r = EmparejadorColumnas.emparejar(List.of(folio, fecha, "Weight"), List.of(p));
-                assertTrue(r.utilizable(), folio + " / " + fecha + " -> " + r.problemas());
+                assertTrue(utilizableComoEstudio(r), folio + " / " + fecha + " -> " + r.problemas());
             }
         }
     }

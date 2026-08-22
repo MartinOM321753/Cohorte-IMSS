@@ -200,6 +200,11 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.DELETE, "/api/estudios/**").hasAuthority("ESTUDIOS_ELIMINAR")
 
                         // ═══ EXAMENES: split llenado vs catalogo ═══
+                        // Antes de los genericos de abajo: "/api/examenes/**" pediria
+                        // EXAMENES_CATALOGO_CREAR, que es el permiso de administrar el
+                        // catalogo, no el de cargar resultados.
+                        .requestMatchers(HttpMethod.POST, "/api/examenes/carga-masiva/**")
+                                .hasAuthority("EXAMENES_CARGA_MASIVA")
                         // Los resultados de examen son del llenado; el listado de examenes
                         // (catalogo) es lookup para el dropdown en llenado + admin en tab.
                         .requestMatchers(HttpMethod.GET, "/api/examenes/resultados/**")
