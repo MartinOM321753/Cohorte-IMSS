@@ -5,7 +5,13 @@ import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoResumenDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.RefrigeradorResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DPisoDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DRefrigeradorDTO;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PisoRefrigeradorService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.RefrigeradorService;
+import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -25,6 +31,31 @@ import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 public class RefrigeradorApplicationService {
 
     private final RefrigeradorService refrigeradorService;
+    private final PisoRefrigeradorService pisoRefrigeradorService;
+    private final Ubicacion3DService ubicacion3DService;
+    private final InstitucionContextService institucionContextService;
+
+    // ------------------- Vista 3D (exploracion libre) -------------------
+
+    /** Escena 3D de un refrigerador completo, sin muestra objetivo. */
+    @Transactional(readOnly = true)
+    public Ubicacion3DRefrigeradorDTO getVista3D(Long idRefrigerador) {
+        return ubicacion3DService.explorarRefrigerador(refrigeradorService.getRefrigerador(idRefrigerador));
+    }
+
+    /**
+     * Escena 3D de un piso concreto, sin muestra objetivo.
+     *
+     * <p>El aislamiento se comprueba aqui contra el refrigerador que lo aloja:
+     * {@code PisoRefrigeradorService.getPiso} no lo hace, porque el piso no
+     * guarda institucion propia.
+     */
+    @Transactional(readOnly = true)
+    public Ubicacion3DPisoDTO getVista3DPiso(Long idPiso) {
+        PisoRefrigerador piso = pisoRefrigeradorService.getPiso(idPiso);
+        institucionContextService.verificarPertenece(piso.getRefrigerador().getInstitucion());
+        return ubicacion3DService.explorarPiso(piso);
+    }
 
     // ------------------- CRUD -------------------
 

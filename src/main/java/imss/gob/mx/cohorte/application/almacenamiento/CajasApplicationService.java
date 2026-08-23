@@ -3,7 +3,9 @@ package imss.gob.mx.cohorte.application.almacenamiento;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DCajaDTO;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.CajaCriojenicaService;
+import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
@@ -24,14 +26,23 @@ public class CajasApplicationService {
     private final CajaCriojenicaService cajaCriojenicaService;
     private final PosicionCajaService posicionCajaService;
     private final PosicionPisoService posicionPisoService;
+    private final Ubicacion3DService ubicacion3DService;
 
     @Autowired
     public CajasApplicationService(CajaCriojenicaService cajaCriojenicaService, 
                                  PosicionCajaService posicionCajaService, 
-                                 PosicionPisoService posicionPisoService) {
+                                 PosicionPisoService posicionPisoService,
+                                 Ubicacion3DService ubicacion3DService) {
         this.cajaCriojenicaService = cajaCriojenicaService;
         this.posicionCajaService = posicionCajaService;
         this.posicionPisoService = posicionPisoService;
+        this.ubicacion3DService = ubicacion3DService;
+    }
+
+    /** Escena 3D de una caja completa, sin muestra objetivo. */
+    @Transactional(readOnly = true)
+    public Ubicacion3DCajaDTO getVista3D(Long idCaja) {
+        return ubicacion3DService.explorarCaja(cajaCriojenicaService.getById(idCaja));
     }
 
     @Transactional(readOnly = true)
