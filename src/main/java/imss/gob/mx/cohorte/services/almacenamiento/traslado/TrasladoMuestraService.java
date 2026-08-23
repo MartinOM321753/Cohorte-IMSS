@@ -330,6 +330,13 @@ public class TrasladoMuestraService {
             posicionCajaService.liberarPosicion(muestra.getPosicionCaja().getId());
             muestra.setPosicionCaja(null);
         }
+        // Una muestra dada de baja no puede volver al circuito: reescribir aquí el
+        // estado la resucitaría sin dejar rastro de que la baja se anuló.
+        if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
+            throw new ObjConflictException(
+                    "La muestra '" + muestra.getEtiqueta() + "' está dada de baja y no puede devolverse. "
+                    + "Contacta a la institución propietaria.");
+        }
         muestra.setEstadoMuestra(EstadoMuestra.PRESTADA);
         // institucionActual NO cambia aquí: la muestra sigue físicamente en destino
         // hasta que el origen confirme la devolución (confirmarDevolucion)
@@ -375,6 +382,12 @@ public class TrasladoMuestraService {
                 if (alicuota.getPosicionCaja() != null) {
                     posicionCajaService.liberarPosicion(alicuota.getPosicionCaja().getId());
                     alicuota.setPosicionCaja(null);
+                }
+                // Misma razón que arriba: una alícuota de baja no se arrastra.
+                if (alicuota.getEstadoMuestra() == EstadoMuestra.BAJA) {
+                    throw new ObjConflictException(
+                            "La alícuota '" + alicuota.getEtiqueta() + "' está dada de baja "
+                            + "y no puede devolverse junto a su muestra padre.");
                 }
                 alicuota.setEstadoMuestra(EstadoMuestra.PRESTADA);
                 // institucionActual NO cambia — sigue en destino hasta confirmarDevolucion

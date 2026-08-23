@@ -276,6 +276,17 @@ public class MuestraService {
         if (idPosicionCaja != null && !idPosicionCaja.equals(idPosActual)) {
             PosicionCaja nuevaPos = posicionCajaRepository.findById(idPosicionCaja)
                     .orElseThrow(() -> new ObjNotFoundException("La posición de caja especificada no existe"));
+            // La misma validación que hace asignarPosicion. Sin ella se podía
+            // ocupar un hueco del biobanco de otra institución pasando su id: el
+            // hueco quedaba tomado para siempre —su dueño no puede liberarlo ni
+            // borrar la caja— y el visor 3D le mostraba una etiqueta ajena.
+            Institucion instPos = nuevaPos.getCaja().getInstitucion();
+            if (muestraBD.getInstitucionActual() == null
+                    || !instPos.getId().equals(muestraBD.getInstitucionActual().getId())) {
+                throw new ValidationException(
+                        "La posición seleccionada pertenece a una institución diferente "
+                        + "a la que tiene la muestra actualmente.");
+            }
             if (nuevaPos.getOcupada()) {
                 throw new ObjConflictException("La posición de caja destino ya está ocupada");
             }
@@ -494,6 +505,21 @@ public class MuestraService {
             throw new ObjConflictException(
                     "No se puede dar de baja una muestra en tránsito. "
                     + "Cancela o completa el préstamo primero.");
+        }
+
+        // Ser la dueña no basta: hay que tenerla. Una muestra ya recibida por
+        // otra institución no está en PRESTADA sino en su biobanco, así que la
+        // comprobación de arriba no la alcanzaba y la propietaria podía darla de
+        // baja a distancia. Eso liberaba el hueco en el biobanco ajeno sin
+        // avisar —dejándolo reutilizable con el tubo aún dentro— y la devolución
+        // posterior borraba la baja al reescribir el estado.
+        if (muestra.getInstitucionActual() == null
+                || !idInst.equals(muestra.getInstitucionActual().getId())) {
+            String donde = muestra.getInstitucionActual() != null
+                    ? muestra.getInstitucionActual().getNombre() : "otra institución";
+            throw new ObjConflictException(
+                    "La muestra está en " + donde + ". Solo se puede dar de baja "
+                    + "cuando está en tu biobanco: recupérala primero.");
         }
 
         BeanUser usuario = userRepository.findByUUID(uuidUsuario)

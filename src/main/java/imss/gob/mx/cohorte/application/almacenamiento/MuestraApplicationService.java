@@ -142,6 +142,16 @@ public class MuestraApplicationService {
 
         if (muestra.getPosicionCaja() != null && muestra.getPosicionCaja().getId() != null) {
             PosicionCaja posicion = posicionCajaService.getById(muestra.getPosicionCaja().getId());
+            // Igual que en MuestraService.asignarPosicion: el hueco tiene que ser
+            // del biobanco propio. Sin esto se podía ocupar una posición de otra
+            // institución pasando su id, y ese hueco quedaba tomado sin que su
+            // dueño pudiera liberarlo.
+            Long idInstActual = institucionContextService.getIdInstitucionActual();
+            if (posicion.getCaja() == null || posicion.getCaja().getInstitucion() == null
+                    || !idInstActual.equals(posicion.getCaja().getInstitucion().getId())) {
+                throw new ValidationException(
+                        "La posición seleccionada pertenece al biobanco de otra institución.");
+            }
             if (posicion.getOcupada()) {
                 throw new ObjConflictException("La posición de caja ya está ocupada");
             }
