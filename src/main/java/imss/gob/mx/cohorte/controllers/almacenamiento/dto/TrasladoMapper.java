@@ -42,6 +42,8 @@ public class TrasladoMapper {
                 .motivo(t.getMotivo())
                 .observaciones(t.getObservaciones())
                 .grupoTraslado(t.getGrupoTraslado())
+                .esMovimientoDevolucion(Boolean.TRUE.equals(t.getEsMovimientoDevolucion()))
+                .idInstitucionDestinoDevolucion(t.getIdInstitucionDestinoDevolucion())
                 .build();
     }
 

@@ -142,12 +142,30 @@ public class TrasladoMuestraApplicationService {
      * {@code idInstitucionDestinoDevolucion} si el traslado usó un atajo en la cadena,
      * o {@code institucionOrigen} si el flujo es estándar.
      */
+    /**
+     * Quien confirma una devolucion es quien recibe la muestra, nunca quien la
+     * manda: la confirmacion es el acuse de que llego.
+     *
+     * <p>Leer eso de la fila exige mirar antes su forma, igual que hace
+     * confirmarDevolucionIndividual. En un prestamo de ida la vuelta va hacia
+     * institucionOrigen o hacia el atajo; en un movimiento de devolucion
+     * —la fila que la propia devolucion crea para las alicuotas—
+     * institucionOrigen es QUIEN TIENE la muestra y el receptor esta en
+     * institucionDestino.</p>
+     *
+     * <p>Sin esta distincion el guard apuntaba justo a la institucion
+     * equivocada: dejaba que la que envia confirmara en nombre de la que
+     * recibe, y bloqueaba con 403 a la que de verdad debia hacerlo. Como
+     * DEVUELTA es terminal, una confirmacion asi no tiene vuelta atras.</p>
+     */
     private void requireInstitucionParaConfirmarDevolucion(Long idTraslado) {
         TrasladoMuestra traslado = trasladoService.getById(idTraslado);
         Long myInstId = institucionContextService.getIdInstitucionActual();
-        Long expectedId = traslado.getIdInstitucionDestinoDevolucion() != null
-                ? traslado.getIdInstitucionDestinoDevolucion()
-                : traslado.getInstitucionOrigen().getId();
+        Long expectedId = Boolean.TRUE.equals(traslado.getEsMovimientoDevolucion())
+                ? traslado.getInstitucionDestino().getId()
+                : traslado.getIdInstitucionDestinoDevolucion() != null
+                        ? traslado.getIdInstitucionDestinoDevolucion()
+                        : traslado.getInstitucionOrigen().getId();
         if (!myInstId.equals(expectedId)) {
             throw new AccessDeniedException(
                     "Su institución no tiene autorización para confirmar esta devolución");

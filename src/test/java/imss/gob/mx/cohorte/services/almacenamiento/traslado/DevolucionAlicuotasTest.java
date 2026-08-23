@@ -36,6 +36,54 @@ class DevolucionAlicuotasTest {
     private final Institucion imss = inst(1, "IMSS Cuernavaca - Sede Central");
     private final Institucion insp = inst(3, "INSP");
 
+    /**
+     * Quién está autorizado a confirmar la devolución. Misma regla que aplica
+     * TrasladoMuestraApplicationService: el que RECIBE, nunca el que manda.
+     */
+    private Long quienConfirma(TrasladoMuestra t) {
+        return Boolean.TRUE.equals(t.getEsMovimientoDevolucion())
+                ? t.getInstitucionDestino().getId()
+                : t.getIdInstitucionDestinoDevolucion() != null
+                        ? t.getIdInstitucionDestinoDevolucion()
+                        : t.getInstitucionOrigen().getId();
+    }
+
+    @Test
+    @DisplayName("La confirmación de un movimiento de devolución corresponde a quien recibe, no a quien manda")
+    void confirmaQuienRecibeElMovimiento() {
+        // La fila que la devolución crea para una alícuota: la tiene el IMSS y
+        // viaja al INSP.
+        TrasladoMuestra fila = new TrasladoMuestra();
+        fila.setEstado(EstadoTraslado.EN_DEVOLUCION);
+        fila.setEsMovimientoDevolucion(true);
+        fila.setInstitucionOrigen(imss);
+        fila.setInstitucionDestino(insp);
+
+        assertEquals(insp.getId(), quienConfirma(fila),
+                "debe confirmar el INSP, que es quien la recibe");
+        assertNotEquals(imss.getId(), quienConfirma(fila),
+                "el IMSS la envía: dejarle confirmar sería firmar el acuse en nombre ajeno, "
+                + "y DEVUELTA no tiene vuelta atrás");
+    }
+
+    @Test
+    @DisplayName("En un préstamo de ida confirma el origen, o el atajo si lo hay")
+    void confirmaElOrigenEnUnPrestamoDeIda() {
+        TrasladoMuestra ida = new TrasladoMuestra();
+        ida.setEstado(EstadoTraslado.EN_DEVOLUCION);
+        ida.setEsMovimientoDevolucion(false);
+        ida.setInstitucionOrigen(laboratorio);
+        ida.setInstitucionDestino(imss);
+
+        assertEquals(laboratorio.getId(), quienConfirma(ida),
+                "vuelve a quien la prestó");
+
+        // Con atajo, la recibe un tercero en vez del prestador original.
+        ida.setIdInstitucionDestinoDevolucion(insp.getId());
+        assertEquals(insp.getId(), quienConfirma(ida),
+                "el atajo manda sobre el origen");
+    }
+
     /** Quién debe tener la muestra para que la devolución sea confirmable. */
     private Institucion tenedorEsperado(TrasladoMuestra t) {
         return Boolean.TRUE.equals(t.getEsMovimientoDevolucion())
