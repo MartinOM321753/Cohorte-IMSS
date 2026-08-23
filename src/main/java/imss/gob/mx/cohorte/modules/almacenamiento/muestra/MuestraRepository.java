@@ -70,6 +70,14 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
          + "AND m.tuboMuestra.prefijoCodigo = :prefijo")
     int findMaxLoteByFolioAndTuboPrefix(@Param("folio") String folio, @Param("prefijo") String prefijo);
 
+    /**
+     * Muestras alojadas en cualquier posición de una caja. La rejilla del
+     * visualizador 3D necesita la etiqueta de cada celda ocupada, y recorrer
+     * PosicionCaja no la da: la referencia vive del lado de Muestra.
+     */
+    @Query("SELECT m FROM Muestra m WHERE m.posicionCaja.caja.id = :idCaja")
+    List<Muestra> findAllByCaja_Id(@Param("idCaja") Long idCaja);
+
     boolean existsByMuestraPadre_IdAndTipoMuestra_IdAndTuboMuestra_IdAndInstitucion_Id(
             Long idMuestraPadre, Long idTipoMuestra, Long idTuboMuestra, Long idInstitucion);
 }

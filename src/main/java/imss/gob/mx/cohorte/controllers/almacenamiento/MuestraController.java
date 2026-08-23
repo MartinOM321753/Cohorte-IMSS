@@ -107,6 +107,30 @@ public class  MuestraController {
         return ResponseEntity.ok(new APIResponse("Muestra encontrada", MuestraMapper.toResponseDTO(muestra), false, HttpStatus.OK));
     }
 
+    @GetMapping("/{id}/ubicacion-3d")
+    @Operation(summary = "Ubicacion de la muestra para el visualizador 3D",
+        description = "Devuelve en una sola llamada refrigerador, piso, caja y posicion con sus metricas "
+            + "precalculadas. Si la muestra esta prestada, dada de baja o sin posicion, responde "
+            + "disponible=false con el motivo en lugar de la escena.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Exito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
+    public ResponseEntity<APIResponse> getUbicacion3D(
+        @Parameter(description = "ID numerico de la muestra biologica", required = true)
+        @PathVariable Long id) {
+        return ResponseEntity.ok(new APIResponse("Ubicacion de la muestra",
+            muestraApplicationService.getUbicacion3D(id), false, HttpStatus.OK));
+    }
+
     @GetMapping("/paciente/uuid/{uuid}/count")
     @Operation(summary = "Contar muestras de un paciente por UUID")
     @PreAuthorize("hasAnyAuthority('MUESTRAS_VER', 'EXPEDIENTE_BIOBANCO')")

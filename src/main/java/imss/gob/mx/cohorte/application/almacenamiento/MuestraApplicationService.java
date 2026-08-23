@@ -15,7 +15,9 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DDTO;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
@@ -60,6 +62,7 @@ public class MuestraApplicationService {
     private final ZplLabelService zplLabelService;
     private final DirectPrintService directPrintService;
     private final ConfiguracionEtiquetaService configuracionEtiquetaService;
+    private final Ubicacion3DService ubicacion3DService;
 
     @Transactional(readOnly = true)
     public List<Muestra> getAllMuestras() {
@@ -79,6 +82,19 @@ public class MuestraApplicationService {
     @Transactional(readOnly = true)
     public Muestra getMuestra(Long id) {
         return muestraService.getById(id);
+    }
+
+    /**
+     * Escena completa de ubicacion para el visualizador 3D.
+     *
+     * <p>Usa el acceso ampliado (propietaria o tenedora) porque durante un
+     * prestamo ambas instituciones necesitan poder consultar donde esta la
+     * muestra: la que la presto para saber que sigue fuera, y la que la tiene
+     * para localizarla en su propio biobanco.
+     */
+    @Transactional(readOnly = true)
+    public Ubicacion3DDTO getUbicacion3D(Long id) {
+        return ubicacion3DService.construir(muestraService.getByIdConAcceso(id));
     }
 
     @Transactional(readOnly = true)
