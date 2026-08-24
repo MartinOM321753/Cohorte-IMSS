@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenicaRepository;
 
 
 @Service
@@ -35,18 +36,22 @@ public class PisoRefrigeradorApplicationService {
     private final RefrigeradorService refrigeradorService;
     private final PosicionPisoService posicionPisoService;
     private final InstitucionContextService institucionContextService;
+    /** Para contar las cajas que hay de verdad en el piso, no las marcas de ocupado. */
+    private final CajaCriogenicaRepository cajaCriogenicaRepository;
 
     @Autowired
     public PisoRefrigeradorApplicationService(PisoRefrigeradorService pisoService, 
                                             RefrigeradorService refrigeradorService, 
                                             PosicionPisoService posicionPisoService,
                                             InstitucionContextService institucionContextService,
-                                            PisoRefrigeradorRepository pisoRepository) {
+                                            PisoRefrigeradorRepository pisoRepository,
+                                            CajaCriogenicaRepository cajaCriogenicaRepository) {
         this.pisoService = pisoService;
         this.pisoRepository = pisoRepository;
         this.refrigeradorService = refrigeradorService;
         this.posicionPisoService = posicionPisoService;
         this.institucionContextService = institucionContextService;
+        this.cajaCriogenicaRepository = cajaCriogenicaRepository;
     }
 
     /**
@@ -202,14 +207,45 @@ public class PisoRefrigeradorApplicationService {
 
     @Transactional
     public void deletePiso(Long id) {
-        // De facto lo bloquea la comprobacion de posiciones —un piso siempre las
-        // tiene generadas—, pero un borrado no debe depender de eso para que no
-        // lo alcance otra institucion.
+        // El guarda de institucion va primero: un borrado no debe depender de que
+        // otra comprobacion lo detenga por casualidad.
         PisoRefrigerador findPiso = getPisoConAcceso(id);
-        if (!findPiso.getPosiciones().isEmpty()) {
-            throw new ObjConflictException("No se puede eliminar el piso porque tiene posiciones asociadas.");
-        }
+
+        // Antes se rechazaba el borrado en cuanto el piso tuviera posiciones, y un
+        // piso SIEMPRE las tiene: se generan solas al crearlo. La regla no protegia
+        // nada, simplemente hacia imposible borrar un piso.
+        //
+        // Lo que de verdad hay que proteger son las cajas, que si las puso alguien.
+        // Las posiciones son rejilla vacia y se van con el piso: la relacion tiene
+        // orphanRemoval, asi que no hace falta borrarlas a mano.
+        long cajas = cajaCriogenicaRepository.countByPosicionPiso_Piso_Id(id);
+        long marcadas = findPiso.getPosiciones().stream()
+                .filter(pos -> Boolean.TRUE.equals(pos.getOcupada()))
+                .count();
+        verificarPisoVaciable(cajas, marcadas);
+
         pisoService.deletePiso(id);
     }
 
+    /**
+     * La regla que decide si un piso puede eliminarse, aparte para poder probarla.
+     *
+     * @param cajas    cajas realmente colocadas en el piso
+     * @param marcadas posiciones con la marca de ocupada
+     */
+    static void verificarPisoVaciable(long cajas, long marcadas) {
+        if (cajas > 0) {
+            throw new ObjConflictException(
+                    "No se puede eliminar el piso porque todavía tiene " + cajas
+                    + (cajas == 1 ? " caja dentro." : " cajas dentro.")
+                    + " Sácalas o cámbialas de piso antes de eliminarlo.");
+        }
+        // Si una posición quedó marcada como ocupada sin caja, el dato está
+        // inconsistente: no es este el sitio para arreglarlo a ciegas borrando.
+        if (marcadas > 0) {
+            throw new ObjConflictException(
+                    "El piso tiene " + marcadas + " posición(es) marcadas como ocupadas pero sin caja dentro. "
+                    + "Revisa la ubicación antes de eliminarlo.");
+        }
+    }
 }
