@@ -10,6 +10,7 @@ import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PisoRefrigeradorService;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.RefrigeradorRepository;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.RefrigeradorService;
 import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
@@ -34,6 +35,8 @@ public class RefrigeradorApplicationService {
     private final PisoRefrigeradorService pisoRefrigeradorService;
     private final Ubicacion3DService ubicacion3DService;
     private final InstitucionContextService institucionContextService;
+    /** Se usa directo para poder buscar el codigo dentro de la propia institucion. */
+    private final RefrigeradorRepository refrigeradorRepository;
 
     // ------------------- Vista 3D (exploracion libre) -------------------
 
@@ -109,12 +112,19 @@ public class RefrigeradorApplicationService {
 
     // ----------- HELPERS DE VALIDACIÓN (private) ------------
 
+    /**
+     * El codigo solo tiene que ser unico dentro de la institucion.
+     *
+     * <p>Antes se buscaba en todas: si el codigo existia en otra, la busqueda
+     * fallaba con AccessDeniedException —que el catch de abajo no atrapaba— y el
+     * usuario recibia un 403 "pertenece a otra institucion" al crear un
+     * refrigerador con un codigo perfectamente libre para el. Un error de
+     * permisos para algo que no era de permisos.</p>
+     */
     private void ensureCodigoUnicoOrThrow(String codigo) {
-        try {
-            refrigeradorService.getRefrigeradorByCode(codigo);
+        Long mia = institucionContextService.getIdInstitucionActual();
+        if (refrigeradorRepository.findByCodigoAndInstitucion_Id(codigo, mia).isPresent()) {
             throw new ObjConflictException("Ya existe un refrigerador con el código: " + codigo);
-        } catch (ObjNotFoundException ignored) {
-            // Ok: no existe, todo bien
         }
     }
 }

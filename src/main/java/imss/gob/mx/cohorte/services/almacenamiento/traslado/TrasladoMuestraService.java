@@ -646,6 +646,17 @@ public class TrasladoMuestraService {
                         traslado.getId(), idPosAnterior, muestra.getEtiqueta(), e.getMessage());
                 posicionAnteriorPerdida = true;
                 muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
+            } catch (ObjNotFoundException e) {
+                // La posición ya no existe: mientras el traslado estaba en camino
+                // se borró la caja o se redujeron sus dimensiones —cosas ambas
+                // permitidas, porque el hueco quedó libre al salir la muestra—.
+                // Sin este catch la cancelación moría con un 404 y el traslado se
+                // quedaba atascado en ENVIADA, sin salida desde la interfaz.
+                log.warn("Cancelación traslado {}: la posición anterior {} ya no existe; "
+                        + "muestra {} queda SIN_POSICION. Detalle: {}",
+                        traslado.getId(), idPosAnterior, muestra.getEtiqueta(), e.getMessage());
+                posicionAnteriorPerdida = true;
+                muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
             }
         } else {
             muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);

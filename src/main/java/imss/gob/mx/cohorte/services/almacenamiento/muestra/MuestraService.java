@@ -413,6 +413,14 @@ public class MuestraService {
         PosicionCaja nuevaPos = posicionCajaRepository.findById(idPosicionCaja)
                 .orElseThrow(() -> new ObjNotFoundException("Posición de caja no encontrada: " + idPosicionCaja));
 
+        // Una caja desactivada está fuera de uso: meter algo dentro la reabre por
+        // la puerta de atrás. confirmarRecepcion ya lo comprobaba; aquí faltaba.
+        if (!Boolean.TRUE.equals(nuevaPos.getCaja().getActivo())) {
+            throw new ObjConflictException(
+                    "La caja '" + nuevaPos.getCaja().getCodigoCaja() + "' está desactivada; "
+                    + "no se pueden colocar muestras en ella.");
+        }
+
         // Validar que la posición pertenece al biobanco de la institucionActual
         Institucion instPos = nuevaPos.getCaja().getInstitucion();
         if (!instPos.getId().equals(muestra.getInstitucionActual().getId())) {
