@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ParametroEstudioMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.ResultadoEstudioMuestraRepository;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
@@ -17,16 +18,23 @@ public class ParametroEstudioMuestraService {
 
     private final ParametroEstudioMuestraRepository repository;
     private final ResultadoEstudioMuestraRepository resultadoEstudioMuestraRepository;
+    private final TipoEstudioMuestraService tipoEstudioMuestraService;
+    private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public List<ParametroEstudioMuestra> getByTipo(Long idTipo) {
+        tipoEstudioMuestraService.getById(idTipo);   // valida institución
         return repository.findAllByTipoEstudioMuestra_Id(idTipo);
     }
 
     @Transactional(readOnly = true)
     public ParametroEstudioMuestra getById(Long id) {
-        return repository.findById(id)
+        ParametroEstudioMuestra parametro = repository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el parámetro de estudio de muestra"));
+        // Un parámetro no guarda institución: la hereda del tipo del que cuelga.
+        institucionContextService.verificarPertenece(
+                parametro.getTipoEstudioMuestra().getInstitucion());
+        return parametro;
     }
 
     @Transactional(rollbackFor = Exception.class)

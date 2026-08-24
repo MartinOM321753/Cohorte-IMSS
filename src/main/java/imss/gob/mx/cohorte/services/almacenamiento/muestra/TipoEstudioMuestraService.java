@@ -36,8 +36,11 @@ public class TipoEstudioMuestraService {
 
     @Transactional(readOnly = true)
     public TipoEstudioMuestra getById(Long id) {
-        return repository.findById(id)
+        TipoEstudioMuestra tipo = repository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el tipo de estudio de muestra"));
+        // Mismo criterio que los listados de arriba, que ya filtran por institución.
+        institucionContextService.verificarPertenece(tipo.getInstitucion());
+        return tipo;
     }
 
     @Transactional(readOnly = true)

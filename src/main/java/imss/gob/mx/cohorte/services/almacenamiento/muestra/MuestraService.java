@@ -458,8 +458,10 @@ public class MuestraService {
      */
     @Transactional
     public Muestra liberarPosicion(Long idMuestra, String motivo) {
-        Muestra muestra = muestraRepository.findById(idMuestra)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+        // El hueco es de quien tiene la muestra en la mano, así que el permiso para
+        // vaciarlo también. Sin esta comprobación se podía sacar de su caja una
+        // muestra de otra institución con solo pasar su id.
+        Muestra muestra = getByIdComoTenedor(idMuestra);
 
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException("No se puede liberar la posición de una muestra en préstamo.");

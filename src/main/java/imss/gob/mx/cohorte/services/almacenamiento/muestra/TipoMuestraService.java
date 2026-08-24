@@ -44,8 +44,13 @@ public class TipoMuestraService {
 
     @Transactional(readOnly = true)
     public TipoMuestra getById(Long id) {
-        return tipoMuestraRepository.findById(id)
+        TipoMuestra tipo = tipoMuestraRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el tipo de muestra con id: " + id));
+        // El listado ya filtra por institución; esta consulta también tiene que
+        // hacerlo, o el catálogo ajeno queda a la vista —y editable— con solo
+        // pasar su id.
+        institucionContextService.verificarPertenece(tipo.getInstitucion());
+        return tipo;
     }
 
     @Transactional
@@ -85,8 +90,11 @@ public class TipoMuestraService {
 
     @Transactional(readOnly = true)
     public TuboMuestra getTuboById(Long id) {
-        return tuboMuestraRepository.findById(id)
+        TuboMuestra tubo = tuboMuestraRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró el tubo con id: " + id));
+        // Un tubo no guarda institución: la hereda del tipo de muestra del que cuelga.
+        institucionContextService.verificarPertenece(tubo.getTipoMuestra().getInstitucion());
+        return tubo;
     }
 
     @Transactional
