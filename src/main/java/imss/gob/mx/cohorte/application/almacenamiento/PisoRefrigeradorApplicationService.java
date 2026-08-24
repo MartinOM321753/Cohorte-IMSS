@@ -44,23 +44,41 @@ public class PisoRefrigeradorApplicationService {
         this.institucionContextService = institucionContextService;
     }
 
+    /**
+     * Un piso no guarda institucion propia: la hereda de su refrigerador, y por
+     * eso PisoRefrigeradorService.getPiso no puede comprobarla. Quien lo use
+     * tiene que hacerlo aqui, como ya hace RefrigeradorApplicationService en la
+     * vista 3D. Sin esto bastaba pasar un id ajeno para leer la rejilla de otro
+     * biobanco: sus dimensiones, sus huecos y cuales estan ocupados.
+     */
+    private PisoRefrigerador getPisoConAcceso(Long idPiso) {
+        PisoRefrigerador piso = pisoService.getPiso(idPiso);
+        institucionContextService.verificarPertenece(piso.getRefrigerador().getInstitucion());
+        return piso;
+    }
+
     @Transactional(readOnly = true)
     public List<PisoRefrigerador> getAllPisos(Long idRefrigerador) {
+        // El refrigerador si conoce su institucion; se comprueba en el.
+        refrigeradorService.getRefrigerador(idRefrigerador);
         return pisoService.getAllPisos(idRefrigerador);
     }
 
     @Transactional(readOnly = true)
     public PisoRefrigerador getPiso(Long id) {
-        return pisoService.getPiso(id);
+        return getPisoConAcceso(id);
     }
 
     @Transactional(readOnly = true)
     public PisoRefrigerador getPisoByNumber(String number) {
-        return pisoService.getPisoByNumber(number);
+        PisoRefrigerador piso = pisoService.getPisoByNumber(number);
+        institucionContextService.verificarPertenece(piso.getRefrigerador().getInstitucion());
+        return piso;
     }
 
     @Transactional(readOnly = true)
     public List<PosicionPiso> getPosiciones(Long idPiso) {
+        getPisoConAcceso(idPiso);
         return posicionPisoService.getPosicionesPorPiso(idPiso);
     }
 
@@ -173,7 +191,10 @@ public class PisoRefrigeradorApplicationService {
 
     @Transactional
     public void deletePiso(Long id) {
-        PisoRefrigerador findPiso = pisoService.getPiso(id);
+        // De facto lo bloquea la comprobacion de posiciones —un piso siempre las
+        // tiene generadas—, pero un borrado no debe depender de eso para que no
+        // lo alcance otra institucion.
+        PisoRefrigerador findPiso = getPisoConAcceso(id);
         if (!findPiso.getPosiciones().isEmpty()) {
             throw new ObjConflictException("No se puede eliminar el piso porque tiene posiciones asociadas.");
         }

@@ -28,9 +28,27 @@ public class TrasladoMuestraApplicationService {
     private final MuestraService muestraService;
     private final InstitucionContextService institucionContextService;
 
+    /**
+     * Un traslado solo lo puede ver quien participa en el: origen o destino.
+     *
+     * <p>Sin esto bastaba pasar un id ajeno para leer los traslados de otras
+     * instituciones. El mismo archivo ya protegia getHistorialByMuestra por esta
+     * razon; a estos metodos se les habia quedado el chequeo.</p>
+     */
+    private TrasladoMuestra getTrasladoConAcceso(Long id) {
+        TrasladoMuestra traslado = trasladoService.getById(id);
+        Long mia = institucionContextService.getIdInstitucionActual();
+        boolean participo = mia.equals(traslado.getInstitucionOrigen().getId())
+                || mia.equals(traslado.getInstitucionDestino().getId());
+        if (!participo) {
+            throw new AccessDeniedException("Este traslado pertenece a otras instituciones");
+        }
+        return traslado;
+    }
+
     @Transactional(readOnly = true)
     public TrasladoMuestra getTraslado(Long id) {
-        return trasladoService.getById(id);
+        return getTrasladoConAcceso(id);
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +80,13 @@ public class TrasladoMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<TrasladoMuestra> getByGrupo(String grupoTraslado) {
-        return trasladoService.getByGrupo(grupoTraslado);
+        List<TrasladoMuestra> grupo = trasladoService.getByGrupo(grupoTraslado);
+        // Un grupo es un padre con sus alicuotas, todos entre las mismas dos
+        // instituciones: basta comprobar el primero para saber si es mio.
+        if (!grupo.isEmpty()) {
+            getTrasladoConAcceso(grupo.get(0).getId());
+        }
+        return grupo;
     }
 
     /**
@@ -100,7 +124,9 @@ public class TrasladoMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<Muestra> getAlicuotasEnDestino(Long idTraslado) {
-        TrasladoMuestra traslado = trasladoService.getById(idTraslado);
+        // El mas sensible de los tres: enumera etiquetas de alicuotas, que son
+        // datos del biobanco de otra institucion.
+        TrasladoMuestra traslado = getTrasladoConAcceso(idTraslado);
         Long idMuestraPadre = traslado.getMuestra().getId();
         Long idInstDestino = traslado.getInstitucionDestino().getId();
         return muestraRepository.findAllByMuestraPadre_IdAndInstitucionActual_Id(idMuestraPadre, idInstDestino);
