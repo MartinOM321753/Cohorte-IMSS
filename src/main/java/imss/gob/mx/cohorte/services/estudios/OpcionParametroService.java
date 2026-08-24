@@ -3,6 +3,7 @@ package imss.gob.mx.cohorte.services.estudios;
 import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametro;
 import imss.gob.mx.cohorte.modules.estudios.parametros.OpcionParametroRepository;
 import imss.gob.mx.cohorte.modules.estudios.parametros.ParametroEstudio;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.AllArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.Set;
 public class OpcionParametroService {
 
     private final OpcionParametroRepository opcionRepository;
+    private final InstitucionContextService institucionContextService;
 
     @Transactional(readOnly = true)
     public List<OpcionParametro> getByParametro(Long parametroId) {
@@ -70,6 +72,10 @@ public class OpcionParametroService {
         OpcionParametro op = opcionRepository.findById(opcionId)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la opción"));
         ParametroEstudio parametro = op.getParametro();
+        // La opción no guarda institución: la hereda del parámetro y este de su tipo.
+        // Sin esto se borran opciones del catálogo ajeno con solo pasar el id.
+        institucionContextService.verificarPertenece(
+                parametro.getTipoEstudio().getInstitucion());
         parametro.getOpciones().remove(op);
         int orden = 1;
         for (OpcionParametro restante : parametro.getOpciones()) {

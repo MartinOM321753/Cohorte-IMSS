@@ -119,6 +119,10 @@ public class GestionEstudiosApplicationService {
 
     @Transactional
     public ParametroEstudio deleteParametro(Long id) {
+        // Un parámetro no guarda institución: la hereda del tipo de estudio. El alta y
+        // la edición ya validan por ahí; el borrado se saltaba el paso y llegaba al
+        // catálogo ajeno con solo pasar el id.
+        tipoService.getOne(parametroService.getOne(id).getTipoEstudio().getId());
         ResultadoEstudio resultadoEstudio = resultadoService.findResultadoByParametroId(id);
         if (resultadoEstudio != null) throw new ObjConflictException("No se puede eliminar el parámetro porque tiene resultados");
         return parametroService.delete(id);
@@ -129,6 +133,7 @@ public class GestionEstudiosApplicationService {
     @Transactional
     public OpcionParametro addOpcion(Long parametroId, String valor) {
         ParametroEstudio parametro = parametroService.getOne(parametroId);
+        tipoService.getOne(parametro.getTipoEstudio().getId());   // valida institución
         if (parametro.getTipo() != TipoParametro.TEXTO_OPCIONES) {
             throw new IllegalArgumentException("Solo se pueden agregar opciones a parámetros de tipo TEXTO_OPCIONES");
         }

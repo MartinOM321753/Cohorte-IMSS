@@ -7,6 +7,7 @@ import imss.gob.mx.cohorte.modules.usuarios.role.RoleRepository;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import org.springframework.security.access.AccessDeniedException;
 import imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -421,8 +422,29 @@ public class PermisoAdminApplicationService {
     }
 
     private BeanUser findUsuario(String uuid) {
-        return userRepository.findByUUID(uuid)
+        BeanUser usuario = userRepository.findByUUID(uuid)
                 .orElseThrow(() -> new ObjNotFoundException("Usuario no encontrado con UUID: " + uuid));
+        verificarAlcanceSobreUsuario(usuario);
+        return usuario;
+    }
+
+    /**
+     * Dar y quitar roles o permisos es administrar la cuenta, asi que vale el mismo
+     * alcance que en el modulo de usuarios: la propia institucion y las que cuelgan
+     * de ella. Sin esta comprobacion bastaba el uuid para cambiarle los permisos a
+     * alguien de otra institucion.
+     */
+    private void verificarAlcanceSobreUsuario(BeanUser objetivo) {
+        BeanUser actual = institucionCtx.getUsuarioActual();
+        Long idObjetivo = objetivo.getInstitucion() != null ? objetivo.getInstitucion().getId() : null;
+        Long idActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;
+        if (idObjetivo == null || idActual == null) {
+            throw new AccessDeniedException("No se pudo validar la institucion del usuario.");
+        }
+        if (idActual.equals(idObjetivo) || institucionCtx.esAncestra(idActual, idObjetivo)) {
+            return;
+        }
+        throw new AccessDeniedException("No tienes permiso para administrar los permisos de este usuario.");
     }
 
     private void registrarBitacora(String uuidAfectado, String accion, String detalle) {

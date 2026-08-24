@@ -212,6 +212,9 @@ public class PacienteApplicationService {
     /** Obtiene la clasificación de reclutamiento (1:1) asociada a un paciente, si existe. */
     @Transactional(readOnly = true)
     public ReclutamientoParticipante getReclutamiento(Long idPaciente) {
+        // El reclutamiento es del participante, así que se lee con las mismas reglas
+        // que él. Consultarlo directamente por id se saltaba esa comprobación.
+        participanteAccesoService.resolverPorId(idPaciente);
         return reclutamientoService.findByPaciente(idPaciente).orElse(null);
     }
 
