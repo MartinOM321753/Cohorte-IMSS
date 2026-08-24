@@ -228,7 +228,10 @@ public class Ubicacion3DService {
                     .posicionesOcupadas(ocupados)
                     .posicionesLibres(huecos.size() - ocupados)
                     .porcentajeOcupacion(porcentaje(ocupados, huecos.size()))
-                    .totalCajas(ocupados)
+                    // Huecos ocupados y cajas no son lo mismo: un hueco marcado
+                    // como ocupado cuya caja ya no esta inflaria la cuenta. La
+                    // vista de piso ya cuenta cajas de verdad; esta no.
+                    .totalCajas((int) cajaCriogenicaRepository.countByPosicionPiso_Piso_Id(piso.getId()))
                     .reticula(reticula(piso, huecos))
                     .esDestino(Objects.equals(piso.getId(), idPisoDestino))
                     .build());
