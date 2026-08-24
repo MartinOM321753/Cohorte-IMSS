@@ -145,11 +145,13 @@ public class InstitucionJerarquiaService {
 
     @Transactional(readOnly = true)
     public List<PermisoAccesoPacientes> listarPermisosOtorgados(Long idInstitucionOtorga) {
+        verificarPuedeDisponerDelPadron(idInstitucionOtorga);
         return permisoRepository.findAllByInstitucionOtorga_Id(idInstitucionOtorga);
     }
 
     @Transactional(readOnly = true)
     public List<PermisoAccesoPacientes> listarPermisosRecibidos(Long idInstitucionRecibe) {
+        verificarPuedeDisponerDelPadron(idInstitucionRecibe);
         return permisoRepository.findAllByInstitucionRecibe_IdAndHabilitadoTrue(idInstitucionRecibe);
     }
 
