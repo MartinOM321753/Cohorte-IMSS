@@ -383,6 +383,24 @@ public class TrasladoMuestraService {
                     posicionCajaService.liberarPosicion(alicuota.getPosicionCaja().getId());
                     alicuota.setPosicionCaja(null);
                 }
+                // Una alícuota con préstamo propio abierto no puede viajar con su
+                // padre. Si se moviera, ese préstamo quedaría afirmando para
+                // siempre que la alícuota está en la institución a la que se
+                // prestó —y no habría forma de cerrarlo, porque devolverlo exige
+                // que siga allí—. Se detiene y se deja que quien corresponda
+                // cierre ese préstamo primero: cerrarlo aquí en cascada sería
+                // decidir por la institución que lo abrió.
+                List<TrasladoMuestra> activosDeAlicuota =
+                        trasladoRepository.findActivosByMuestra(alicuota.getId());
+                boolean tienePrestamoPropio = activosDeAlicuota.stream()
+                        .anyMatch(a -> !a.getId().equals(traslado.getId()));
+                if (tienePrestamoPropio) {
+                    throw new ObjConflictException(
+                            "La alícuota '" + alicuota.getEtiqueta() + "' tiene un préstamo propio "
+                            + "en curso y no puede devolverse junto a su muestra padre. "
+                            + "Cierra antes ese préstamo.");
+                }
+
                 // Misma razón que arriba: una alícuota de baja no se arrastra.
                 if (alicuota.getEstadoMuestra() == EstadoMuestra.BAJA) {
                     throw new ObjConflictException(
@@ -536,9 +554,14 @@ public class TrasladoMuestraService {
     }
 
     /**
-     * Verifica si una institución participó previamente en la cadena de custodia
-     * de una muestra (es la dueña original o aparece como origen/destino de algún
-     * traslado histórico distinto al que se está devolviendo).
+     * Verifica si una institución tuvo de verdad la muestra en algún momento: es
+     * la dueña original, o aparece en un traslado que llegó a completarse.
+     *
+     * <p>Un traslado CANCELADO no cuenta: se anuló antes de que el destino
+     * confirmara, así que esa institución nunca tocó la muestra. Uno en ENVIADA
+     * tampoco: está en camino y aún no ha llegado. Aceptarlos permitía devolver
+     * una muestra a una institución que solo figuraba en un envío abortado,
+     * inventando un tramo de custodia que nunca existió.</p>
      */
     private boolean institucionParticipoEnCadena(Muestra muestra, Long idInstitucion) {
         if (muestra.getInstitucion() != null && idInstitucion.equals(muestra.getInstitucion().getId())) {
@@ -547,12 +570,20 @@ public class TrasladoMuestraService {
         List<TrasladoMuestra> historial = trasladoRepository
                 .findAllByMuestra_IdOrderByFechaTrasladoDesc(muestra.getId());
         for (TrasladoMuestra t : historial) {
+            if (!custodiaEfectiva(t.getEstado())) continue;
             if (idInstitucion.equals(t.getInstitucionOrigen().getId())
                     || idInstitucion.equals(t.getInstitucionDestino().getId())) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Estados en los que el destino llegó a tener la muestra en sus manos. */
+    private static boolean custodiaEfectiva(EstadoTraslado estado) {
+        return estado == EstadoTraslado.RECIBIDA
+                || estado == EstadoTraslado.EN_DEVOLUCION
+                || estado == EstadoTraslado.DEVUELTA;
     }
 
     /**

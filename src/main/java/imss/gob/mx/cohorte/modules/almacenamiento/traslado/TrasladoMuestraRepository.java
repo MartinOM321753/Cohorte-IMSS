@@ -79,6 +79,19 @@ public interface TrasladoMuestraRepository extends JpaRepository<TrasladoMuestra
     boolean existsByMuestraAndInstitucion(@Param("idMuestra") Long idMuestra,
                                           @Param("idInst") Long idInst);
 
+    /**
+     * El traslado vivo de una muestra, si lo tiene.
+     *
+     * <p>Vivo es ENVIADA, RECIBIDA o EN_DEVOLUCION: en los tres la muestra sigue
+     * comprometida con ese traslado. Se usa para no arrastrar una alicuota en la
+     * devolucion de su padre cuando la alicuota tiene un prestamo propio abierto:
+     * moverla dejaria ese prestamo afirmando para siempre que esta en un sitio
+     * donde ya no esta, y sin forma de cerrarlo.</p>
+     */
+    @Query("SELECT t FROM TrasladoMuestra t WHERE t.muestra.id = :idMuestra "
+         + "AND t.estado IN ('ENVIADA','RECIBIDA','EN_DEVOLUCION')")
+    List<TrasladoMuestra> findActivosByMuestra(@Param("idMuestra") Long idMuestra);
+
     boolean existsByMuestra_Id(Long idMuestra);
 
     // NOTA: intencionalmente NO se expone deleteAllByMuestra_Id. Los traslados son

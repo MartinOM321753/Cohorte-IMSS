@@ -84,6 +84,27 @@ class DevolucionAlicuotasTest {
                 "el atajo manda sobre el origen");
     }
 
+    /** Estados en los que el destino llegó a tener la muestra. Misma regla del servicio. */
+    private boolean custodiaEfectiva(EstadoTraslado e) {
+        return e == EstadoTraslado.RECIBIDA
+                || e == EstadoTraslado.EN_DEVOLUCION
+                || e == EstadoTraslado.DEVUELTA;
+    }
+
+    @Test
+    @DisplayName("Un envío cancelado no convierte a su destino en cadena de custodia")
+    void elCanceladoNoCuentaComoCustodia() {
+        // El INSP nunca llegó a tener la muestra: el envío se anuló antes de que
+        // confirmara. Devolvérsela inventaría un tramo que no ocurrió.
+        assertFalse(custodiaEfectiva(EstadoTraslado.CANCELADO));
+        // Enviada tampoco: va en camino y aún no ha llegado.
+        assertFalse(custodiaEfectiva(EstadoTraslado.ENVIADA));
+
+        assertTrue(custodiaEfectiva(EstadoTraslado.RECIBIDA));
+        assertTrue(custodiaEfectiva(EstadoTraslado.DEVUELTA));
+        assertTrue(custodiaEfectiva(EstadoTraslado.EN_DEVOLUCION));
+    }
+
     /** Quién debe tener la muestra para que la devolución sea confirmable. */
     private Institucion tenedorEsperado(TrasladoMuestra t) {
         return Boolean.TRUE.equals(t.getEsMovimientoDevolucion())
