@@ -13,6 +13,21 @@ import java.util.List;
 @Repository
 public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen, Long> {
 
+    /**
+     * Lo ya registrado para un grupo de participantes y examenes.
+     *
+     * <p>La usa la carga masiva para avisar de los duplicados antes de escribir.
+     * Va en bloque porque un archivo de laboratorio cruza decenas de participantes
+     * con decenas de examenes, y preguntarlo celda por celda serian cientos de
+     * viajes a la base.</p>
+     *
+     * @return tuplas (idPaciente, idExamen, fechaResultado, idResultado)
+     */
+    @Query("SELECT r.paciente.id, r.examen.id, r.fechaResultado, r.Id FROM ResultadoExamen r "
+         + "WHERE r.paciente.id IN :idsPacientes AND r.examen.id IN :idsExamenes")
+    List<Object[]> buscarPorPacientesYExamenes(@Param("idsPacientes") List<Long> idsPacientes,
+                                               @Param("idsExamenes") List<Long> idsExamenes);
+
     List<ResultadoExamen> findByPaciente_Uuid(String uuid);
     Page<ResultadoExamen> findByPaciente_Uuid(String uuid, Pageable pageable);
     List<ResultadoExamen> findByPaciente_Folio(String uuid);

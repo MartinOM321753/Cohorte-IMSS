@@ -65,10 +65,43 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
          + "AND t.estado <> imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.CANCELADO)")
     List<Muestra> findAllVisiblesConHistoricoPorInstitucion(@Param("idInst") Long idInstitucion);
 
+    /**
+     * Resuelve una etiqueta escaneada dentro de lo que la institución puede ver.
+     *
+     * <p>El alcance es el mismo de {@link #findAllVisiblesConHistoricoPorInstitucion}
+     * —propia, en posesión, o destino de un traslado no cancelado— y no el de la
+     * vista por omisión. Es a propósito: quien pasa una etiqueta por el lector
+     * tiene el tubo en la mano, así que responder «no existe» porque el panel trae
+     * el histórico apagado sería mentirle. La pantalla se encarga de encender el
+     * filtro que haga falta para mostrarla.</p>
+     *
+     * <p>La etiqueta es única por institución, no globalmente: dos sedes pueden
+     * tener una con el mismo texto. Por eso se acota al conjunto visible y se
+     * ordena dando prioridad a la propia, que es la que el usuario espera.</p>
+     */
+    @Query("SELECT m FROM Muestra m WHERE UPPER(m.etiqueta) = UPPER(:etiqueta) AND ("
+         + "  m.institucion.id = :idInst "
+         + "  OR m.institucionActual.id = :idInst "
+         + "  OR EXISTS (SELECT 1 FROM imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra t "
+         + "     WHERE t.muestra.id = m.id "
+         + "     AND t.institucionDestino.id = :idInst "
+         + "     AND t.estado <> imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.CANCELADO)) "
+         + "ORDER BY CASE WHEN m.institucion.id = :idInst THEN 0 ELSE 1 END, m.id ASC")
+    List<Muestra> buscarVisiblesPorEtiqueta(@Param("etiqueta") String etiqueta,
+                                            @Param("idInst") Long idInstitucion);
+
     @Query("SELECT COALESCE(MAX(m.numeroLote), 0) FROM Muestra m "
          + "WHERE m.paciente.folio = :folio "
          + "AND m.tuboMuestra.prefijoCodigo = :prefijo")
     int findMaxLoteByFolioAndTuboPrefix(@Param("folio") String folio, @Param("prefijo") String prefijo);
+
+    /**
+     * Muestras alojadas en cualquier posición de una caja. La rejilla del
+     * visualizador 3D necesita la etiqueta de cada celda ocupada, y recorrer
+     * PosicionCaja no la da: la referencia vive del lado de Muestra.
+     */
+    @Query("SELECT m FROM Muestra m WHERE m.posicionCaja.caja.id = :idCaja")
+    List<Muestra> findAllByCaja_Id(@Param("idCaja") Long idCaja);
 
     boolean existsByMuestraPadre_IdAndTipoMuestra_IdAndTuboMuestra_IdAndInstitucion_Id(
             Long idMuestraPadre, Long idTipoMuestra, Long idTuboMuestra, Long idInstitucion);

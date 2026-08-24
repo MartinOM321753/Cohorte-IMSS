@@ -13,6 +13,9 @@ public interface CajaCriogenicaRepository extends JpaRepository<CajaCriogenica, 
     Optional<CajaCriogenica> findByCodigoCaja(String codigoCaja);
     List<CajaCriogenica> findAllByActivo(Boolean activo);
     List<CajaCriogenica> findAllByPosicionPiso_Id(Long posicionPisoId);
+
+    /** Cajas realmente colocadas en un piso, sin fiarse de la marca de ocupado. */
+    long countByPosicionPiso_Piso_Id(Long idPiso);
     List<CajaCriogenica> findAllByInstitucion_Id(Long idInstitucion);
     List<CajaCriogenica> findAllByActivoAndInstitucion_Id(Boolean activo, Long idInstitucion);
 

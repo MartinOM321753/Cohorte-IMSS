@@ -28,9 +28,27 @@ public class TrasladoMuestraApplicationService {
     private final MuestraService muestraService;
     private final InstitucionContextService institucionContextService;
 
+    /**
+     * Un traslado solo lo puede ver quien participa en el: origen o destino.
+     *
+     * <p>Sin esto bastaba pasar un id ajeno para leer los traslados de otras
+     * instituciones. El mismo archivo ya protegia getHistorialByMuestra por esta
+     * razon; a estos metodos se les habia quedado el chequeo.</p>
+     */
+    private TrasladoMuestra getTrasladoConAcceso(Long id) {
+        TrasladoMuestra traslado = trasladoService.getById(id);
+        Long mia = institucionContextService.getIdInstitucionActual();
+        boolean participo = mia.equals(traslado.getInstitucionOrigen().getId())
+                || mia.equals(traslado.getInstitucionDestino().getId());
+        if (!participo) {
+            throw new AccessDeniedException("Este traslado pertenece a otras instituciones");
+        }
+        return traslado;
+    }
+
     @Transactional(readOnly = true)
     public TrasladoMuestra getTraslado(Long id) {
-        return trasladoService.getById(id);
+        return getTrasladoConAcceso(id);
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +80,13 @@ public class TrasladoMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<TrasladoMuestra> getByGrupo(String grupoTraslado) {
-        return trasladoService.getByGrupo(grupoTraslado);
+        List<TrasladoMuestra> grupo = trasladoService.getByGrupo(grupoTraslado);
+        // Un grupo es un padre con sus alicuotas, todos entre las mismas dos
+        // instituciones: basta comprobar el primero para saber si es mio.
+        if (!grupo.isEmpty()) {
+            getTrasladoConAcceso(grupo.get(0).getId());
+        }
+        return grupo;
     }
 
     /**
@@ -100,7 +124,9 @@ public class TrasladoMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public List<Muestra> getAlicuotasEnDestino(Long idTraslado) {
-        TrasladoMuestra traslado = trasladoService.getById(idTraslado);
+        // El mas sensible de los tres: enumera etiquetas de alicuotas, que son
+        // datos del biobanco de otra institucion.
+        TrasladoMuestra traslado = getTrasladoConAcceso(idTraslado);
         Long idMuestraPadre = traslado.getMuestra().getId();
         Long idInstDestino = traslado.getInstitucionDestino().getId();
         return muestraRepository.findAllByMuestraPadre_IdAndInstitucionActual_Id(idMuestraPadre, idInstDestino);
@@ -142,12 +168,30 @@ public class TrasladoMuestraApplicationService {
      * {@code idInstitucionDestinoDevolucion} si el traslado usó un atajo en la cadena,
      * o {@code institucionOrigen} si el flujo es estándar.
      */
+    /**
+     * Quien confirma una devolucion es quien recibe la muestra, nunca quien la
+     * manda: la confirmacion es el acuse de que llego.
+     *
+     * <p>Leer eso de la fila exige mirar antes su forma, igual que hace
+     * confirmarDevolucionIndividual. En un prestamo de ida la vuelta va hacia
+     * institucionOrigen o hacia el atajo; en un movimiento de devolucion
+     * —la fila que la propia devolucion crea para las alicuotas—
+     * institucionOrigen es QUIEN TIENE la muestra y el receptor esta en
+     * institucionDestino.</p>
+     *
+     * <p>Sin esta distincion el guard apuntaba justo a la institucion
+     * equivocada: dejaba que la que envia confirmara en nombre de la que
+     * recibe, y bloqueaba con 403 a la que de verdad debia hacerlo. Como
+     * DEVUELTA es terminal, una confirmacion asi no tiene vuelta atras.</p>
+     */
     private void requireInstitucionParaConfirmarDevolucion(Long idTraslado) {
         TrasladoMuestra traslado = trasladoService.getById(idTraslado);
         Long myInstId = institucionContextService.getIdInstitucionActual();
-        Long expectedId = traslado.getIdInstitucionDestinoDevolucion() != null
-                ? traslado.getIdInstitucionDestinoDevolucion()
-                : traslado.getInstitucionOrigen().getId();
+        Long expectedId = Boolean.TRUE.equals(traslado.getEsMovimientoDevolucion())
+                ? traslado.getInstitucionDestino().getId()
+                : traslado.getIdInstitucionDestinoDevolucion() != null
+                        ? traslado.getIdInstitucionDestinoDevolucion()
+                        : traslado.getInstitucionOrigen().getId();
         if (!myInstId.equals(expectedId)) {
             throw new AccessDeniedException(
                     "Su institución no tiene autorización para confirmar esta devolución");

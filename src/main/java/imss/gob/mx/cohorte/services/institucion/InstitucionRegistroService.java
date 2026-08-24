@@ -39,6 +39,7 @@ public class InstitucionRegistroService {
     private final PermisoRegistroParticipantesRepository permisoRepository;
     private final InstitucionArbolService arbol;
     private final InstitucionVisibilidadService visibilidad;
+    private final imss.gob.mx.cohorte.security.institucion.InstitucionContextService institucionContextService;
 
     /**
      * Instituciones a las que {@code idInstitucionActual} puede asignar un
@@ -112,6 +113,7 @@ public class InstitucionRegistroService {
 
     @Transactional
     public PermisoRegistroParticipantes otorgarPermiso(Long idInstitucionOtorga, Long idInstitucionRecibe) {
+        verificarPuedeDisponerDelRegistro(idInstitucionOtorga);
         Institucion otorga = institucionRepository.findById(idInstitucionOtorga)
                 .orElseThrow(() -> new ObjNotFoundException("Institución otorgante no encontrada"));
         Institucion recibe = institucionRepository.findById(idInstitucionRecibe)
@@ -140,6 +142,7 @@ public class InstitucionRegistroService {
 
     @Transactional
     public PermisoRegistroParticipantes revocarPermiso(Long idInstitucionOtorga, Long idInstitucionRecibe) {
+        verificarPuedeDisponerDelRegistro(idInstitucionOtorga);
         PermisoRegistroParticipantes permiso = permisoRepository
                 .findByInstitucionOtorga_IdAndInstitucionRecibe_Id(idInstitucionOtorga, idInstitucionRecibe)
                 .orElseThrow(() -> new ObjNotFoundException("Permiso no encontrado"));
@@ -149,12 +152,29 @@ public class InstitucionRegistroService {
 
     @Transactional(readOnly = true)
     public List<PermisoRegistroParticipantes> listarPermisosOtorgados(Long idInstitucionOtorga) {
+        verificarPuedeDisponerDelRegistro(idInstitucionOtorga);
         return permisoRepository.findAllByInstitucionOtorga_Id(idInstitucionOtorga);
     }
 
     @Transactional(readOnly = true)
     public List<PermisoRegistroParticipantes> listarPermisosRecibidos(Long idInstitucionRecibe) {
+        verificarPuedeDisponerDelRegistro(idInstitucionRecibe);
         return permisoRepository.findAllByInstitucionRecibe_IdAndHabilitadoTrue(idInstitucionRecibe);
+    }
+
+    /**
+     * Copia literal del criterio que su gemelo —el permiso de acceso a pacientes—
+     * ya aplicaba: sobre la autorizacion de una institucion solo deciden ella misma
+     * o una superior. Aqui faltaba, y comprobar solo el parentesco entre otorgante
+     * y receptora no basta: cualquier hija podia pedir que su propia raiz la
+     * autorizara, que es autoconcederse el permiso.
+     */
+    private void verificarPuedeDisponerDelRegistro(Long idInstitucion) {
+        Long idActual = institucionContextService.getIdInstitucionActual();
+        if (idActual.equals(idInstitucion)) return;
+        if (arbol.esAncestra(idActual, idInstitucion)) return;
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Solo la propia institucion o una superior puede decidir sobre este permiso");
     }
 
     private boolean esAncestra(Institucion posibleAncestra, Institucion objetivo) {

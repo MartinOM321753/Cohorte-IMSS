@@ -41,4 +41,15 @@ public class ParametroEstudioRequestDTO {
      * Al crear o actualizar, estas opciones reemplazan las existentes.
      */
     private List<String> opciones;
+
+    /**
+     * Nombres con los que los instrumentos medicos titulan la columna de este
+     * parametro en los archivos que exportan. Como las opciones, la lista que
+     * llega reemplaza la que habia.
+     *
+     * <p>Se comparan sin acentos, sin mayusculas y con los espacios colapsados,
+     * asi que "Sistolica" y "SISTOLICA" son el mismo alias y no pueden convivir.
+     * Dentro de un tipo de estudio, un alias pertenece a un solo parametro.</p>
+     */
+    private List<String> alias;
 }

@@ -190,11 +190,21 @@ public class MainSecurity {
                                 .hasAuthority("ESTUDIOS_TIPOS_ELIMINAR")
                         // Llenado (estudios registrados)
                         .requestMatchers(HttpMethod.GET, "/api/estudios/**").hasAuthority("ESTUDIOS_LLENADO_ACCEDER")
+                        // Antes del generico de abajo: si no, "/api/estudios/**" se lo
+                        // tragaria y la carga masiva quedaria abierta a cualquiera que
+                        // pueda registrar un estudio suelto.
+                        .requestMatchers(HttpMethod.POST, "/api/estudios/carga-masiva/**")
+                                .hasAuthority("ESTUDIOS_CARGA_MASIVA")
                         .requestMatchers(HttpMethod.POST, "/api/estudios/**").hasAuthority("ESTUDIOS_CREAR")
                         .requestMatchers(HttpMethod.PUT, "/api/estudios/**").hasAuthority("ESTUDIOS_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/estudios/**").hasAuthority("ESTUDIOS_ELIMINAR")
 
                         // ═══ EXAMENES: split llenado vs catalogo ═══
+                        // Antes de los genericos de abajo: "/api/examenes/**" pediria
+                        // EXAMENES_CATALOGO_CREAR, que es el permiso de administrar el
+                        // catalogo, no el de cargar resultados.
+                        .requestMatchers(HttpMethod.POST, "/api/examenes/carga-masiva/**")
+                                .hasAuthority("EXAMENES_CARGA_MASIVA")
                         // Los resultados de examen son del llenado; el listado de examenes
                         // (catalogo) es lookup para el dropdown en llenado + admin en tab.
                         .requestMatchers(HttpMethod.GET, "/api/examenes/resultados/**")
@@ -242,6 +252,12 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/*/etiqueta/zpl").hasAuthority("MUESTRAS_IMPRIMIR")
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/*/alicuotas/etiquetas/zpl").hasAuthority("MUESTRAS_IMPRIMIR")
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/*/lote-completo/zpl").hasAuthority("MUESTRAS_IMPRIMIR")
+
+                        // ── Muestras — lectura de etiqueta (cámara o lector de códigos) ──
+                        // Va antes de la regla general de GET: es un permiso propio y no
+                        // debe quedar concedido por el simple hecho de poder ver muestras.
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/buscar-por-etiqueta")
+                                .hasAuthority("MUESTRAS_ESCANEAR")
 
                         // ── Muestras — posición (PrestamosTab asigna posición al confirmar recepción) ──
                         .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/muestras/*/posicion").hasAnyAuthority("MUESTRAS_EDITAR", "TRASLADOS_CONFIRMAR")

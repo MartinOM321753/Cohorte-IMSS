@@ -146,6 +146,28 @@ public class CajaController {
         return ResponseEntity.ok(new APIResponse("Caja criogénica eliminada", null, false, HttpStatus.OK));
     }
 
+    @GetMapping("/{id}/vista-3d")
+    @Operation(summary = "Escena 3D de la caja",
+        description = "Rejilla completa de posiciones con la muestra que ocupa cada una, para recorrer la caja en el visualizador 3D.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
+    public ResponseEntity<APIResponse> getVista3D(
+        @Parameter(description = "ID numérico de la caja criogénica", required = true)
+        @PathVariable Long id) {
+        return ResponseEntity.ok(new APIResponse("Escena de la caja",
+            cajasApplicationService.getVista3D(id), false, HttpStatus.OK));
+    }
+
     @GetMapping("/{id}/posiciones")
     @Operation(summary = "Obtener posiciones de la caja", description = "Obtiene todas las posiciones de almacenamiento asociadas a una caja criogénica específica")
     @ApiResponses(value = {

@@ -1,0 +1,122 @@
+package imss.gob.mx.cohorte.services.importacion;
+
+import java.util.List;
+
+/**
+ * Lo que se le enseña al usuario antes de guardar nada.
+ *
+ * <p>La carga masiva no escribe hasta que alguien mira esto y confirma. Por eso
+ * el objetivo aqui no es decir "hay 12 errores", sino que cada problema quede
+ * pegado a la celda que lo causa y en el numero de fila del archivo, para que se
+ * corrija sin adivinar.</p>
+ *
+ * <p>Se distingue entre lo que detiene la carga y lo que solo se avisa: una
+ * columna sobrante es un aviso, un parametro sin columna la detiene. Mezclarlos
+ * haria que el usuario tratara de arreglar lo que no hacia falta.</p>
+ */
+public record PrevisualizacionCarga(
+        /** Datos del tipo de estudio, para encabezar la pantalla. */
+        Long idTipoEstudio,
+        String nombreTipoEstudio,
+
+        /** Problemas de estructura. Si trae algo, no se puede continuar. */
+        List<String> problemasDeEstructura,
+
+        /** Columnas del archivo que no corresponden a nada; se ignoraran. */
+        List<String> columnasIgnoradas,
+
+        /** Parametros que ningun encabezado reclamo; detienen la carga. */
+        List<String> parametrosSinColumna,
+
+        /** Como se decidio leer las fechas, y si hubo que suponerlo. */
+        String ordenDeFecha,
+        boolean fechaAmbigua,
+
+        /** Las columnas que si se reconocieron, en el orden del archivo. */
+        List<ColumnaReconocida> columnas,
+
+        /**
+         * La tabla tal como se leyo, para que la pantalla pueda editarla y
+         * devolverla a revalidar sin obligar a subir el archivo otra vez.
+         */
+        TablaLeida tabla,
+
+        /** Donde estan las columnas de control dentro de la tabla; -1 si faltan. */
+        int indiceFolio,
+        int indiceFecha,
+
+        /** Una entrada por fila del archivo. */
+        List<FilaPrevisualizada> filas,
+
+        Resumen resumen
+) {
+
+    /**
+     * @param aliasUsado el alias que hizo la coincidencia, para poder explicarla
+     * @param opciones   las configuradas en el catalogo; solo en TEXTO_OPCIONES.
+     *                   Viajan para que la pantalla pueda ofrecerlas al corregir:
+     *                   sin ellas, quien tiene que arreglar una celda solo puede
+     *                   escribir a ciegas y acertar la ortografia exacta.
+     */
+    public record ColumnaReconocida(int indice, String encabezado, Long idParametro,
+                                    String nombreParametro, String tipo, String aliasUsado,
+                                    List<String> opciones) {}
+
+    /**
+     * @param numeroDeFila   el del archivo, para buscarlo en la hoja de calculo
+     * @param folio          tal como venia
+     * @param nombreParticipante  null si no se resolvio
+     * @param errorParticipante   por que no se resolvio, si es el caso
+     * @param fecha          ya normalizada, o null si no se entendio
+     * @param errorFecha     por que no se entendio, si es el caso
+     * @param valores        un valor por columna reconocida
+     */
+    public record FilaPrevisualizada(
+            int numeroDeFila,
+            String folio,
+            String uuidParticipante,
+            String nombreParticipante,
+            String errorParticipante,
+            String fecha,
+            String errorFecha,
+            /**
+             * El estudio que ya existe para este participante, tipo y dia; null
+             * si no hay ninguno. No es un error: es una decision que el usuario
+             * tiene que tomar antes de guardar.
+             */
+            Long idEstudioExistente,
+            List<ValorPrevisualizado> valores
+    ) {
+        public boolean tieneProblemas() {
+            return errorParticipante != null || errorFecha != null
+                    || valores.stream().anyMatch(v -> v.error() != null);
+        }
+    }
+
+    /**
+     * @param crudo    el texto tal como venia, para poder enseñarlo al corregir
+     * @param error    null si se entendio
+     * @param canonico para los parametros de seleccion, la opcion del catalogo a
+     *                 la que corresponde el valor. Lo resuelve el servidor y no la
+     *                 pantalla porque la comparacion ignora acentos y mayusculas:
+     *                 repetir esa regla en el navegador crearia dos criterios para
+     *                 el mismo dato, y el que manda es este.
+     */
+    public record ValorPrevisualizado(Long idParametro, String crudo, String error, String canonico) {}
+
+    /**
+     * @param filasConProblemas cuantas necesitan correccion antes de guardar
+     */
+    public record Resumen(int totalFilas, int filasListas, int filasConProblemas,
+                          int columnasReconocidas, int columnasIgnoradas,
+                          /** Cuantas filas chocan con un estudio ya registrado. */
+                          int filasDuplicadas) {}
+
+    /** Si no hay nada que corregir, la carga puede confirmarse tal cual. */
+    public boolean puedeConfirmarse() {
+        return problemasDeEstructura.isEmpty()
+                && parametrosSinColumna.isEmpty()
+                && resumen.filasConProblemas() == 0
+                && resumen.totalFilas() > 0;
+    }
+}

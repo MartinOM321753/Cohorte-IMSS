@@ -153,6 +153,50 @@ public class RefrigeradorController {
         return ResponseEntity.ok(new APIResponse("Refrigerador eliminado", null, false, HttpStatus.OK));
     }
 
+    @GetMapping("/{id}/vista-3d")
+    @Operation(summary = "Escena 3D del refrigerador",
+        description = "Pila de pisos con su ocupacion precalculada, para recorrer el mueble en el visualizador 3D sin partir de una muestra.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
+    public ResponseEntity<APIResponse> getVista3D(
+        @Parameter(description = "ID numérico del refrigerador", required = true)
+        @PathVariable Long id) {
+        return ResponseEntity.ok(new APIResponse("Escena del refrigerador",
+            refrigeradorApplicationService.getVista3D(id), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/pisos/{id}/vista-3d")
+    @Operation(summary = "Escena 3D de un piso",
+        description = "Rejilla de huecos del piso con las cajas que los ocupan y su nivel de llenado.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Recurso no encontrado",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAnyAuthority('REFRIGERADORES_LOOKUP', 'REFRIGERADORES_ACCEDER', 'CAJAS_ACCEDER')")
+    public ResponseEntity<APIResponse> getVista3DPiso(
+        @Parameter(description = "ID numérico del piso", required = true)
+        @PathVariable Long id) {
+        return ResponseEntity.ok(new APIResponse("Escena del piso",
+            refrigeradorApplicationService.getVista3DPiso(id), false, HttpStatus.OK));
+    }
+
     @GetMapping("/{id}/pisos")
     @Operation(summary = "Listar pisos del refrigerador", description = "Obtiene todos los pisos asociados a un refrigerador criogénico específico")
     @ApiResponses(value = {

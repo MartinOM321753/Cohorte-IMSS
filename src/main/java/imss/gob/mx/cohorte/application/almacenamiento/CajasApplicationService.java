@@ -3,9 +3,12 @@ package imss.gob.mx.cohorte.application.almacenamiento;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DCajaDTO;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.CajaCriojenicaService;
+import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,14 +27,39 @@ public class CajasApplicationService {
     private final CajaCriojenicaService cajaCriojenicaService;
     private final PosicionCajaService posicionCajaService;
     private final PosicionPisoService posicionPisoService;
+    private final Ubicacion3DService ubicacion3DService;
+    private final InstitucionContextService institucionContextService;
 
     @Autowired
     public CajasApplicationService(CajaCriojenicaService cajaCriojenicaService, 
                                  PosicionCajaService posicionCajaService, 
-                                 PosicionPisoService posicionPisoService) {
+                                 PosicionPisoService posicionPisoService,
+                                 Ubicacion3DService ubicacion3DService,
+                                 InstitucionContextService institucionContextService) {
         this.cajaCriojenicaService = cajaCriojenicaService;
         this.posicionCajaService = posicionCajaService;
         this.posicionPisoService = posicionPisoService;
+        this.ubicacion3DService = ubicacion3DService;
+        this.institucionContextService = institucionContextService;
+    }
+
+    /**
+     * Un hueco de piso no guarda institución: la hereda del refrigerador. Sin esta
+     * comprobación basta mandar el id de un hueco ajeno para meter una caja propia
+     * dentro del refrigerador de otra institución —y dejar ese hueco ocupado sin
+     * que su dueño pueda liberarlo—.
+     */
+    private PosicionPiso getPosicionPisoPropia(Long idPosicionPiso) {
+        PosicionPiso posicion = posicionPisoService.getPosicion(idPosicionPiso);
+        institucionContextService.verificarPertenece(
+                posicion.getPiso().getRefrigerador().getInstitucion());
+        return posicion;
+    }
+
+    /** Escena 3D de una caja completa, sin muestra objetivo. */
+    @Transactional(readOnly = true)
+    public Ubicacion3DCajaDTO getVista3D(Long idCaja) {
+        return ubicacion3DService.explorarCaja(cajaCriojenicaService.getById(idCaja));
     }
 
     @Transactional(readOnly = true)
@@ -47,7 +75,7 @@ public class CajasApplicationService {
     @Transactional
     public CajaCriogenica createCaja(CajaCriogenica caja, Long idPosicionPiso) {
         if (idPosicionPiso != null) {
-            PosicionPiso posicion = posicionPisoService.getPosicion(idPosicionPiso);
+            PosicionPiso posicion = getPosicionPisoPropia(idPosicionPiso);
             if (posicion.getOcupada()) {
                 throw new ObjConflictException("La posición de piso ya está ocupada");
             }
@@ -74,7 +102,7 @@ public class CajasApplicationService {
         if (idPosicionNueva != null) {
             if (!idPosicionNueva.equals(idPosicionActual)) {
                 // Mover a una posición diferente
-                PosicionPiso nuevaPos = posicionPisoService.getPosicion(idPosicionNueva);
+                PosicionPiso nuevaPos = getPosicionPisoPropia(idPosicionNueva);
                 if (nuevaPos.getOcupada()) {
                     throw new ObjConflictException("La posición de piso destino ya está ocupada");
                 }

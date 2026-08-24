@@ -25,4 +25,7 @@ public class ParametroEstudioResponseDTO {
 
     /** Valores predefinidos. Presente (no null) solo cuando tipo == TEXTO_OPCIONES. */
     private List<String> opciones;
+
+    /** Alias de columna configurados para la carga masiva de resultados. */
+    private List<String> alias;
 }

@@ -15,7 +15,9 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DDTO;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
+import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
@@ -60,6 +62,7 @@ public class MuestraApplicationService {
     private final ZplLabelService zplLabelService;
     private final DirectPrintService directPrintService;
     private final ConfiguracionEtiquetaService configuracionEtiquetaService;
+    private final Ubicacion3DService ubicacion3DService;
 
     @Transactional(readOnly = true)
     public List<Muestra> getAllMuestras() {
@@ -79,6 +82,31 @@ public class MuestraApplicationService {
     @Transactional(readOnly = true)
     public Muestra getMuestra(Long id) {
         return muestraService.getById(id);
+    }
+
+    /**
+     * Escena completa de ubicacion para el visualizador 3D.
+     *
+     * <p>Usa el acceso ampliado (propietaria o tenedora) porque durante un
+     * prestamo ambas instituciones necesitan poder consultar donde esta la
+     * muestra: la que la presto para saber que sigue fuera, y la que la tiene
+     * para localizarla en su propio biobanco.
+     */
+    @Transactional(readOnly = true)
+    public Ubicacion3DDTO getUbicacion3D(Long id) {
+        return ubicacion3DService.construir(muestraService.getByIdConAcceso(id));
+    }
+
+    /** Resuelve la etiqueta que devolvió el lector de códigos. */
+    @Transactional(readOnly = true)
+    public Muestra buscarPorEtiquetaEscaneada(String etiqueta) {
+        return muestraService.buscarPorEtiquetaEscaneada(etiqueta);
+    }
+
+    /** La institución del usuario, para que el controlador sepa cómo situar la muestra. */
+    @Transactional(readOnly = true)
+    public Long getIdInstitucionActual() {
+        return institucionContextService.getIdInstitucionActual();
     }
 
     @Transactional(readOnly = true)
@@ -114,6 +142,16 @@ public class MuestraApplicationService {
 
         if (muestra.getPosicionCaja() != null && muestra.getPosicionCaja().getId() != null) {
             PosicionCaja posicion = posicionCajaService.getById(muestra.getPosicionCaja().getId());
+            // Igual que en MuestraService.asignarPosicion: el hueco tiene que ser
+            // del biobanco propio. Sin esto se podía ocupar una posición de otra
+            // institución pasando su id, y ese hueco quedaba tomado sin que su
+            // dueño pudiera liberarlo.
+            Long idInstActual = institucionContextService.getIdInstitucionActual();
+            if (posicion.getCaja() == null || posicion.getCaja().getInstitucion() == null
+                    || !idInstActual.equals(posicion.getCaja().getInstitucion().getId())) {
+                throw new ValidationException(
+                        "La posición seleccionada pertenece al biobanco de otra institución.");
+            }
             if (posicion.getOcupada()) {
                 throw new ObjConflictException("La posición de caja ya está ocupada");
             }

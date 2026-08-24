@@ -59,7 +59,12 @@ public class EstudioMuestraApplicationService {
 
     @Transactional(readOnly = true)
     public EstudioMuestra getById(Long id) {
-        return estudioService.getById(id);
+        EstudioMuestra estudio = estudioService.getById(id);
+        // Un estudio no guarda institución: la hereda de su muestra. El listado por
+        // muestra y el historial ya piden este acceso; pedirlo aquí también evita
+        // que se lea un estudio ajeno saltándose el listado.
+        muestraService.getByIdConAccesoHistorico(estudio.getMuestra().getId());
+        return estudio;
     }
 
     @Transactional

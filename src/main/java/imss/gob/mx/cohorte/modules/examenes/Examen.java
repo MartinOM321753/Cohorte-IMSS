@@ -52,4 +52,14 @@ public class Examen {
     @JoinColumn(name = "id_institucion", nullable = false)
     private Institucion institucion;
 
+
+    /**
+     * Nombres con los que los instrumentos titulan la columna de este examen en
+     * los archivos que exportan. EAGER como en los parametros: el catalogo y el
+     * importador siempre los necesitan junto al examen.
+     */
+    @OneToMany(mappedBy = "examen", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orden ASC")
+    private java.util.List<AliasExamen> alias = new java.util.ArrayList<>();
+
 }

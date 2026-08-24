@@ -23,6 +23,24 @@ public class TrasladoResponseDTO {
     private String motivo;
     private String observaciones;
     private String grupoTraslado;
+    /**
+     * Que forma tiene esta fila en EN_DEVOLUCION.
+     *
+     * <p>Viaja al frontend porque sin ella la pantalla no puede saber quien
+     * envia y quien recibe: en un prestamo de ida el tenedor esta en
+     * institucionDestino, y en un movimiento de devolucion —el que crea la
+     * propia devolucion para las alicuotas— esta en institucionOrigen. Leer las
+     * dos igual invertia las etiquetas y ofrecia el boton de confirmar a quien
+     * manda la muestra.</p>
+     */
+    private boolean esMovimientoDevolucion;
+    /**
+     * Atajo de la devolucion: a donde vuelve la muestra en vez de al prestador
+     * original. Va al frontend por lo mismo que el campo de arriba — sin el, la
+     * pantalla calcularia que confirma el origen cuando en realidad confirma el
+     * tercero, y ofreceria el boton a quien recibiria un 403.
+     */
+    private Long idInstitucionDestinoDevolucion;
 
     @Data
     @Builder

@@ -95,6 +95,36 @@ public class MuestraService {
                 : muestraRepository.findAllVisiblesPorInstitucion(idInst);
     }
 
+    /**
+     * Resuelve la etiqueta que viene de un lector de códigos.
+     *
+     * <p>El código impreso en la etiqueta de una muestra contiene su texto de
+     * etiqueta y nada más —ver {@code ZplLabelService.extraerDatosMuestra}—, así
+     * que la búsqueda por escaneo es una búsqueda por etiqueta exacta.</p>
+     *
+     * <p>Se normaliza antes de comparar: los lectores de teclado suelen añadir
+     * espacios o un salto de línea al final, y algunos configurados en mayúsculas
+     * fijas cambian la caja. Comparar en crudo haría fallar lecturas correctas.</p>
+     */
+    @Transactional(readOnly = true)
+    public Muestra buscarPorEtiquetaEscaneada(String etiqueta) {
+        String limpia = etiqueta == null ? "" : etiqueta.trim();
+        if (limpia.isEmpty()) {
+            throw new ObjNotFoundException("No se recibió ninguna etiqueta que buscar");
+        }
+
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        List<Muestra> encontradas = muestraRepository.buscarVisiblesPorEtiqueta(limpia, idInst);
+        if (encontradas.isEmpty()) {
+            throw new ObjNotFoundException(
+                    "No se encontró ninguna muestra con la etiqueta " + limpia
+                            + " entre las de tu institución");
+        }
+        // La consulta ordena poniendo primero la propia: si dos sedes comparten el
+        // texto de etiqueta y ambas están a la vista, gana la de casa.
+        return encontradas.get(0);
+    }
+
     @Transactional(readOnly = true)
     public Muestra getById(Long id) {
         Muestra muestra = muestraRepository.findById(id)
@@ -246,6 +276,17 @@ public class MuestraService {
         if (idPosicionCaja != null && !idPosicionCaja.equals(idPosActual)) {
             PosicionCaja nuevaPos = posicionCajaRepository.findById(idPosicionCaja)
                     .orElseThrow(() -> new ObjNotFoundException("La posición de caja especificada no existe"));
+            // La misma validación que hace asignarPosicion. Sin ella se podía
+            // ocupar un hueco del biobanco de otra institución pasando su id: el
+            // hueco quedaba tomado para siempre —su dueño no puede liberarlo ni
+            // borrar la caja— y el visor 3D le mostraba una etiqueta ajena.
+            Institucion instPos = nuevaPos.getCaja().getInstitucion();
+            if (muestraBD.getInstitucionActual() == null
+                    || !instPos.getId().equals(muestraBD.getInstitucionActual().getId())) {
+                throw new ValidationException(
+                        "La posición seleccionada pertenece a una institución diferente "
+                        + "a la que tiene la muestra actualmente.");
+            }
             if (nuevaPos.getOcupada()) {
                 throw new ObjConflictException("La posición de caja destino ya está ocupada");
             }
@@ -372,6 +413,14 @@ public class MuestraService {
         PosicionCaja nuevaPos = posicionCajaRepository.findById(idPosicionCaja)
                 .orElseThrow(() -> new ObjNotFoundException("Posición de caja no encontrada: " + idPosicionCaja));
 
+        // Una caja desactivada está fuera de uso: meter algo dentro la reabre por
+        // la puerta de atrás. confirmarRecepcion ya lo comprobaba; aquí faltaba.
+        if (!Boolean.TRUE.equals(nuevaPos.getCaja().getActivo())) {
+            throw new ObjConflictException(
+                    "La caja '" + nuevaPos.getCaja().getCodigoCaja() + "' está desactivada; "
+                    + "no se pueden colocar muestras en ella.");
+        }
+
         // Validar que la posición pertenece al biobanco de la institucionActual
         Institucion instPos = nuevaPos.getCaja().getInstitucion();
         if (!instPos.getId().equals(muestra.getInstitucionActual().getId())) {
@@ -409,8 +458,10 @@ public class MuestraService {
      */
     @Transactional
     public Muestra liberarPosicion(Long idMuestra, String motivo) {
-        Muestra muestra = muestraRepository.findById(idMuestra)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró la muestra"));
+        // El hueco es de quien tiene la muestra en la mano, así que el permiso para
+        // vaciarlo también. Sin esta comprobación se podía sacar de su caja una
+        // muestra de otra institución con solo pasar su id.
+        Muestra muestra = getByIdComoTenedor(idMuestra);
 
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException("No se puede liberar la posición de una muestra en préstamo.");
@@ -464,6 +515,21 @@ public class MuestraService {
             throw new ObjConflictException(
                     "No se puede dar de baja una muestra en tránsito. "
                     + "Cancela o completa el préstamo primero.");
+        }
+
+        // Ser la dueña no basta: hay que tenerla. Una muestra ya recibida por
+        // otra institución no está en PRESTADA sino en su biobanco, así que la
+        // comprobación de arriba no la alcanzaba y la propietaria podía darla de
+        // baja a distancia. Eso liberaba el hueco en el biobanco ajeno sin
+        // avisar —dejándolo reutilizable con el tubo aún dentro— y la devolución
+        // posterior borraba la baja al reescribir el estado.
+        if (muestra.getInstitucionActual() == null
+                || !idInst.equals(muestra.getInstitucionActual().getId())) {
+            String donde = muestra.getInstitucionActual() != null
+                    ? muestra.getInstitucionActual().getNombre() : "otra institución";
+            throw new ObjConflictException(
+                    "La muestra está en " + donde + ". Solo se puede dar de baja "
+                    + "cuando está en tu biobanco: recupérala primero.");
         }
 
         BeanUser usuario = userRepository.findByUUID(uuidUsuario)

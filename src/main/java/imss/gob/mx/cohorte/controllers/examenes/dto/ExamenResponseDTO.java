@@ -21,4 +21,8 @@ public class ExamenResponseDTO {
     private Boolean activo;
     private String institucionUuid;
     private String institucionNombre;
+
+    /** Alias de columna configurados para la carga masiva. */
+    private java.util.List<String> alias;
+
 }

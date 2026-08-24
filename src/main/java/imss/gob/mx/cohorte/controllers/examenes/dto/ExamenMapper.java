@@ -29,6 +29,8 @@ public class ExamenMapper {
             .valorMaxMujeres(e.getValorMaxMujeres())
             .valorMinHombres(e.getValorMinHombres())
             .valorMaxHombres(e.getValorMaxHombres())
+            .alias(e.getAlias() == null ? List.of()
+                    : e.getAlias().stream().map(a -> a.getAlias()).toList())
             .activo(e.getActivo())
             .institucionUuid(e.getInstitucion() != null ? e.getInstitucion().getUuid() : null)
             .institucionNombre(e.getInstitucion() != null ? e.getInstitucion().getNombre() : null)

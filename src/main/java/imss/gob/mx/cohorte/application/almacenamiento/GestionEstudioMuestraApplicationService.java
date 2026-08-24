@@ -103,6 +103,7 @@ public class GestionEstudioMuestraApplicationService {
 
     @Transactional
     public void deleteParametro(Long id) {
+        parametroService.getById(id);   // valida institución a través de su tipo
         if (resultadoEstudioMuestraRepository.existsByParametro_Id(id)) {
             throw new ObjConflictException("No se puede eliminar el parámetro porque tiene resultados registrados");
         }

@@ -5,6 +5,7 @@ import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PisoRefrigeradorReques
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigerador;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.Refrigerador;
+import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PisoRefrigeradorRepository;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PisoRefrigeradorService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.RefrigeradorService;
@@ -29,6 +30,8 @@ import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 public class PisoRefrigeradorApplicationService {
 
     private final PisoRefrigeradorService pisoService;
+    /** Directo, para poder buscar el numero dentro del propio refrigerador. */
+    private final PisoRefrigeradorRepository pisoRepository;
     private final RefrigeradorService refrigeradorService;
     private final PosicionPisoService posicionPisoService;
     private final InstitucionContextService institucionContextService;
@@ -37,30 +40,50 @@ public class PisoRefrigeradorApplicationService {
     public PisoRefrigeradorApplicationService(PisoRefrigeradorService pisoService, 
                                             RefrigeradorService refrigeradorService, 
                                             PosicionPisoService posicionPisoService,
-                                            InstitucionContextService institucionContextService) {
+                                            InstitucionContextService institucionContextService,
+                                            PisoRefrigeradorRepository pisoRepository) {
         this.pisoService = pisoService;
+        this.pisoRepository = pisoRepository;
         this.refrigeradorService = refrigeradorService;
         this.posicionPisoService = posicionPisoService;
         this.institucionContextService = institucionContextService;
     }
 
+    /**
+     * Un piso no guarda institucion propia: la hereda de su refrigerador, y por
+     * eso PisoRefrigeradorService.getPiso no puede comprobarla. Quien lo use
+     * tiene que hacerlo aqui, como ya hace RefrigeradorApplicationService en la
+     * vista 3D. Sin esto bastaba pasar un id ajeno para leer la rejilla de otro
+     * biobanco: sus dimensiones, sus huecos y cuales estan ocupados.
+     */
+    private PisoRefrigerador getPisoConAcceso(Long idPiso) {
+        PisoRefrigerador piso = pisoService.getPiso(idPiso);
+        institucionContextService.verificarPertenece(piso.getRefrigerador().getInstitucion());
+        return piso;
+    }
+
     @Transactional(readOnly = true)
     public List<PisoRefrigerador> getAllPisos(Long idRefrigerador) {
+        // El refrigerador si conoce su institucion; se comprueba en el.
+        refrigeradorService.getRefrigerador(idRefrigerador);
         return pisoService.getAllPisos(idRefrigerador);
     }
 
     @Transactional(readOnly = true)
     public PisoRefrigerador getPiso(Long id) {
-        return pisoService.getPiso(id);
+        return getPisoConAcceso(id);
     }
 
     @Transactional(readOnly = true)
     public PisoRefrigerador getPisoByNumber(String number) {
-        return pisoService.getPisoByNumber(number);
+        PisoRefrigerador piso = pisoService.getPisoByNumber(number);
+        institucionContextService.verificarPertenece(piso.getRefrigerador().getInstitucion());
+        return piso;
     }
 
     @Transactional(readOnly = true)
     public List<PosicionPiso> getPosiciones(Long idPiso) {
+        getPisoConAcceso(idPiso);
         return posicionPisoService.getPosicionesPorPiso(idPiso);
     }
 
@@ -73,9 +96,15 @@ public class PisoRefrigeradorApplicationService {
 
         for (PisoRefrigerador piso : pisosDTO.getPisos()) {
             if (piso.getNumeroPiso() != null && !piso.getNumeroPiso().isBlank()) {
-                var existing = pisoService.findByNumber(piso.getNumeroPiso());
+                // Unico dentro del refrigerador, no en toda la base. Los numeros se
+                // generan por refrigerador —P-0001, P-0002…—, asi que buscarlos
+                // globalmente hacia que la colision fuera la norma: en cuanto otra
+                // institucion tenia un P-0001, nadie mas podia crear el suyo.
+                var existing = pisoRepository.findByNumeroPisoAndRefrigerador_Id(
+                        piso.getNumeroPiso(), refBD.getId());
                 if (existing.isPresent()) {
-                    throw new ObjConflictException("Ya existe un piso con el número: " + piso.getNumeroPiso());
+                    throw new ObjConflictException(
+                            "Este refrigerador ya tiene un piso con el número: " + piso.getNumeroPiso());
                 }
             }
 
@@ -173,7 +202,10 @@ public class PisoRefrigeradorApplicationService {
 
     @Transactional
     public void deletePiso(Long id) {
-        PisoRefrigerador findPiso = pisoService.getPiso(id);
+        // De facto lo bloquea la comprobacion de posiciones —un piso siempre las
+        // tiene generadas—, pero un borrado no debe depender de eso para que no
+        // lo alcance otra institucion.
+        PisoRefrigerador findPiso = getPisoConAcceso(id);
         if (!findPiso.getPosiciones().isEmpty()) {
             throw new ObjConflictException("No se puede eliminar el piso porque tiene posiciones asociadas.");
         }

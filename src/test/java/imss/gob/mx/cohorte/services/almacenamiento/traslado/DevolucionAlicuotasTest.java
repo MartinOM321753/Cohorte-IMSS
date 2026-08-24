@@ -36,6 +36,75 @@ class DevolucionAlicuotasTest {
     private final Institucion imss = inst(1, "IMSS Cuernavaca - Sede Central");
     private final Institucion insp = inst(3, "INSP");
 
+    /**
+     * Quién está autorizado a confirmar la devolución. Misma regla que aplica
+     * TrasladoMuestraApplicationService: el que RECIBE, nunca el que manda.
+     */
+    private Long quienConfirma(TrasladoMuestra t) {
+        return Boolean.TRUE.equals(t.getEsMovimientoDevolucion())
+                ? t.getInstitucionDestino().getId()
+                : t.getIdInstitucionDestinoDevolucion() != null
+                        ? t.getIdInstitucionDestinoDevolucion()
+                        : t.getInstitucionOrigen().getId();
+    }
+
+    @Test
+    @DisplayName("La confirmación de un movimiento de devolución corresponde a quien recibe, no a quien manda")
+    void confirmaQuienRecibeElMovimiento() {
+        // La fila que la devolución crea para una alícuota: la tiene el IMSS y
+        // viaja al INSP.
+        TrasladoMuestra fila = new TrasladoMuestra();
+        fila.setEstado(EstadoTraslado.EN_DEVOLUCION);
+        fila.setEsMovimientoDevolucion(true);
+        fila.setInstitucionOrigen(imss);
+        fila.setInstitucionDestino(insp);
+
+        assertEquals(insp.getId(), quienConfirma(fila),
+                "debe confirmar el INSP, que es quien la recibe");
+        assertNotEquals(imss.getId(), quienConfirma(fila),
+                "el IMSS la envía: dejarle confirmar sería firmar el acuse en nombre ajeno, "
+                + "y DEVUELTA no tiene vuelta atrás");
+    }
+
+    @Test
+    @DisplayName("En un préstamo de ida confirma el origen, o el atajo si lo hay")
+    void confirmaElOrigenEnUnPrestamoDeIda() {
+        TrasladoMuestra ida = new TrasladoMuestra();
+        ida.setEstado(EstadoTraslado.EN_DEVOLUCION);
+        ida.setEsMovimientoDevolucion(false);
+        ida.setInstitucionOrigen(laboratorio);
+        ida.setInstitucionDestino(imss);
+
+        assertEquals(laboratorio.getId(), quienConfirma(ida),
+                "vuelve a quien la prestó");
+
+        // Con atajo, la recibe un tercero en vez del prestador original.
+        ida.setIdInstitucionDestinoDevolucion(insp.getId());
+        assertEquals(insp.getId(), quienConfirma(ida),
+                "el atajo manda sobre el origen");
+    }
+
+    /** Estados en los que el destino llegó a tener la muestra. Misma regla del servicio. */
+    private boolean custodiaEfectiva(EstadoTraslado e) {
+        return e == EstadoTraslado.RECIBIDA
+                || e == EstadoTraslado.EN_DEVOLUCION
+                || e == EstadoTraslado.DEVUELTA;
+    }
+
+    @Test
+    @DisplayName("Un envío cancelado no convierte a su destino en cadena de custodia")
+    void elCanceladoNoCuentaComoCustodia() {
+        // El INSP nunca llegó a tener la muestra: el envío se anuló antes de que
+        // confirmara. Devolvérsela inventaría un tramo que no ocurrió.
+        assertFalse(custodiaEfectiva(EstadoTraslado.CANCELADO));
+        // Enviada tampoco: va en camino y aún no ha llegado.
+        assertFalse(custodiaEfectiva(EstadoTraslado.ENVIADA));
+
+        assertTrue(custodiaEfectiva(EstadoTraslado.RECIBIDA));
+        assertTrue(custodiaEfectiva(EstadoTraslado.DEVUELTA));
+        assertTrue(custodiaEfectiva(EstadoTraslado.EN_DEVOLUCION));
+    }
+
     /** Quién debe tener la muestra para que la devolución sea confirmable. */
     private Institucion tenedorEsperado(TrasladoMuestra t) {
         return Boolean.TRUE.equals(t.getEsMovimientoDevolucion())

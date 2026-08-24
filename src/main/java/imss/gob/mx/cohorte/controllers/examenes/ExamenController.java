@@ -103,7 +103,7 @@ public class ExamenController {
     public ResponseEntity<APIResponse> create(@Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
         examen.setInstitucion(institucionContextService.getInstitucionActual());
-        Examen saved = examenApplicationService.create(examen);
+        Examen saved = examenApplicationService.create(examen, dto.getAlias());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Examen registrado exitosamente", ExamenMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
@@ -131,7 +131,7 @@ public class ExamenController {
         @Validated @RequestBody ExamenRequestDTO dto) {
         Examen examen = ExamenMapper.toEntity(dto);
         examen.setId(id);
-        Examen updated = examenApplicationService.update(examen);
+        Examen updated = examenApplicationService.update(examen, dto.getAlias());
         return ResponseEntity.ok(new APIResponse("Examen actualizado", ExamenMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 
