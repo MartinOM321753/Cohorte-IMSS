@@ -80,12 +80,16 @@ public class UserApplicationService {
 
     @Transactional
     public BeanUser findUser(Long id) {
-        return userService.getUser(id);
+        BeanUser user = userService.getUser(id);
+        verificarAlcanceSobreUsuario(user);
+        return user;
     }
 
     @Transactional
     public BeanUser findByUUID(String uuid) {
-        return userService.getByUUID(uuid);
+        BeanUser user = userService.getByUUID(uuid);
+        verificarAlcanceSobreUsuario(user);
+        return user;
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +158,7 @@ public class UserApplicationService {
     @Transactional
     public BeanUser updateUser(BeanUser beanUser) {
         BeanUser existing = userService.getUser(beanUser.getId());
+        verificarAlcanceSobreUsuario(existing);
 
         boolean targetIsRoot = existing.getRol() != null && ROOT_ROLE.equals(existing.getRol().getRole());
         if (targetIsRoot && !isCallerRoot()) {
@@ -238,8 +243,13 @@ public class UserApplicationService {
         if (referencia == null || referencia.getUuid() == null || referencia.getUuid().isBlank()) {
             throw new ObjNotFoundException("La institucion es obligatoria para crear o actualizar un usuario");
         }
-        return institucionRepository.findByUuid(referencia.getUuid())
+        Institucion resuelta = institucionRepository.findByUuid(referencia.getUuid())
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro la institucion solicitada"));
+        // Sin esto, el alta y la edicion aceptan el uuid de cualquier institucion:
+        // se podria crear un usuario dentro de una institucion ajena, o sacar a uno
+        // de la propia mandandolo a otra.
+        verificarAlcanceSobreInstitucion(resuelta.getId());
+        return resuelta;
     }
 
     private void verificarPuedeReenviarInvitacion(BeanUser user) {
@@ -275,6 +285,16 @@ public class UserApplicationService {
         }
     }
 
+    /**
+     * Alcance de administracion sobre una cuenta: la propia institucion y las que
+     * cuelgan de ella. Tener USUARIOS_EDITAR dice que sabes administrar usuarios,
+     * no de quien: sin esta comprobacion basta cambiar el id de la peticion para
+     * leer o editar la cuenta de alguien de otra institucion.
+     */
+    private void verificarAlcanceSobreUsuario(BeanUser objetivo) {
+        verificarAlcanceSobreUsuario(objetivo, institucionContextService.getUsuarioActual());
+    }
+
     private void verificarAlcanceSobreUsuario(BeanUser objetivo, BeanUser actual) {
         Long idInstitucionObjetivo = objetivo.getInstitucion() != null ? objetivo.getInstitucion().getId() : null;
         Long idInstitucionActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;
@@ -285,7 +305,21 @@ public class UserApplicationService {
                 || institucionContextService.esAncestra(idInstitucionActual, idInstitucionObjetivo)) {
             return;
         }
-        throw new AccessDeniedException("No tienes permiso para cambiar el estado de este usuario.");
+        throw new AccessDeniedException("No tienes permiso para administrar a este usuario.");
+    }
+
+    /** El mismo alcance, cuando lo que se valida es la institucion y no la cuenta. */
+    private void verificarAlcanceSobreInstitucion(Long idInstitucionObjetivo) {
+        BeanUser actual = institucionContextService.getUsuarioActual();
+        Long idInstitucionActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;
+        if (idInstitucionObjetivo == null || idInstitucionActual == null) {
+            throw new AccessDeniedException("No se pudo validar la institucion del usuario.");
+        }
+        if (idInstitucionActual.equals(idInstitucionObjetivo)
+                || institucionContextService.esAncestra(idInstitucionActual, idInstitucionObjetivo)) {
+            return;
+        }
+        throw new AccessDeniedException("No tienes permiso para administrar usuarios de esa institucion.");
     }
 
     private void verificarPuedeDesactivarEncargadoDeInstitucion(Institucion institucion, BeanUser actual) {
