@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
@@ -95,6 +96,7 @@ public class EstudiosApplicationService {
     @Transactional
     public EstudioMedico createEstudio(EstudioMedico estudioMedico) {
         resolveRelaciones(estudioMedico);
+        exigirParametrosActivos(estudioMedico);
         return estudioService.create(estudioMedico);
     }
 
@@ -111,6 +113,7 @@ public class EstudiosApplicationService {
 
         estudioMedico.setInstitucion(existente.getInstitucion());
         resolveRelaciones(estudioMedico);
+        exigirNoPerderResultados(existente, estudioMedico);
 
         existente.setPaciente(estudioMedico.getPaciente());
         existente.setUsuarioRealiza(estudioMedico.getUsuarioRealiza());
@@ -121,6 +124,73 @@ public class EstudiosApplicationService {
         replaceResultados(existente, estudioMedico.getResultadoEstudio());
 
         return estudioService.update(existente);
+    }
+
+    /**
+     * Al registrar un estudio tienen que venir todos los parámetros en uso.
+     *
+     * <p>Esta regla vivía solo en los formularios, así que cualquier petición que no
+     * pasara por ellos podía guardar un estudio a medias —o sin un solo resultado— y
+     * el servidor lo aceptaba. Tenerla aquí es lo que permite leer la ausencia de un
+     * resultado como «ese parámetro no aplicaba», que es de lo que depende mostrar
+     * bien las capturas antiguas.</p>
+     *
+     * <p>Se exige que el parámetro aparezca al menos una vez, no una por grupo: el
+     * reparto entre grupos lo decide quien captura.</p>
+     */
+    private void exigirParametrosActivos(EstudioMedico estudioMedico) {
+        Set<Long> capturados = idsDeParametros(estudioMedico.getResultadoEstudio());
+
+        List<String> faltantes = parametroService.getByTipoEstudio(estudioMedico.getTipoEstudio().getId())
+                .stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActivo()))
+                .filter(p -> !capturados.contains(p.getId()))
+                .map(ParametroEstudio::getNombre)
+                .toList();
+
+        if (!faltantes.isEmpty()) {
+            throw new ObjConflictException(
+                    "Faltan resultados para: " + String.join(", ", faltantes));
+        }
+    }
+
+    /**
+     * Al editar no se exige la lista completa, sino no empeorar lo que había.
+     *
+     * <p>Exigirla dejaría atrapados los estudios antiguos a los que legítimamente les
+     * falta un parámetro: los que se capturaron antes de que ese parámetro existiera.
+     * Entrar a corregirles una observación obligaría a inventar un dato que nadie
+     * midió. Lo que sí se impide es que una edición borre un resultado que ya estaba,
+     * salvo que su parámetro haya quedado fuera de uso.</p>
+     */
+    private void exigirNoPerderResultados(EstudioMedico existente, EstudioMedico entrante) {
+        Set<Long> entran = idsDeParametros(entrante.getResultadoEstudio());
+
+        List<String> perdidos = existente.getResultadoEstudio() == null
+                ? List.of()
+                : existente.getResultadoEstudio().stream()
+                        .map(ResultadoEstudio::getParametro)
+                        .filter(Objects::nonNull)
+                        .filter(p -> Boolean.TRUE.equals(p.getActivo()))
+                        .filter(p -> !entran.contains(p.getId()))
+                        .map(ParametroEstudio::getNombre)
+                        .distinct()
+                        .toList();
+
+        if (!perdidos.isEmpty()) {
+            throw new ObjConflictException(
+                    "La edición dejaría sin resultado a: " + String.join(", ", perdidos));
+        }
+    }
+
+    private Set<Long> idsDeParametros(List<ResultadoEstudio> resultados) {
+        if (resultados == null) return Set.of();
+        return resultados.stream()
+                .map(ResultadoEstudio::getParametro)
+                .filter(Objects::nonNull)
+                .map(ParametroEstudio::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private void resolveRelaciones(EstudioMedico estudioMedico) {
