@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Prepara una carga masiva de resultados de estudios y la deja lista para que
@@ -302,8 +304,24 @@ public class CargaMasivaEstudiosService {
         if (estudio.getResultadoEstudio() == null) {
             estudio.setResultadoEstudio(new ArrayList<>());
         }
+
+        // Se reemplaza lo que el archivo trae, no todo lo que habia. Un parametro
+        // que el archivo ni siquiera menciona conserva su valor anterior: borrarlo
+        // seria destruir un dato sobre el que la carga no dice nada. El caso real
+        // son los parametros retirados del catalogo, cuya columna ya no viaja en el
+        // archivo pero cuyo valor sigue siendo parte de esa captura.
+        Set<Long> vienenEnLaCarga = nuevos.stream()
+                .map(r -> r.getParametro().getId())
+                .collect(Collectors.toSet());
+
+        List<ResultadoEstudio> conservados = estudio.getResultadoEstudio().stream()
+                .filter(r -> r.getParametro() != null
+                        && !vienenEnLaCarga.contains(r.getParametro().getId()))
+                .toList();
+
         estudio.getResultadoEstudio().clear();
         resultadoEstudioRepository.flush();
+        estudio.getResultadoEstudio().addAll(conservados);
         estudio.getResultadoEstudio().addAll(nuevos);
     }
 
