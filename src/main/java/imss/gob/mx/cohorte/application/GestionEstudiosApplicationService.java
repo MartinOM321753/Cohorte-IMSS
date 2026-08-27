@@ -117,6 +117,17 @@ public class GestionEstudiosApplicationService {
         tipoService.delete(tipo);
     }
 
+    /**
+     * Pone o quita de uso un parámetro. Es lo que hay que usar cuando ya existen
+     * resultados y por eso el borrado está cerrado.
+     */
+    @Transactional
+    public boolean toggleParametro(Long id) {
+        // Mismo guarda que el borrado: la institución la hereda del tipo de estudio.
+        tipoService.getOne(parametroService.getOne(id).getTipoEstudio().getId());
+        return parametroService.toggleActivo(id);
+    }
+
     @Transactional
     public ParametroEstudio deleteParametro(Long id) {
         // Un parámetro no guarda institución: la hereda del tipo de estudio. El alta y

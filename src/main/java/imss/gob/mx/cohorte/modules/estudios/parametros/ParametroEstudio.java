@@ -42,6 +42,18 @@ public class ParametroEstudio {
     @Column(name = "tipo", nullable = false, length = 15)
     private TipoParametro tipo;
 
+    /**
+     * Un parámetro fuera de uso no se ofrece al capturar ni se exige, pero sus
+     * resultados anteriores siguen siendo válidos y visibles. Es la alternativa al
+     * borrado, que queda prohibido en cuanto existe un solo resultado.
+     *
+     * <p>El DEFAULT de la columna importa: Hibernate la añade a una tabla que ya
+     * tiene datos, y sin él los parámetros existentes quedarían en NULL, que aquí
+     * significaría desactivados de golpe.</p>
+     */
+    @Column(name = "activo", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean activo = true;
+
     /** Rango de referencia para mujeres (solo aplica a parámetros NUMERICO). */
     @Column(name = "valor_min_mujeres")
     private Double valorMinMujeres;

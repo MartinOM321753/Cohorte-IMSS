@@ -36,6 +36,22 @@ public class ParametroEstudioService {
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el parametro de estudio"));
     }
 
+    /**
+     * Pone o quita de uso un parámetro, igual que el interruptor que ya existe para
+     * la plantilla completa. Devuelve el estado en que quedó.
+     *
+     * <p>No toca los resultados ya capturados: un parámetro fuera de uso deja de
+     * ofrecerse y de exigirse al capturar, pero lo que se registró con él sigue
+     * siendo parte de esas capturas.</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean toggleActivo(Long id) {
+        ParametroEstudio parametro = getOne(id);
+        parametro.setActivo(!Boolean.TRUE.equals(parametro.getActivo()));
+        parametroRepository.save(parametro);
+        return parametro.getActivo();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public ParametroEstudio create(ParametroEstudio parametroEstudio) {
         Optional<ParametroEstudio> parametro = parametroRepository.findByTipoEstudio_IdAndNombreIgnoreCase(

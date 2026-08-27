@@ -17,6 +17,9 @@ public class ParametroEstudioResponseDTO {
     private String nombre;
     private String unidad;
     private TipoParametro tipo;
+
+    /** Si sigue en uso. Los que no lo están se muestran, pero no se capturan ni se exigen. */
+    private Boolean activo;
     private String tipoEstudio;
     private Double valorMinMujeres;
     private Double valorMaxMujeres;

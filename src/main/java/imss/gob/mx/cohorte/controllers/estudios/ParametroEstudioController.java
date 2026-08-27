@@ -77,6 +77,20 @@ public class ParametroEstudioController {
         return ResponseEntity.ok(new APIResponse("Parámetro eliminado correctamente", HttpStatus.OK, false));
     }
 
+    @PutMapping("/{id}/toggle")
+    @Operation(summary = "Poner o quitar de uso un parámetro",
+               description = "Un parámetro fuera de uso deja de ofrecerse y de exigirse al capturar. "
+                           + "Sus resultados anteriores no se tocan: siguen siendo parte de esas capturas. "
+                           + "Es la alternativa al borrado, que se cierra en cuanto existe un resultado.")
+    public ResponseEntity<APIResponse> toggleParametro(
+        @Parameter(description = "Identificador único del parámetro", required = true)
+        @PathVariable Long id) {
+        boolean activo = gestionEstudiosApplicationService.toggleParametro(id);
+        return ResponseEntity.ok(new APIResponse(
+            activo ? "Parámetro puesto en uso" : "Parámetro retirado de uso",
+            activo, false, HttpStatus.OK));
+    }
+
     // ─── Opciones para TEXTO_OPCIONES ────────────────────────────────────────
 
     @PostMapping("/{id}/opciones")

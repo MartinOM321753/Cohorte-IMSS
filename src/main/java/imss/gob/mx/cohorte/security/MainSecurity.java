@@ -182,7 +182,8 @@ public class MainSecurity {
                                 .hasAuthority("ESTUDIOS_TIPOS_CREAR")
                         .requestMatchers(HttpMethod.PUT, "/api/estudios/tipos/*",
                                                          "/api/estudios/tipos/*/toggle",
-                                                         "/api/estudios/parametros/*")
+                                                         "/api/estudios/parametros/*",
+                                                         "/api/estudios/parametros/*/toggle")
                                 .hasAuthority("ESTUDIOS_TIPOS_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/estudios/tipos/*",
                                                             "/api/estudios/parametros/*",

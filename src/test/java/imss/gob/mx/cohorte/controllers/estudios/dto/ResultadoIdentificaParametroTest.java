@@ -71,6 +71,36 @@ class ResultadoIdentificaParametroTest {
         assertEquals(229L, dto.getResultados().get(1).getIdParametro());
     }
 
+    /**
+     * El catálogo tiene que decir cuáles siguen en uso: de eso depende que la captura
+     * sepa qué ofrecer y qué exigir, y que la edición marque los heredados.
+     */
+    @Test
+    @DisplayName("El parámetro que viaja al frontend dice si sigue en uso")
+    void elParametroDiceSiSigueEnUso() {
+        ParametroEstudio enUso = new ParametroEstudio();
+        enUso.setId(121L);
+        enUso.setNombre("PR");
+        enUso.setTipo(imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.NUMERICO);
+        enUso.setActivo(true);
+
+        ParametroEstudio retirado = new ParametroEstudio();
+        retirado.setId(229L);
+        retirado.setNombre("P");
+        retirado.setTipo(imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.NUMERICO);
+        retirado.setActivo(false);
+
+        assertEquals(Boolean.TRUE, EstudioMapper.toParametroDTO(enUso).getActivo());
+        assertEquals(Boolean.FALSE, EstudioMapper.toParametroDTO(retirado).getActivo());
+    }
+
+    @Test
+    @DisplayName("Un parámetro nuevo nace en uso")
+    void nuevoNaceEnUso() {
+        assertEquals(Boolean.TRUE, new ParametroEstudio().getActivo(),
+                "Si naciera desactivado, cada alta habría que activarla a mano");
+    }
+
     @Test
     @DisplayName("Un resultado sin parámetro no revienta el mapeo")
     void resultadoSinParametroNoRevienta() {
