@@ -103,6 +103,7 @@ public class EstudioMapper {
                             .valorNumerico(r.getValorNumerico())
                             .valorTexto(r.getValorTexto())
                             .valorBooleano(r.getValorBooleano())
+                            .idParametro(r.getParametro() != null ? r.getParametro().getId() : null)
                             .parametro(r.getParametro() != null ? r.getParametro().getNombre() : null)
                             .grupoCodigo(ROOT_GROUP_CODE.equals(r.getGrupoCodigo()) ? null : r.getGrupoCodigo())
                             .grupoEtiqueta(ROOT_GROUP_CODE.equals(r.getGrupoCodigo()) ? null : r.getGrupoEtiqueta())
