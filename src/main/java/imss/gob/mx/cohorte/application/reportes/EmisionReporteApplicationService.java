@@ -4,6 +4,13 @@ import imss.gob.mx.cohorte.application.EstudiosApplicationService;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.modules.reportes.PlantillaReporte;
+import imss.gob.mx.cohorte.modules.reportes.TipoReporte;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
+import imss.gob.mx.cohorte.services.examenes.ResultadoExamenService;
+import imss.gob.mx.cohorte.services.reportes.ContextoEstudio;
+import imss.gob.mx.cohorte.services.reportes.MaquetadorReporte;
+import imss.gob.mx.cohorte.services.reportes.PlantillaReporteService;
 import imss.gob.mx.cohorte.services.reportes.ReporteEstudioHtmlService;
 import imss.gob.mx.cohorte.services.reportes.ReportePdfService;
 import lombok.AllArgsConstructor;
@@ -34,21 +41,64 @@ public class EmisionReporteApplicationService {
     private final EstudiosApplicationService estudiosApplicationService;
     private final ReporteEstudioHtmlService htmlService;
     private final ReportePdfService pdfService;
+    private final PlantillaReporteService plantillaService;
+    private final MaquetadorReporte maquetador;
+    private final ResultadoExamenService resultadoExamenService;
+    private final MuestraService muestraService;
 
     /** El reporte listo para descargar: los bytes y cómo debe llamarse el archivo. */
     public record ReporteEmitido(byte[] contenido, String nombreArchivo) {}
 
     @Transactional(readOnly = true)
-    public ReporteEmitido deEstudio(Long idEstudio) {
+    public ReporteEmitido deEstudio(Long idEstudio, Long idPlantilla) {
         EstudioMedico estudio = estudiosApplicationService.getEstudio(idEstudio);
-        byte[] pdf = pdfService.aPdf(htmlService.generar(estudio));
+        byte[] pdf = pdfService.aPdf(htmlDe(estudio, idPlantilla));
         return new ReporteEmitido(pdf, nombreArchivoDe(estudio));
     }
 
     /** El HTML sin convertir, para la vista previa en pantalla. */
     @Transactional(readOnly = true)
-    public String previsualizarEstudio(Long idEstudio) {
-        return htmlService.generar(estudiosApplicationService.getEstudio(idEstudio));
+    public String previsualizarEstudio(Long idEstudio, Long idPlantilla) {
+        return htmlDe(estudiosApplicationService.getEstudio(idEstudio), idPlantilla);
+    }
+
+    /**
+     * Con plantilla se maqueta el diseno; sin ella se usa el formato de siempre.
+     *
+     * <p>Ese respaldo no es provisional: una institucion que todavia no ha disenado
+     * nada tiene que poder emitir igual, y quedarse sin reporte por no haber pasado
+     * por el editor seria peor que un formato generico.</p>
+     */
+    private String htmlDe(EstudioMedico estudio, Long idPlantilla) {
+        PlantillaReporte plantilla = resolverPlantilla(idPlantilla);
+        if (plantilla == null || plantilla.getDiseno() == null || plantilla.getDiseno().isBlank()) {
+            return htmlService.generar(estudio);
+        }
+        return maquetador.maquetar(plantilla.getDiseno(), contextoDe(estudio));
+    }
+
+    /**
+     * La pedida, o la predeterminada del tipo. getById comprueba la institucion, asi
+     * que no se puede emitir con la plantilla de otra pasando su id.
+     */
+    private PlantillaReporte resolverPlantilla(Long idPlantilla) {
+        if (idPlantilla != null) return plantillaService.getById(idPlantilla);
+        return plantillaService.getPredeterminada(TipoReporte.ESTUDIO);
+    }
+
+    /**
+     * Los conteos se piden a los mismos servicios que alimentan el expediente, no a
+     * los repositorios: asi el reporte dice exactamente lo que la pantalla enseña,
+     * incluida la regla de hasta donde alcanza el acceso al participante.
+     */
+    private ContextoEstudio contextoDe(EstudioMedico estudio) {
+        String uuid = estudio.getPaciente() != null ? estudio.getPaciente().getUuid() : null;
+        if (uuid == null) return new ContextoEstudio(estudio, ContextoEstudio.Totales.sinCalcular());
+
+        return new ContextoEstudio(estudio, new ContextoEstudio.Totales(
+                estudiosApplicationService.getEstudiosByPaciente(uuid).size(),
+                resultadoExamenService.countByPacienteUuid(uuid),
+                muestraService.countByPacienteUuid(uuid)));
     }
 
     /**
