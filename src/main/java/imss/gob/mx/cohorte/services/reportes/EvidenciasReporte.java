@@ -43,6 +43,36 @@ public class EvidenciasReporte {
     public record Evidencia(String nombre, String mimeType, String dataUri, boolean incrustable, String motivo) {}
 
     /**
+     * El bloque de evidencias listo para el documento.
+     *
+     * <p>Que el participante no tenga ese estudio no es un error: la misma plantilla
+     * se usa con gente distinta y no todos tienen los mismos estudios hechos.</p>
+     */
+    public String html(imss.gob.mx.cohorte.modules.estudios.EstudioMedico estudio) {
+        if (estudio == null || estudio.getId() == null) {
+            return "<p class=\"evid-nota\">El participante no tiene este estudio registrado.</p>";
+        }
+        List<Evidencia> lista = deEstudio(estudio.getId());
+        if (lista.isEmpty()) {
+            return "<p class=\"evid-nota\">Este estudio no tiene archivos adjuntos.</p>";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (Evidencia ev : lista) {
+            sb.append("<div class=\"evid\">");
+            if (ev.incrustable() && ev.dataUri() != null) {
+                sb.append("<img src=\"").append(ev.dataUri()).append("\" class=\"evid-img\"/>");
+            }
+            sb.append("<div class=\"evid-pie\">").append(Html.escapar(ev.nombre()));
+            if (!ev.incrustable() && ev.motivo() != null) {
+                sb.append(" <span class=\"evid-nota\">— ").append(Html.escapar(ev.motivo())).append("</span>");
+            }
+            sb.append("</div></div>");
+        }
+        return sb.toString();
+    }
+
+    /**
      * Las evidencias de un estudio, en el orden en que se adjuntaron.
      *
      * <p>Solo se incrustan imágenes. Un PDF adjunto no se puede meter dentro de otro

@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.services.reportes;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,16 +14,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Convierte el diseño de una plantilla, con los datos ya resueltos, en el HTML que
- * se imprime.
+ * Convierte el diseño de una plantilla, con los datos del participante, en el HTML
+ * que se imprime.
  *
- * <p>Es el gemelo del lienzo del editor: los dos dibujan lo mismo a partir del
- * mismo JSON, uno en pantalla y otro para el PDF. Por eso ambos se limitan a
- * posición absoluta, colores planos y tablas — el motor de PDF entiende CSS 2.1, y
- * usar aquí algo que allá no existe haría que la vista previa mintiera.</p>
+ * <p>Es el gemelo del lienzo del editor: los dos dibujan lo mismo a partir del mismo
+ * JSON, uno en pantalla y otro para el PDF. Por eso ambos se limitan a posición
+ * absoluta, colores planos y tablas — el motor de PDF entiende CSS 2.1, y usar aquí
+ * algo que allá no existe haría que la vista previa mintiera.</p>
  *
- * <p>Las medidas del diseño están en milímetros y aquí se emiten en milímetros:
- * no hay conversión que pueda desajustarse.</p>
+ * <p>Las medidas del diseño están en milímetros y aquí se emiten en milímetros: no
+ * hay conversión que pueda desajustarse.</p>
  */
 @Service
 @AllArgsConstructor
@@ -31,10 +33,12 @@ public class MaquetadorReporte {
     private static final Pattern MARCADOR = Pattern.compile("\\{\\{\\s*([\\w.]+)\\s*}}");
 
     private final ObjectMapper objectMapper;
+    private final ResolvedorCampos resolvedor;
     private final BloqueResultados bloqueResultados;
+    private final BloqueEstudios bloqueEstudios;
     private final EvidenciasReporte evidencias;
 
-    public String maquetar(String disenoJson, ContextoEstudio contexto) {
+    public String maquetar(String disenoJson, ContextoReporte contexto) {
         JsonNode diseno = leer(disenoJson);
 
         double anchoMm = medida(diseno, true);
@@ -50,9 +54,8 @@ public class MaquetadorReporte {
 
         for (int i = 0; i < paginas.size(); i++) {
             html.append("<div class=\"hoja\">");
-
-            // Los que se repiten van primero para quedar debajo: un membrete no
-            // debe taparle nada al contenido de la página.
+            // Los que se repiten van primero para quedar debajo: un membrete no debe
+            // taparle nada al contenido de la página.
             if (i > 0) for (JsonNode el : repetidos) html.append(elemento(el, contexto));
             for (JsonNode el : ordenados(paginas.get(i).path("elementos"))) {
                 html.append(elemento(el, contexto));
@@ -66,24 +69,23 @@ public class MaquetadorReporte {
 
     // ── Elementos ────────────────────────────────────────────────────────────
 
-    private String elemento(JsonNode el, ContextoEstudio contexto) {
-        String tipo = el.path("tipo").asText("");
+    private String elemento(JsonNode el, ContextoReporte ctx) {
         String caja = "position:absolute;"
                 + "left:" + mm(el, "xMm") + ";top:" + mm(el, "yMm") + ";"
                 + "width:" + mm(el, "anchoMm") + ";height:" + mm(el, "altoMm") + ";"
                 + "z-index:" + el.path("z").asInt(0) + ";";
 
-        return switch (tipo) {
-            case "texto"  -> texto(el, caja, contexto);
+        return switch (el.path("tipo").asText("")) {
+            case "texto"  -> texto(el, caja, ctx);
             case "imagen" -> imagen(el, caja);
             case "figura" -> figura(el, caja);
-            case "datos"  -> datos(el, caja, contexto);
+            case "datos"  -> datos(el, caja, ctx);
             default -> "";
         };
     }
 
-    private String texto(JsonNode el, String caja, ContextoEstudio contexto) {
-        String contenido = sustituirMarcadores(el.path("contenido").asText(""), contexto);
+    private String texto(JsonNode el, String caja, ContextoReporte ctx) {
+        String contenido = sustituirMarcadores(el.path("contenido").asText(""), ctx);
         String estilo = caja
                 + "font-size:" + el.path("tamanoPt").asDouble(10) + "pt;"
                 + "font-weight:" + (el.path("negrita").asBoolean(false) ? "bold" : "normal") + ";"
@@ -92,7 +94,7 @@ public class MaquetadorReporte {
                 + "text-align:" + el.path("alineacion").asText("left") + ";"
                 + "line-height:" + el.path("interlineado").asDouble(1.35) + ";"
                 + "overflow:hidden;";
-        return "<div style=\"" + estilo + "\">" + escaparConSaltos(contenido) + "</div>";
+        return "<div style=\"" + estilo + "\">" + Html.escaparConSaltos(contenido) + "</div>";
     }
 
     private String imagen(JsonNode el, String caja) {
@@ -100,8 +102,8 @@ public class MaquetadorReporte {
         if (url.isBlank()) return "";
         String ajuste = "cubrir".equals(el.path("ajuste").asText("contener")) ? "cover" : "contain";
         return "<div style=\"" + caja + "\">"
-                + "<img src=\"" + escapar(url) + "\" style=\"width:100%;height:100%;object-fit:" + ajuste + ";\"/>"
-                + "</div>";
+                + "<img src=\"" + Html.escapar(url)
+                + "\" style=\"width:100%;height:100%;object-fit:" + ajuste + ";\"/></div>";
     }
 
     private String figura(JsonNode el, String caja) {
@@ -110,8 +112,6 @@ public class MaquetadorReporte {
         String colorBorde = color(el, "colorBorde", "#333333");
 
         if ("linea".equals(forma)) {
-            // La línea se dibuja como una barra del grosor pedido, centrada en su
-            // caja: así se arrastra y redimensiona como cualquier otro elemento.
             return "<div style=\"" + caja + "\">"
                     + "<div style=\"width:100%;height:" + (grosor > 0 ? grosor : 0.3) + "mm;"
                     + "background:" + colorBorde + ";\"></div></div>";
@@ -127,60 +127,43 @@ public class MaquetadorReporte {
     }
 
     /**
-     * Un bloque de datos. Solo la tabla de resultados por ahora; lo que no se sepa
-     * dibujar se omite en silencio en vez de dejar un recuadro con una clave
-     * impresa en medio del documento.
+     * Un bloque de datos. La clave dice de qué estudio sale, así que una misma hoja
+     * puede llevar la tabla del DEXA y las evidencias de otro estudio distinto.
+     *
+     * <p>Una clave que ya no se sabe dibujar se omite en silencio: es una plantilla
+     * hecha con una versión anterior, y dejar un recuadro con la clave impresa en
+     * medio del documento sería peor.</p>
      */
-    private String datos(JsonNode el, String caja, ContextoEstudio contexto) {
+    private String datos(JsonNode el, String caja, ContextoReporte ctx) {
         String clave = el.path("clave").asText("");
-        if (CatalogoCamposReporte.BLOQUE_RESULTADOS.equals(clave)) {
-            String desbordamiento = el.path("desbordamiento").asText("crecer");
-            // «Crecer» deja que la caja se estire: se fija el alto como mínimo y no
-            // como tope, o una tabla larga quedaría recortada.
-            String cajaBloque = "crecer".equals(desbordamiento)
-                    ? caja.replace("height:", "min-height:")
-                    : caja + "overflow:hidden;";
+        Persona.Sexo sexo = ctx.persona() != null ? ctx.persona().getSexo() : null;
+
+        // «Crecer» deja que la caja se estire: se pone el alto como mínimo y no como
+        // tope, o una tabla larga quedaría recortada.
+        String cajaBloque = "crecer".equals(el.path("desbordamiento").asText("crecer"))
+                ? caja.replace("height:", "min-height:")
+                : caja + "overflow:hidden;";
+
+        if (ClaveCampo.BLOQUE_LISTADO_ESTUDIOS.equals(clave)) {
             return "<div style=\"" + cajaBloque + "\">"
-                    + bloqueResultados.html(contexto, seleccion(el))
+                    + bloqueEstudios.html(ctx, BloqueResultados.Estilo.de(el)) + "</div>";
+        }
+
+        ClaveCampo.BloqueEstudio bloque = ClaveCampo.comoBloqueEstudio(clave);
+        if (bloque == null) return "";
+
+        EstudioMedico estudio = ctx.estudioDeTipo(bloque.idTipo()).orElse(null);
+
+        if ("resultados".equals(bloque.bloque())) {
+            return "<div style=\"" + cajaBloque + "\">"
+                    + bloqueResultados.html(estudio, sexo, seleccion(el), BloqueResultados.Estilo.de(el))
                     + "</div>";
         }
-        if (CatalogoCamposReporte.BLOQUE_EVIDENCIAS.equals(clave)) {
-            return "<div style=\"" + caja.replace("height:", "min-height:") + "\">"
-                    + evidenciasHtml(contexto)
-                    + "</div>";
+        if ("evidencias".equals(bloque.bloque())) {
+            return "<div style=\"" + cajaBloque + "\">"
+                    + evidencias.html(estudio) + "</div>";
         }
         return "";
-    }
-
-    /**
-     * Las evidencias adjuntas del estudio.
-     *
-     * <p>Las imágenes se dibujan; de un PDF adjunto solo se deja constancia de que
-     * existe. Meter un PDF dentro de otro no es dibujarlo, es concatenarlo, y eso
-     * ocurre al ensamblar el documento, no aquí.</p>
-     */
-    private String evidenciasHtml(ContextoEstudio contexto) {
-        Long idEstudio = contexto.estudio().getId();
-        if (idEstudio == null) return "";
-
-        List<EvidenciasReporte.Evidencia> lista = evidencias.deEstudio(idEstudio);
-        if (lista.isEmpty()) {
-            return "<p class=\"vacio\">Este estudio no tiene archivos adjuntos.</p>";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (EvidenciasReporte.Evidencia ev : lista) {
-            sb.append("<div class=\"evid\">");
-            if (ev.incrustable() && ev.dataUri() != null) {
-                sb.append("<img src=\"").append(ev.dataUri()).append("\" class=\"evid-img\"/>");
-            }
-            sb.append("<div class=\"evid-pie\">").append(escapar(ev.nombre()));
-            if (!ev.incrustable() && ev.motivo() != null) {
-                sb.append(" <span class=\"evid-nota\">— ").append(escapar(ev.motivo())).append("</span>");
-            }
-            sb.append("</div></div>");
-        }
-        return sb.toString();
     }
 
     /** Qué parámetros mostrar. Vacío o ausente significa todos. */
@@ -192,23 +175,21 @@ public class MaquetadorReporte {
         return ids;
     }
 
-    // ── Sustitución de marcadores ────────────────────────────────────────────
+    // ── Marcadores ───────────────────────────────────────────────────────────
 
     /**
      * Reemplaza {{clave}} por su valor.
      *
-     * <p>El valor se escapa antes de entrar al HTML porque puede venir de algo que
-     * escribió una persona —un nombre, una observación—, y un «&» suelto rompería
-     * el documento. Se hace aquí, sobre el valor, y no sobre el texto completo: si
-     * se escapara todo después, las llaves ya no se distinguirían.</p>
+     * <p>El valor se escapa antes de entrar al HTML, y se hace aquí sobre el valor y
+     * no sobre el texto completo: si se escapara todo después, las llaves ya no se
+     * distinguirían.</p>
      */
-    private String sustituirMarcadores(String texto, ContextoEstudio contexto) {
+    private String sustituirMarcadores(String texto, ContextoReporte ctx) {
         if (texto == null || texto.isEmpty()) return "";
         Matcher m = MARCADOR.matcher(texto);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
-            String valor = contexto.valorDe(m.group(1));
-            m.appendReplacement(sb, Matcher.quoteReplacement(valor));
+            m.appendReplacement(sb, Matcher.quoteReplacement(resolvedor.valorDe(m.group(1), ctx)));
         }
         m.appendTail(sb);
         return sb.toString();
@@ -230,19 +211,15 @@ public class MaquetadorReporte {
         }
     }
 
-    /** Medidas de la hoja, ya considerando la orientación. */
     private double medida(JsonNode diseno, boolean ancho) {
-        String tamano = diseno.path("tamano").asText("CARTA");
         double a, b;
-        switch (tamano) {
+        switch (diseno.path("tamano").asText("CARTA")) {
             case "A4"     -> { a = 210;   b = 297; }
             case "OFICIO" -> { a = 215.9; b = 355.6; }
             default       -> { a = 215.9; b = 279.4; }
         }
         boolean horizontal = "horizontal".equals(diseno.path("orientacion").asText("vertical"));
-        double anchoMm = horizontal ? b : a;
-        double altoMm = horizontal ? a : b;
-        return ancho ? anchoMm : altoMm;
+        return ancho ? (horizontal ? b : a) : (horizontal ? a : b);
     }
 
     private List<JsonNode> elementosRepetidos(JsonNode paginas) {
@@ -266,22 +243,10 @@ public class MaquetadorReporte {
         return el.path(campo).asDouble(0) + "mm";
     }
 
+    /** Solo colores con la forma que produce el editor; lo demás iría al style tal cual. */
     private String color(JsonNode el, String campo, String porDefecto) {
         String v = el.path(campo).asText("");
-        // Solo se aceptan colores con la forma que produce el editor. Cualquier
-        // otra cosa entraría tal cual en el atributo style.
         return v.matches("#[0-9a-fA-F]{3,8}") ? v : porDefecto;
-    }
-
-    private String escapar(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace("\"", "&quot;");
-    }
-
-    /** Escapa y convierte los saltos de línea en saltos visibles. */
-    private String escaparConSaltos(String s) {
-        return escapar(s).replace("\n", "<br/>");
     }
 
     private String estilos(double anchoMm, double altoMm) {
@@ -290,15 +255,9 @@ public class MaquetadorReporte {
              + ".hoja { position:relative; width:" + anchoMm + "mm; height:" + altoMm + "mm;"
              + " page-break-after: always; overflow:hidden; }\n"
              + ".hoja:last-child { page-break-after: auto; }\n"
-             + "table.res { border-collapse:collapse; width:100%; font-size:9pt; }\n"
-             + "table.res thead { display: table-header-group; }\n"
-             + "table.res th { background:#eef3f5; border-bottom:0.3mm solid #9fb4bd;"
-             + " text-align:left; padding:1.6mm 2mm; font-size:8.5pt; color:#33505c; }\n"
-             + "table.res td { border-bottom:0.2mm solid #dde5e9; padding:1.4mm 2mm; }\n"
-             + "table.res td.v { font-weight:bold; }\n"
-             + "table.res td.fuera { color:#a8352c; }\n"
-             + ".grupo { margin:2mm 0 1mm; font-size:9pt; color:#1f4e5f;"
-             + " border-left:1mm solid #1f4e5f; padding-left:2mm; }\n"
-             + ".vacio { color:#5a6b78; font-style:italic; font-size:9pt; }\n";
+             + ".evid { display:inline-block; vertical-align:top; margin:0 3mm 3mm 0; }\n"
+             + ".evid-img { max-width:80mm; max-height:80mm; border:0.2mm solid #dde5e9; }\n"
+             + ".evid-pie { font-size:7.5pt; color:#5a6b78; margin-top:1mm; }\n"
+             + ".evid-nota { font-style:italic; }\n";
     }
 }

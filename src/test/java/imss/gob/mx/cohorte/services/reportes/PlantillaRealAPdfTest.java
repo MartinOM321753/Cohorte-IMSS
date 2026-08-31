@@ -34,8 +34,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfSystemProperty(named = "diseno", matches = ".+")
 class PlantillaRealAPdfTest {
 
+    private final ResolvedorCampos resolvedor = new ResolvedorCampos();
     private final MaquetadorReporte maquetador = new MaquetadorReporte(
-            new ObjectMapper(), new BloqueResultados(), new EvidenciasReporte(null, null));
+            new ObjectMapper(), resolvedor, new BloqueResultados(resolvedor),
+            new BloqueEstudios(), new EvidenciasReporte(null, null));
     private final ReportePdfService pdfService = new ReportePdfService();
 
     @Test
@@ -54,7 +56,7 @@ class PlantillaRealAPdfTest {
     }
 
     /** Un estudio con datos verosímiles, del tamaño de uno real. */
-    private ContextoEstudio contextoDePrueba() {
+    private ContextoReporte contextoDePrueba() {
         Persona persona = new Persona();
         persona.setNombre("María"); persona.setSegundoNombre("Fernanda");
         persona.setApellidoPaterno("Rodríguez"); persona.setApellidoMaterno("Núñez");
@@ -69,6 +71,7 @@ class PlantillaRealAPdfTest {
         institucion.setNombre("IMSS Cuernavaca — Sede Central");
 
         TipoEstudio tipo = new TipoEstudio();
+        tipo.setId(1L);
         tipo.setNombre("Prueba de caminata de 6 minutos PC6M");
 
         EstudioMedico e = new EstudioMedico();
@@ -106,6 +109,6 @@ class PlantillaRealAPdfTest {
             e.getResultadoEstudio().add(r);
         }
 
-        return new ContextoEstudio(e, new ContextoEstudio.Totales(12, 40, 3));
+        return ContextoReporte.deEstudio(e, new ContextoReporte.Totales(12, 40, 3));
     }
 }
