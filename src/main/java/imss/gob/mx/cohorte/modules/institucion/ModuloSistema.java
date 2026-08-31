@@ -17,5 +17,7 @@ public enum ModuloSistema {
     /** Acceso al registro de eventos de login/logout. */
     BITACORA_ACCESOS,
     /** Acceso al registro de acciones de escritura (crear/actualizar/eliminar). */
-    BITACORA_ACCIONES
+    BITACORA_ACCIONES,
+    /** Diseño de plantillas y emisión de reportes en PDF. */
+    REPORTES
 }

@@ -324,6 +324,18 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_ELIMINAR")
 
+                        // Reportes. El orden importa: las plantillas van antes que la regla
+                        // general de /api/reportes/**, o el CRUD del disenador quedaria
+                        // abierto a cualquiera que pueda emitir.
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/plantillas/**").hasAuthority("REPORTES_ACCEDER")
+                        .requestMatchers(HttpMethod.POST, "/api/reportes/plantillas").hasAuthority("REPORTES_PLANTILLAS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/reportes/plantillas/*",
+                                                         "/api/reportes/plantillas/*/toggle",
+                                                         "/api/reportes/plantillas/*/predeterminada")
+                                .hasAuthority("REPORTES_PLANTILLAS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reportes/plantillas/**").hasAuthority("REPORTES_PLANTILLAS_ELIMINAR")
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/**").hasAuthority("REPORTES_EMITIR")
+
                         // Somatometría
                         .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_VER")
                         .requestMatchers(HttpMethod.POST, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_CREAR")
