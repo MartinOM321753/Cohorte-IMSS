@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.modules.reportes;
 
+import imss.gob.mx.cohorte.modules.estudios.tipos.TipoEstudio;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -74,6 +75,21 @@ public class PlantillaReporte {
      */
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
+
+    /**
+     * Tipo de estudio al que se ata la plantilla, cuando se ata a alguno.
+     *
+     * <p>Es opcional a propósito. Sin él la plantilla sirve para cualquier estudio
+     * —mismo membrete para los 26 tipos del catálogo— y los bloques muestran todo
+     * lo que cada estudio midió. Con él, el diseñador puede además elegir qué
+     * parámetros salen, porque ya se sabe cuáles existen.</p>
+     *
+     * <p>Solo tiene sentido en plantillas de tipo ESTUDIO; en las demás se queda
+     * en nulo.</p>
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_tipo_estudio")
+    private TipoEstudio tipoEstudio;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_institucion", nullable = false)

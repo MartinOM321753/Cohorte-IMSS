@@ -14,6 +14,8 @@ public class PlantillaReporteResponseDTO {
     private String descripcion;
     private TipoReporte tipoReporte;
     private String diseno;
+    private Long idTipoEstudio;
+    private String tipoEstudioNombre;
     private Boolean predeterminada;
     private Boolean activo;
     private String institucionNombre;

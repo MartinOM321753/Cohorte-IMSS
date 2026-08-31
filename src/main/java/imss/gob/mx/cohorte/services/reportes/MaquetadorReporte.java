@@ -32,6 +32,7 @@ public class MaquetadorReporte {
 
     private final ObjectMapper objectMapper;
     private final BloqueResultados bloqueResultados;
+    private final EvidenciasReporte evidencias;
 
     public String maquetar(String disenoJson, ContextoEstudio contexto) {
         JsonNode diseno = leer(disenoJson);
@@ -143,7 +144,43 @@ public class MaquetadorReporte {
                     + bloqueResultados.html(contexto, seleccion(el))
                     + "</div>";
         }
+        if (CatalogoCamposReporte.BLOQUE_EVIDENCIAS.equals(clave)) {
+            return "<div style=\"" + caja.replace("height:", "min-height:") + "\">"
+                    + evidenciasHtml(contexto)
+                    + "</div>";
+        }
         return "";
+    }
+
+    /**
+     * Las evidencias adjuntas del estudio.
+     *
+     * <p>Las imágenes se dibujan; de un PDF adjunto solo se deja constancia de que
+     * existe. Meter un PDF dentro de otro no es dibujarlo, es concatenarlo, y eso
+     * ocurre al ensamblar el documento, no aquí.</p>
+     */
+    private String evidenciasHtml(ContextoEstudio contexto) {
+        Long idEstudio = contexto.estudio().getId();
+        if (idEstudio == null) return "";
+
+        List<EvidenciasReporte.Evidencia> lista = evidencias.deEstudio(idEstudio);
+        if (lista.isEmpty()) {
+            return "<p class=\"vacio\">Este estudio no tiene archivos adjuntos.</p>";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (EvidenciasReporte.Evidencia ev : lista) {
+            sb.append("<div class=\"evid\">");
+            if (ev.incrustable() && ev.dataUri() != null) {
+                sb.append("<img src=\"").append(ev.dataUri()).append("\" class=\"evid-img\"/>");
+            }
+            sb.append("<div class=\"evid-pie\">").append(escapar(ev.nombre()));
+            if (!ev.incrustable() && ev.motivo() != null) {
+                sb.append(" <span class=\"evid-nota\">— ").append(escapar(ev.motivo())).append("</span>");
+            }
+            sb.append("</div></div>");
+        }
+        return sb.toString();
     }
 
     /** Qué parámetros mostrar. Vacío o ausente significa todos. */

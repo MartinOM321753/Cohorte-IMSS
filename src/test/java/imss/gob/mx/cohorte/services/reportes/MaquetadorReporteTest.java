@@ -30,7 +30,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class MaquetadorReporteTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final MaquetadorReporte maquetador = new MaquetadorReporte(mapper, new BloqueResultados());
+    // Las evidencias necesitan repositorio y almacenamiento, y ninguno de estos casos
+    // las usa: se entrega el servicio sin dependencias en lugar de levantar el
+    // contexto entero para probar maquetado, que es lógica sobre un JSON.
+    private final MaquetadorReporte maquetador =
+            new MaquetadorReporte(mapper, new BloqueResultados(), new EvidenciasReporte(null, null));
 
     // ── Escenario ────────────────────────────────────────────────────────────
 

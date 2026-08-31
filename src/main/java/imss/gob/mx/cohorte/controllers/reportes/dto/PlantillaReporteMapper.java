@@ -23,6 +23,8 @@ public final class PlantillaReporteMapper {
                 .descripcion(p.getDescripcion())
                 .tipoReporte(p.getTipoReporte())
                 .diseno(p.getDiseno())
+                .idTipoEstudio(p.getTipoEstudio() != null ? p.getTipoEstudio().getId() : null)
+                .tipoEstudioNombre(p.getTipoEstudio() != null ? p.getTipoEstudio().getNombre() : null)
                 .predeterminada(p.getPredeterminada())
                 .activo(p.getActivo())
                 .institucionNombre(p.getInstitucion() != null ? p.getInstitucion().getNombre() : null)

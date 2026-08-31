@@ -27,5 +27,11 @@ public class PlantillaReporteRequestDTO {
     @NotBlank(message = "La plantilla necesita un diseño")
     private String diseno;
 
+    /**
+     * Tipo de estudio al que se ata la plantilla. Opcional: sin él la plantilla
+     * sirve para cualquier estudio; con él se puede elegir qué parámetros salen.
+     */
+    private Long idTipoEstudio;
+
     private Boolean predeterminada;
 }

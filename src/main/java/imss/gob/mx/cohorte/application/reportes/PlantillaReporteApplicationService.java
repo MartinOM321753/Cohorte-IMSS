@@ -53,13 +53,13 @@ public class PlantillaReporteApplicationService {
     @Transactional
     public PlantillaReporte crear(PlantillaReporteRequestDTO dto) {
         verificarDisenoEsJson(dto.getDiseno());
-        return service.create(PlantillaReporteMapper.toEntity(dto));
+        return service.create(PlantillaReporteMapper.toEntity(dto), dto.getIdTipoEstudio());
     }
 
     @Transactional
     public PlantillaReporte actualizar(Long id, PlantillaReporteRequestDTO dto) {
         verificarDisenoEsJson(dto.getDiseno());
-        return service.update(id, PlantillaReporteMapper.toEntity(dto));
+        return service.update(id, PlantillaReporteMapper.toEntity(dto), dto.getIdTipoEstudio());
     }
 
     @Transactional
