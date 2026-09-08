@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Configuracion con credenciales ###
+# Los application-<perfil>.properties llevan las claves reales de MinIO, del
+# correo y de firma de los JWT como valor por defecto del patron ${VAR:valor}.
+# Producción se configura por variables de entorno; el application.properties
+# versionado basta como base y no contiene ningún secreto.
+src/main/resources/application-dev.properties
+src/main/resources/application-prod.properties
+src/main/resources/application-test.properties
