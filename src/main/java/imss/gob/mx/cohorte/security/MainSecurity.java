@@ -182,7 +182,8 @@ public class MainSecurity {
                                 .hasAuthority("ESTUDIOS_TIPOS_CREAR")
                         .requestMatchers(HttpMethod.PUT, "/api/estudios/tipos/*",
                                                          "/api/estudios/tipos/*/toggle",
-                                                         "/api/estudios/parametros/*")
+                                                         "/api/estudios/parametros/*",
+                                                         "/api/estudios/parametros/*/toggle")
                                 .hasAuthority("ESTUDIOS_TIPOS_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/estudios/tipos/*",
                                                             "/api/estudios/parametros/*",
@@ -322,6 +323,53 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.POST, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_CREAR")
                         .requestMatchers(HttpMethod.PUT, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/prueba-escalon/**").hasAuthority("SOMATOMETRIA_ELIMINAR")
+
+                        // Reportes. El orden importa: las plantillas van antes que la regla
+                        // general de /api/reportes/**, o el CRUD del disenador quedaria
+                        // abierto a cualquiera que pueda emitir.
+                        // La galeria de imagenes. Va antes que las plantillas y que la regla
+                        // general por lo mismo: si cayera en /api/reportes/** de abajo,
+                        // cualquiera que pueda emitir podria subir y borrar logos.
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/imagenes/**").hasAuthority("REPORTES_ACCEDER")
+                        .requestMatchers(HttpMethod.POST, "/api/reportes/imagenes").hasAuthority("REPORTES_PLANTILLAS_EDITAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/reportes/imagenes/*/nombre").hasAuthority("REPORTES_PLANTILLAS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reportes/imagenes/**").hasAuthority("REPORTES_PLANTILLAS_ELIMINAR")
+
+                        // La exportacion pide su propio permiso: emitir saca el documento de
+                        // un participante, mientras que esto baja los datos de la cohorte
+                        // entera en un archivo que ya no vuelve a pasar por el sistema.
+                        .requestMatchers(HttpMethod.POST, "/api/reportes/exportacion")
+                                .hasAuthority("REPORTES_EXPORTAR")
+
+                        // Las formulas. Van antes que la regla general por lo mismo que las
+                        // plantillas, y su permiso de escritura es propio: una formula la
+                        // comparten todos los reportes que la usen, asi que equivocarse ahi
+                        // no rompe un reporte sino todos los que dependan de ella.
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/formulas/**").hasAuthority("REPORTES_ACCEDER")
+                        .requestMatchers(HttpMethod.POST, "/api/reportes/formulas",
+                                                          "/api/reportes/formulas/revisar",
+                                                          "/api/reportes/formulas/probar/*")
+                                .hasAuthority("REPORTES_FORMULAS_EDITAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/reportes/formulas/*",
+                                                         "/api/reportes/formulas/*/toggle")
+                                .hasAuthority("REPORTES_FORMULAS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reportes/formulas/**")
+                                .hasAuthority("REPORTES_FORMULAS_EDITAR")
+
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/plantillas/**").hasAuthority("REPORTES_ACCEDER")
+                        // Duplicar crea una plantilla nueva, asi que pide el permiso de crear
+                        // y no el de editar. Y va enumerada aparte porque el * de la linea de
+                        // abajo no cruza la barra: /plantillas no cubre /plantillas/5/duplicar.
+                        .requestMatchers(HttpMethod.POST, "/api/reportes/plantillas",
+                                                          "/api/reportes/plantillas/*/duplicar")
+                                .hasAuthority("REPORTES_PLANTILLAS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/reportes/plantillas/*",
+                                                         "/api/reportes/plantillas/*/nombre",
+                                                         "/api/reportes/plantillas/*/toggle",
+                                                         "/api/reportes/plantillas/*/predeterminada")
+                                .hasAuthority("REPORTES_PLANTILLAS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reportes/plantillas/**").hasAuthority("REPORTES_PLANTILLAS_ELIMINAR")
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/**").hasAuthority("REPORTES_EMITIR")
 
                         // Somatometría
                         .requestMatchers(HttpMethod.GET, "/api/somatometria/**").hasAuthority("SOMATOMETRIA_VER")

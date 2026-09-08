@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Prepara una carga masiva de resultados de estudios y la deja lista para que
@@ -131,11 +133,18 @@ public class CargaMasivaEstudiosService {
                             + "contempla ese modo. Registra estos estudios desde el formulario.");
         }
 
+        // Solo los parametros en uso participan en la carga: ni se piden en el archivo,
+        // ni sus alias emparejan columnas. Una columna que apunte a un parametro
+        // retirado queda sin destino y se avisa como columna desconocida, en vez de
+        // escribirse en silencio en algo que ya nadie captura.
         List<ParametroEstudio> parametros = tipo.getParametros() == null
-                ? List.of() : List.copyOf(tipo.getParametros());
+                ? List.of()
+                : tipo.getParametros().stream()
+                        .filter(pa -> Boolean.TRUE.equals(pa.getActivo()))
+                        .toList();
         if (parametros.isEmpty()) {
             throw new ArchivoInvalidoException(
-                    "\"" + tipo.getNombre() + "\" no tiene parametros configurados, asi que no hay nada que cargar.");
+                    "\"" + tipo.getNombre() + "\" no tiene parametros en uso, asi que no hay nada que cargar.");
         }
 
         if (tabla.vacia()) {
@@ -145,9 +154,11 @@ public class CargaMasivaEstudiosService {
         var emparejado = EmparejadorColumnas.emparejar(tabla.encabezados(),
                 parametros.stream().map(EmparejadorColumnas::desdeParametro).toList());
 
-        // En un estudio todos los parametros son obligatorios, asi que un destino
-        // sin columna detiene la carga igual que un conflicto. En examenes no es
-        // asi, y por eso la regla vive aqui y no en el emparejador.
+        // En un estudio todos los parametros EN USO son obligatorios, asi que un
+        // destino sin columna detiene la carga igual que un conflicto. Los retirados
+        // ni siquiera llegan hasta aqui: se filtraron arriba, y por eso un archivo
+        // que ya no trae su columna es un archivo correcto. En examenes la regla es
+        // otra, y por eso vive aqui y no en el emparejador.
         //
         // Sin estructura valida no tiene sentido interpretar las filas: se
         // devolveria una lista de errores derivados que esconderia la causa real.
@@ -244,7 +255,11 @@ public class CargaMasivaEstudiosService {
         }
 
         BeanUser usuarioActual = institucionContextService.getUsuarioActual();
+        // Mismo filtro que en la previsualizacion. Alli ya se decidio que un parametro
+        // retirado no participa; repetirlo aqui evita que un id colado en la peticion
+        // escriba en algo que ya nadie captura.
         Map<Long, ParametroEstudio> porId = tipo.getParametros().stream()
+                .filter(pa -> Boolean.TRUE.equals(pa.getActivo()))
                 .collect(java.util.stream.Collectors.toMap(ParametroEstudio::getId, pa -> pa));
 
         List<ResultadoCarga.Detalle> detalle = new ArrayList<>();
@@ -302,8 +317,24 @@ public class CargaMasivaEstudiosService {
         if (estudio.getResultadoEstudio() == null) {
             estudio.setResultadoEstudio(new ArrayList<>());
         }
+
+        // Se reemplaza lo que el archivo trae, no todo lo que habia. Un parametro
+        // que el archivo ni siquiera menciona conserva su valor anterior: borrarlo
+        // seria destruir un dato sobre el que la carga no dice nada. El caso real
+        // son los parametros retirados del catalogo, cuya columna ya no viaja en el
+        // archivo pero cuyo valor sigue siendo parte de esa captura.
+        Set<Long> vienenEnLaCarga = nuevos.stream()
+                .map(r -> r.getParametro().getId())
+                .collect(Collectors.toSet());
+
+        List<ResultadoEstudio> conservados = estudio.getResultadoEstudio().stream()
+                .filter(r -> r.getParametro() != null
+                        && !vienenEnLaCarga.contains(r.getParametro().getId()))
+                .toList();
+
         estudio.getResultadoEstudio().clear();
         resultadoEstudioRepository.flush();
+        estudio.getResultadoEstudio().addAll(conservados);
         estudio.getResultadoEstudio().addAll(nuevos);
     }
 

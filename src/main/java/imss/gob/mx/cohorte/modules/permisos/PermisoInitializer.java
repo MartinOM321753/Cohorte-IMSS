@@ -157,6 +157,18 @@ public class PermisoInitializer {
             new String[]{"DOCUMENTOS_SUBIR", "DOCUMENTOS", "Subir documentos"},
             new String[]{"DOCUMENTOS_ELIMINAR", "DOCUMENTOS", "Eliminar documentos"},
 
+            new String[]{"REPORTES_ACCEDER", "REPORTES", "Acceder al modulo de reportes"},
+            new String[]{"REPORTES_EMITIR", "REPORTES", "Emitir reportes en PDF"},
+            new String[]{"REPORTES_PLANTILLAS_CREAR", "REPORTES", "Crear plantillas de reporte"},
+            new String[]{"REPORTES_PLANTILLAS_EDITAR", "REPORTES", "Editar plantillas de reporte"},
+            new String[]{"REPORTES_PLANTILLAS_ELIMINAR", "REPORTES", "Eliminar plantillas de reporte"},
+            // Separado del de plantillas a proposito: una formula equivocada afecta a
+            // todos los reportes que la usen, no solo al que se esta editando.
+            new String[]{"REPORTES_FORMULAS_EDITAR", "REPORTES", "Crear y modificar formulas de calculo"},
+            // Aparte del de emitir: emitir saca el documento de un participante, exportar
+            // baja los datos de toda la cohorte en un archivo que sale del sistema.
+            new String[]{"REPORTES_EXPORTAR", "REPORTES", "Descargar datos de participantes en archivo"},
+
             new String[]{"SOMATOMETRIA_VER", "SOMATOMETRIA", "Ver datos somatometricos"},
             new String[]{"SOMATOMETRIA_CREAR", "SOMATOMETRIA", "Crear registros somatometricos"},
             new String[]{"SOMATOMETRIA_EDITAR", "SOMATOMETRIA", "Editar datos somatometricos"},

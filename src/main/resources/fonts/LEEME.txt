@@ -1,0 +1,29 @@
+Tipografías del módulo de reportes
+==================================
+
+MaterialSymbolsOutlined.ttf
+---------------------------
+Material Symbols Outlined, peso 400, instancia estática.
+
+  Origen   : Google Fonts (fonts.googleapis.com), familia «Material Symbols Outlined»
+  Licencia : Apache License 2.0
+  Texto    : https://www.apache.org/licenses/LICENSE-2.0
+  Proyecto : https://github.com/google/material-design-icons
+  Glifos   : 4018
+
+Por qué esta y no otra:
+
+  * El motor de PDF no dibuja SVG sin añadir un procesador de XML entero, así que
+    los iconos tienen que ser glifos de una tipografía. PDFBox solo carga TTF y
+    OTF: WOFF y WOFF2 quedan descartados, y con ellos varias librerías populares
+    que ya no publican TTF.
+  * Es la instancia estática, no la variable. La variable del repositorio de
+    Google pesa 10,6 MB porque guarda las interpolaciones de cuatro ejes; esta
+    trae los mismos dibujos a peso 400 en menos de un mega, que es lo que hace
+    viable servirla también al navegador.
+  * Apache 2.0 no obliga a poner un aviso en pantalla, a diferencia de otras
+    colecciones bajo CC BY. Para un sistema institucional eso importa.
+
+La misma copia vive en el frontend, en client/public/fonts/. Es duplicación
+deliberada: editor y documento tienen que dibujar el mismo glifo, y hacer que el
+navegador la pidiera al backend ataría una pantalla a un endpoint sin ganar nada.

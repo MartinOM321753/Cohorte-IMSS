@@ -173,13 +173,40 @@ class EmparejadorColumnasTest {
                 r.problemas().toString());
     }
 
-    // ── El nombre del parametro no vale como alias ───────────────────────────
+    // ── El nombre como alias por omision ─────────────────────────────────────
 
     @Test
-    void elNombreDelParametroNoEmparejaSolo() {
-        // Los nombres son clinicos y los titulos del aparato casi nunca
-        // coinciden; aceptarlos produciria emparejados por casualidad.
+    void sinAliasConfigurados_elNombreEmpareja() {
+        // Antes no emparejaba, y eso dejaba la carga masiva inservible hasta que
+        // alguien diera de alta los alias uno por uno. El titulo que casi siempre
+        // trae el archivo es justo el nombre del parametro.
         var p = parametro(1, "Peso corporal");   // sin alias configurados
+
+        var r = EmparejadorColumnas.emparejar(
+                List.of("folio", "fecha", "Peso corporal"), List.of(p));
+
+        assertTrue(utilizableComoEstudio(r), r.problemas().toString());
+        assertTrue(r.destinosSinColumna().isEmpty());
+        assertEquals("Peso corporal", r.conRol(Rol.PARAMETRO).get(0).aliasUsado());
+    }
+
+    @Test
+    void elNombrePorOmisionSeComparaNormalizado() {
+        // Misma indulgencia que con los alias: acentos, mayusculas y espacios de mas
+        // no deberian decidir si una carga funciona.
+        var p = parametro(1, "Índice de Masa Corporal");
+
+        var r = EmparejadorColumnas.emparejar(
+                List.of("folio", "fecha", "indice  de masa corporal"), List.of(p));
+
+        assertTrue(utilizableComoEstudio(r), r.problemas().toString());
+    }
+
+    @Test
+    void conAliasConfigurados_elNombreYaNoCuenta() {
+        // Configurar un alias significa que el aparato titula de otra forma. Aceptar
+        // ademas el nombre reabriria las coincidencias por casualidad.
+        var p = parametro(1, "Peso corporal", "Weight");
 
         var r = EmparejadorColumnas.emparejar(
                 List.of("folio", "fecha", "Peso corporal"), List.of(p));
@@ -187,6 +214,22 @@ class EmparejadorColumnasTest {
         assertFalse(utilizableComoEstudio(r));
         assertEquals(1, r.destinosSinColumna().size());
         assertEquals(1, r.conRol(Rol.IGNORADA).size());
+    }
+
+    @Test
+    void siElNombreDeUnoChocaConElAliasDeOtro_seDetiene() {
+        // El nombre por omision entra al mismo juego que los alias, incluida la
+        // deteccion de ambiguedad: elegir uno en silencio guardaria una medicion en
+        // el sitio de otra.
+        var sinAlias = parametro(1, "Masa grasa");
+        var conAlias = parametro(2, "Grasa corporal", "Masa grasa");
+
+        var r = EmparejadorColumnas.emparejar(
+                List.of("folio", "fecha", "Masa grasa"), List.of(sinAlias, conAlias));
+
+        assertFalse(r.sinConflictos());
+        assertTrue(r.problemas().get(0).contains("coincide con varios destinos"),
+                r.problemas().toString());
     }
 
     // ── Titulos alternativos de las columnas de control ──────────────────────

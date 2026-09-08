@@ -127,6 +127,19 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- openhtmltopdf: convierte HTML+CSS a PDF sin binarios externos.
+             Se eligio frente a Chromium headless para no meter un navegador en la
+             imagen del contenedor. Respeta @page y position:absolute, que es lo que
+             produce el disenador de reportes; a cambio no soporta flexbox ni grid,
+             asi que el HTML del reporte se arma con posiciones absolutas y tablas.
+             Arrastra PDFBox, que ademas es lo que hace falta para anexar evidencias
+             en PDF detras del reporte. -->
+        <dependency>
+            <groupId>io.github.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.1.28</version>
+        </dependency>
+
         <!-- MinIO Java SDK -->
         <dependency>
             <groupId>io.minio</groupId>

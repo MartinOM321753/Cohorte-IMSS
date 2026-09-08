@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.application.almacenamiento;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.EtiquetaPosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DCajaDTO;
@@ -136,7 +137,7 @@ public class CajasApplicationService {
 
             if (!afectadas.isEmpty()) {
                 String detalles = afectadas.stream()
-                    .map(p -> "Fila " + p.getFila() + " Col " + p.getColumna())
+                    .map(p -> EtiquetaPosicionCaja.etiqueta(p.getFila(), p.getColumna()))
                     .collect(Collectors.joining(", "));
                 throw new ObjConflictException(
                     "No se puede actualizar la caja: posiciones ocupadas fuera del nuevo rango " +

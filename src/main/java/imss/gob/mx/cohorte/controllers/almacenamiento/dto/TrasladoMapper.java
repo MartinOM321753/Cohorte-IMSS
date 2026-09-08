@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.EtiquetaPosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
@@ -74,7 +75,7 @@ public class TrasladoMapper {
         if (pos == null) return null;
         CajaCriogenica caja = pos.getCaja();
         String cajaCode = caja != null ? caja.getCodigoCaja() : "?";
-        return cajaCode + " [F" + pos.getFila() + ",C" + pos.getColumna() + "]";
+        return cajaCode + " [" + EtiquetaPosicionCaja.etiqueta(pos.getFila(), pos.getColumna()) + "]";
     }
 
     private static boolean isVencido(TrasladoMuestra t) {
