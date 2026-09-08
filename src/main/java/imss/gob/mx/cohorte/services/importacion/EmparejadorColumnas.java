@@ -19,6 +19,18 @@ import java.util.Set;
  * participante y la fecha—, las que corresponden a algo del catalogo por su
  * alias, y las que no son ninguna de las anteriores.</p>
  *
+ * <h3>El nombre como alias por omision</h3>
+ *
+ * <p>Un destino sin ningun alias configurado se empareja por su <b>nombre</b>. Antes no
+ * se hacia, y la consecuencia era que la carga masiva no funcionaba en absoluto hasta
+ * que alguien diera de alta los alias uno a uno — cuando el titulo que casi siempre
+ * lleva el archivo es justo el nombre del parametro.</p>
+ *
+ * <p>En cuanto el destino tiene aunque sea un alias, mandan los alias y el nombre deja
+ * de contar. Configurarlos significa que el aparato titula sus columnas de otra forma,
+ * y aceptar tambien el nombre reabriria las coincidencias por casualidad que los alias
+ * existen para evitar.</p>
+ *
  * <h3>Lo que se ignora y lo que detiene la carga</h3>
  *
  * <p>Una columna sobrante se avisa y se ignora: los aparatos exportan cosas que
@@ -182,24 +194,40 @@ public final class EmparejadorColumnas {
         return new Emparejado(columnas, sinColumna, problemas);
     }
 
-    /**
-     * Un destino es candidato si alguno de sus alias coincide con el encabezado.
-     * El nombre NO se usa como alias implicito: son nombres clinicos que casi
-     * nunca coinciden con lo que titula el aparato, y aceptarlos produciria
-     * coincidencias por casualidad.
-     */
+    /** Un destino es candidato si su nombre o alguno de sus alias coincide. */
     private static List<Destino> candidatosPara(String encabezadoNormalizado, List<Destino> destinos) {
         return destinos.stream()
                 .filter(d -> aliasQueCoincide(encabezadoNormalizado, d) != null)
                 .toList();
     }
 
+    /**
+     * Con que coincidio el encabezado, o null si no coincidio con nada.
+     *
+     * <p><b>Cuando el destino no tiene ningun alias configurado, su propio nombre hace
+     * de alias.</b> Un parametro sin alias no se emparejaba nunca, asi que la carga
+     * masiva no servia hasta que alguien se sentara a dar de alta los alias uno por
+     * uno; y el titulo que casi siempre se escribe en el archivo es, precisamente, el
+     * nombre del parametro.</p>
+     *
+     * <p>Solo cuando no hay ninguno. Si el destino ya tiene alias, mandan ellos y el
+     * nombre se queda fuera: quien se tomo el trabajo de configurarlos lo hizo porque
+     * el aparato titula sus columnas de otra forma, y colar el nombre ademas volveria a
+     * abrir la puerta a las coincidencias por casualidad que los alias vinieron a
+     * cerrar.</p>
+     */
     private static String aliasQueCoincide(String encabezadoNormalizado, Destino d) {
-        if (d.aliasNormalizados() == null) return null;
-        for (int i = 0; i < d.aliasNormalizados().size(); i++) {
-            if (encabezadoNormalizado.equals(d.aliasNormalizados().get(i))) {
-                return i < d.alias().size() ? d.alias().get(i) : d.aliasNormalizados().get(i);
+        List<String> normalizados = d.aliasNormalizados() == null ? List.of() : d.aliasNormalizados();
+
+        for (int i = 0; i < normalizados.size(); i++) {
+            if (encabezadoNormalizado.equals(normalizados.get(i))) {
+                return i < d.alias().size() ? d.alias().get(i) : normalizados.get(i);
             }
+        }
+
+        if (normalizados.isEmpty() && d.nombre() != null
+                && encabezadoNormalizado.equals(NormalizadorAlias.normalizar(d.nombre()))) {
+            return d.nombre();
         }
         return null;
     }
