@@ -25,26 +25,35 @@ public class BloqueEstudios {
         sb.append("<table style=\"border-collapse:collapse;width:100%;font-size:")
           .append(estilo.tamanoPt()).append("pt;color:").append(estilo.colorTexto()).append(";\">");
 
+        List<String> columnas = estilo.columnas();
+
         if (estilo.mostrarEncabezado()) {
             sb.append("<thead style=\"display:table-header-group;\"><tr>");
-            for (String rotulo : List.of("Estudio", "Fecha", "Resultados")) {
+            for (String col : columnas) {
                 sb.append("<th style=\"background:").append(estilo.fondoEncabezado())
                   .append(";color:").append(estilo.colorEncabezado())
                   .append(";border-bottom:0.3mm solid ").append(estilo.colorBorde())
-                  .append(";text-align:left;padding:1.6mm 2mm;\">").append(rotulo).append("</th>");
+                  .append(";text-align:left;padding:1.6mm 2mm;\">")
+                  .append(Html.escapar(ColumnasBloque.LISTADO_ESTUDIOS.getOrDefault(col, col)))
+                  .append("</th>");
             }
             sb.append("</tr></thead>");
         }
 
         sb.append("<tbody>");
         for (EstudioMedico e : estudios) {
-            String nombre = e.getTipoEstudio() != null ? e.getTipoEstudio().getNombre() : "";
-            int cuantos = e.getResultadoEstudio() == null ? 0 : e.getResultadoEstudio().size();
-            sb.append("<tr>")
-              .append(celda(Html.escapar(nombre), estilo))
-              .append(celda(ctx.fechaHora(e.getFechaEstudio()), estilo))
-              .append(celda(String.valueOf(cuantos), estilo))
-              .append("</tr>");
+            sb.append("<tr>");
+            for (String col : columnas) {
+                String contenido = switch (col) {
+                    case "estudio" -> e.getTipoEstudio() != null ? e.getTipoEstudio().getNombre() : "";
+                    case "fecha" -> ctx.fechaHora(e.getFechaEstudio());
+                    case "resultados" -> String.valueOf(
+                            e.getResultadoEstudio() == null ? 0 : e.getResultadoEstudio().size());
+                    default -> "";
+                };
+                sb.append(celda(Html.escapar(contenido), estilo));
+            }
+            sb.append("</tr>");
         }
         sb.append("</tbody></table>");
         return sb.toString();

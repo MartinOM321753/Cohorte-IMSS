@@ -42,15 +42,28 @@ public class BloqueResultados {
                          String fondoEncabezado, String colorBorde,
                          boolean mostrarEncabezado, List<String> columnas) {
 
-        static final List<String> COLUMNAS_POR_DEFECTO =
-                List.of("parametro", "valor", "unidad", "referencia");
-
-        /** Lee el estilo del elemento, cayendo a valores sensatos donde falte. */
+        /**
+         * Lee el estilo del elemento, cayendo a valores sensatos donde falte.
+         *
+         * <p>Las columnas por defecto salen de lo que ese bloque sabe imprimir, no de
+         * una lista fija: el listado de estudios imprime «Estudio / Fecha /
+         * Resultados» y la tabla de un estudio imprime «Parámetro / Resultado /
+         * Unidad / Referencia». Con una lista fija, el panel ofrecía unas y el
+         * documento sacaba otras.</p>
+         *
+         * <p>Se descarta además cualquier columna guardada que ese bloque no admita:
+         * pasa al cambiar la clave de un elemento ya diseñado.</p>
+         */
         public static Estilo de(JsonNode el) {
             JsonNode e = el.path("estilo");
+            List<String> admitidas = ColumnasBloque.clavesDe(el.path("clave").asText(""));
+
             List<String> columnas = new ArrayList<>();
-            for (JsonNode c : e.path("columnas")) columnas.add(c.asText());
-            if (columnas.isEmpty()) columnas = COLUMNAS_POR_DEFECTO;
+            for (JsonNode c : e.path("columnas")) {
+                String col = c.asText();
+                if (admitidas.contains(col)) columnas.add(col);
+            }
+            if (columnas.isEmpty()) columnas = admitidas;
 
             return new Estilo(
                     e.path("tamanoPt").asDouble(9),

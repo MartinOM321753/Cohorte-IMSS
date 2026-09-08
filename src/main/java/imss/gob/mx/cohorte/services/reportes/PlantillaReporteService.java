@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * El catálogo de plantillas de una institución.
@@ -25,6 +26,9 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class PlantillaReporteService {
+
+    /** Lo que aguanta la columna. Igual que el @Size del DTO. */
+    private static final int MAX_NOMBRE = 120;
 
     private final PlantillaReporteRepository repository;
     private final InstitucionContextService institucionContextService;
@@ -125,6 +129,84 @@ public class PlantillaReporteService {
                     "Una plantilla retirada de uso no puede ser la predeterminada. Actívala primero.");
         }
         dejarSoloEstaComoPredeterminada(plantilla);
+    }
+
+    /**
+     * Cambia solo el nombre y la descripción.
+     *
+     * <p>Va aparte del actualizar general porque ese exige el diseño completo: para
+     * renombrar desde el listado habría que traérselo y devolverlo, y un diseño
+     * viejo en ese viaje —otra pestaña abierta, una lista sin refrescar— pisaría el
+     * guardado bueno sin que nada avisara. Renombrar no toca el diseño.</p>
+     */
+    @Transactional
+    public PlantillaReporte renombrar(Long id, String nombre, String descripcion) {
+        PlantillaReporte plantilla = getById(id);
+        validarNombreLibre(nombre, plantilla.getInstitucion().getId(), id);
+
+        plantilla.setNombre(nombre);
+        plantilla.setDescripcion(descripcion);
+        return repository.save(plantilla);
+    }
+
+    /**
+     * Una copia de la plantilla, con su diseño, para partir de algo ya hecho.
+     *
+     * <p>La copia nace <b>sin</b> la marca de predeterminada aunque el original la
+     * tenga: duplicar un formato para probar cambios no puede robarle el sitio al que
+     * la institución ya usa para emitir.</p>
+     *
+     * @param nombre el que quiera quien copia; si viene vacío se propone uno libre
+     */
+    @Transactional
+    public PlantillaReporte duplicar(Long id, String nombre) {
+        PlantillaReporte original = getById(id);
+        Long idInstitucion = original.getInstitucion().getId();
+
+        String nombreFinal = nombre != null && !nombre.isBlank()
+                ? nombre.trim()
+                : nombreLibreParaCopia(original.getNombre(), idInstitucion);
+        validarNombreLibre(nombreFinal, idInstitucion, null);
+
+        PlantillaReporte copia = new PlantillaReporte();
+        copia.setNombre(nombreFinal);
+        copia.setDescripcion(original.getDescripcion());
+        copia.setTipoReporte(original.getTipoReporte());
+        copia.setDiseno(original.getDiseno());
+        copia.setTipoEstudio(original.getTipoEstudio());
+        copia.setInstitucion(original.getInstitucion());
+        copia.setActivo(true);
+        copia.setPredeterminada(false);
+
+        return repository.save(copia);
+    }
+
+    private String nombreLibreParaCopia(String base, Long idInstitucion) {
+        return nombreLibreParaCopia(base, nombre ->
+                repository.findByNombreIgnoreCaseAndInstitucion_Id(nombre, idInstitucion).isPresent());
+    }
+
+    /**
+     * «X (copia)», y si ya existe, «X (copia 2)», «X (copia 3)»…
+     *
+     * <p>El nombre no puede pasar de 120 caracteres, así que la base se recorta antes
+     * de añadirle el sufijo: recortar el resultado dejaría el «(copia)» partido a la
+     * mitad y volvería a chocar con el nombre de al lado.</p>
+     *
+     * <p>Recibe «¿está ocupado?» en vez de consultar la base para poder probarse: la
+     * regla es la numeración y el recorte, no de dónde salen los nombres ocupados.</p>
+     */
+    static String nombreLibreParaCopia(String base, Predicate<String> ocupado) {
+        for (int i = 1; i <= 50; i++) {
+            String sufijo = i == 1 ? " (copia)" : " (copia " + i + ")";
+            String recortada = base.length() + sufijo.length() > MAX_NOMBRE
+                    ? base.substring(0, MAX_NOMBRE - sufijo.length())
+                    : base;
+            String candidato = recortada + sufijo;
+            if (!ocupado.test(candidato)) return candidato;
+        }
+        throw new ObjConflictException(
+                "Ya hay demasiadas copias de \"" + base + "\". Renombra alguna antes de volver a duplicar.");
     }
 
     @Transactional

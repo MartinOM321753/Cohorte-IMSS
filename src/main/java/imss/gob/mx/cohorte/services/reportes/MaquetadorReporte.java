@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,6 +30,9 @@ import java.util.regex.Pattern;
 @AllArgsConstructor
 public class MaquetadorReporte {
 
+    /** Un milímetro en puntos: 1 pt = 1/72", 1 mm = 1/25.4". */
+    private static final double PT_POR_MM = 72.0 / 25.4;
+
     /** Marcador de campo dentro de un texto: {{clave}}, con espacios tolerados. */
     private static final Pattern MARCADOR = Pattern.compile("\\{\\{\\s*([\\w.]+)\\s*}}");
 
@@ -36,13 +40,19 @@ public class MaquetadorReporte {
     private final ResolvedorCampos resolvedor;
     private final BloqueResultados bloqueResultados;
     private final BloqueEstudios bloqueEstudios;
+    private final BloqueExamenes bloqueExamenes;
     private final EvidenciasReporte evidencias;
+    private final ImagenesReporte imagenes;
 
     public String maquetar(String disenoJson, ContextoReporte contexto) {
         JsonNode diseno = leer(disenoJson);
 
         double anchoMm = medida(diseno, true);
         double altoMm = medida(diseno, false);
+
+        // Una memoria por documento: un membrete marcado «en todas las páginas» se
+        // descarga y se codifica una vez, no una por hoja.
+        Map<String, ImagenesReporte.Resuelta> cacheImagenes = ImagenesReporte.nuevaCache();
 
         StringBuilder html = new StringBuilder(8192);
         html.append("<html><head><meta charset=\"utf-8\"/><style>")
@@ -52,13 +62,21 @@ public class MaquetadorReporte {
         JsonNode paginas = diseno.path("paginas");
         List<JsonNode> repetidos = elementosRepetidos(paginas);
 
+        JsonNode encabezado = bandaActiva(diseno, "encabezado");
+        JsonNode pie = bandaActiva(diseno, "pie");
+        double origenPie = pie == null ? 0 : altoMm - pie.path("altoMm").asDouble(0);
+
         for (int i = 0; i < paginas.size(); i++) {
             html.append("<div class=\"hoja\">");
-            // Los que se repiten van primero para quedar debajo: un membrete no debe
-            // taparle nada al contenido de la página.
-            if (i > 0) for (JsonNode el : repetidos) html.append(elemento(el, contexto));
+
+            // Las bandas van primero para quedar debajo: un membrete no debe taparle
+            // nada al contenido de la página.
+            html.append(banda(encabezado, 0, contexto, cacheImagenes));
+            html.append(banda(pie, origenPie, contexto, cacheImagenes));
+
+            if (i > 0) for (JsonNode el : repetidos) html.append(elemento(el, contexto, cacheImagenes));
             for (JsonNode el : ordenados(paginas.get(i).path("elementos"))) {
-                html.append(elemento(el, contexto));
+                html.append(elemento(el, contexto, cacheImagenes));
             }
             html.append("</div>");
         }
@@ -67,19 +85,66 @@ public class MaquetadorReporte {
         return html.toString();
     }
 
+    // ── Bandas ───────────────────────────────────────────────────────────────
+
+    /**
+     * El encabezado o el pie, si existe y está encendido.
+     *
+     * <p>Ambos son opcionales en los dos sentidos: un diseño anterior no los trae y
+     * sale exactamente igual que antes, y apagar uno no borra su contenido — se deja
+     * de dibujar y ya, para poder volver a encenderlo tal como estaba.</p>
+     */
+    private JsonNode bandaActiva(JsonNode diseno, String nombre) {
+        JsonNode banda = diseno.path(nombre);
+        if (banda.isMissingNode() || !banda.path("activo").asBoolean(false)) return null;
+        return banda.path("elementos").isArray() && !banda.path("elementos").isEmpty() ? banda : null;
+    }
+
+    /**
+     * Dibuja una banda en todas las páginas.
+     *
+     * <p>Sus elementos llevan coordenadas relativas a la banda, así que se envuelven
+     * en una caja colocada a su altura. Guardar coordenadas absolutas habría hecho que
+     * subir el pie de 20 a 30 mm dejara su contenido flotando donde estaba.</p>
+     */
+    private String banda(JsonNode banda, double origenMm, ContextoReporte ctx,
+                         Map<String, ImagenesReporte.Resuelta> cacheImagenes) {
+        if (banda == null) return "";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"position:absolute;left:0;right:0;top:").append(origenMm)
+          .append("mm;height:").append(banda.path("altoMm").asDouble(0)).append("mm;\">");
+        for (JsonNode el : ordenados(banda.path("elementos"))) {
+            sb.append(elemento(el, ctx, cacheImagenes));
+        }
+        sb.append("</div>");
+        return sb.toString();
+    }
+
     // ── Elementos ────────────────────────────────────────────────────────────
 
-    private String elemento(JsonNode el, ContextoReporte ctx) {
+    private String elemento(JsonNode el, ContextoReporte ctx, Map<String, ImagenesReporte.Resuelta> cacheImagenes) {
+        // Lo oculto tampoco se imprime. Si solo desapareciera del editor, saldría en
+        // el papel algo que quien lo diseñó creía haber quitado.
+        if (el.path("oculto").asBoolean(false)) return "";
+
+        // El giro se aplica a la caja entera. Es la misma propiedad que usa el
+        // editor, y este motor la reconoce: aparece en su tabla de propiedades.
+        double giro = el.path("rotacionGrados").asDouble(0);
+
         String caja = "position:absolute;"
                 + "left:" + mm(el, "xMm") + ";top:" + mm(el, "yMm") + ";"
                 + "width:" + mm(el, "anchoMm") + ";height:" + mm(el, "altoMm") + ";"
-                + "z-index:" + el.path("z").asInt(0) + ";";
+                + "z-index:" + el.path("z").asInt(0) + ";"
+                + (giro != 0 ? "transform:rotate(" + giro + "deg);" : "");
 
         return switch (el.path("tipo").asText("")) {
             case "texto"  -> texto(el, caja, ctx);
-            case "imagen" -> imagen(el, caja);
+            case "imagen" -> imagen(el, caja, cacheImagenes);
             case "figura" -> figura(el, caja);
             case "datos"  -> datos(el, caja, ctx);
+            case "icono"  -> icono(el, caja);
+            case "tabla"  -> tabla(el, caja, ctx);
             default -> "";
         };
     }
@@ -97,33 +162,81 @@ public class MaquetadorReporte {
         return "<div style=\"" + estilo + "\">" + Html.escaparConSaltos(contenido) + "</div>";
     }
 
-    private String imagen(JsonNode el, String caja) {
-        String url = el.path("url").asText("");
-        if (url.isBlank()) return "";
-        String ajuste = "cubrir".equals(el.path("ajuste").asText("contener")) ? "cover" : "contain";
-        return "<div style=\"" + caja + "\">"
-                + "<img src=\"" + Html.escapar(url)
-                + "\" style=\"width:100%;height:100%;object-fit:" + ajuste + ";\"/></div>";
+    /**
+     * Una imagen de la galería de la institución.
+     *
+     * <p>Solo se dibujan referencias {@code imagen:{id}}. Cualquier otra cosa —una URL
+     * escrita a mano— se omite: quien la descargaría es el servidor, no el navegador
+     * de quien mira, así que una dirección guardada en un diseño se convertiría en una
+     * petición saliendo de dentro de la red hacia donde diga esa plantilla.</p>
+     *
+     * <p>Una imagen borrada tampoco rompe nada: el documento sale sin ella.</p>
+     */
+    private String imagen(JsonNode el, String caja, Map<String, ImagenesReporte.Resuelta> cacheImagenes) {
+        String clave = el.path("url").asText("");
+        if (clave.isBlank()) return "";
+
+        ImagenesReporte.Resuelta img = imagenes.resuelta(clave, cacheImagenes);
+        if (img == null) return "";
+
+        // El tamaño y la posición se calculan aquí y no con object-fit, que este
+        // motor no conoce: con él, «entera» y «recortada» salían estiradas en el
+        // papel aunque en el editor se vieran bien.
+        EncuadreImagen enc = EncuadreImagen.de(
+                el.path("anchoMm").asDouble(0), el.path("altoMm").asDouble(0),
+                img.anchoPx(), img.altoPx(),
+                el.path("ajuste").asText("contener"),
+                el.path("zoom").asDouble(1),
+                el.path("desplazamientoXMm").asDouble(0),
+                el.path("desplazamientoYMm").asDouble(0));
+
+        String alt = el.path("descripcion").asText("");
+        return "<div style=\"" + caja + "overflow:hidden;\">"
+                + "<img src=\"" + img.dataUri() + "\" alt=\"" + Html.escapar(alt)
+                + "\" style=\"position:absolute;"
+                + "left:" + enc.izquierdaMm() + "mm;top:" + enc.arribaMm() + "mm;"
+                + "width:" + enc.anchoMm() + "mm;height:" + enc.altoMm() + "mm;\"/></div>";
+    }
+
+    /**
+     * Un icono del catálogo.
+     *
+     * <p>Es un glifo, no un dibujo: se emite el carácter y se pide la familia de
+     * iconos, que el generador incrusta recortada a lo que se use. Si la tipografía
+     * faltara, el documento saldría igual y con un hueco justo aquí — por eso hay
+     * una prueba que abre el PDF y comprueba que el glifo llegó.</p>
+     *
+     * <p>El tamaño sale del lado corto de la caja: estos glifos se dibujan dentro de
+     * un cuadrado, y tomar el lado largo los desbordaría por el otro.</p>
+     */
+    private String icono(JsonNode el, String caja) {
+        int codigo = codigoDeIcono(el.path("codigo").asText(""));
+        if (codigo <= 0) return "";
+
+        double anchoMm = el.path("anchoMm").asDouble(0);
+        double altoMm = el.path("altoMm").asDouble(0);
+        double ladoMm = Math.max(1, Math.min(anchoMm, altoMm));
+
+        return "<div style=\"" + caja
+                + "font-family:'" + ReportePdfService.FAMILIA_ICONOS + "';"
+                + "font-size:" + (ladoMm * PT_POR_MM) + "pt;"
+                + "line-height:" + altoMm + "mm;"
+                + "color:" + color(el, "color", "#111111") + ";"
+                + "text-align:center;overflow:hidden;\">"
+                + "&#x" + Integer.toHexString(codigo).toUpperCase() + ";"
+                + "</div>";
+    }
+
+    /** El código del glifo, o 0 si eso no es un hexadecimal aceptable. */
+    private int codigoDeIcono(String hexa) {
+        // Se valida antes de escribirlo: el valor viene del diseño, y una cadena
+        // cualquiera acabaría dentro de una entidad HTML del documento.
+        if (!hexa.matches("[0-9a-fA-F]{2,6}")) return 0;
+        return Integer.parseInt(hexa, 16);
     }
 
     private String figura(JsonNode el, String caja) {
-        String forma = el.path("forma").asText("rectangulo");
-        double grosor = el.path("grosorBordeMm").asDouble(0);
-        String colorBorde = color(el, "colorBorde", "#333333");
-
-        if ("linea".equals(forma)) {
-            return "<div style=\"" + caja + "\">"
-                    + "<div style=\"width:100%;height:" + (grosor > 0 ? grosor : 0.3) + "mm;"
-                    + "background:" + colorBorde + ";\"></div></div>";
-        }
-
-        String estilo = caja
-                + "background:" + color(el, "relleno", "transparent") + ";"
-                + (grosor > 0 ? "border:" + grosor + "mm solid " + colorBorde + ";" : "")
-                + ("elipse".equals(forma)
-                    ? "border-radius:50%;"
-                    : "border-radius:" + el.path("radioMm").asDouble(0) + "mm;");
-        return "<div style=\"" + estilo + "\"></div>";
+        return "<div style=\"" + caja + "\">" + FiguraReporte.html(el) + "</div>";
     }
 
     /**
@@ -147,6 +260,11 @@ public class MaquetadorReporte {
         if (ClaveCampo.BLOQUE_LISTADO_ESTUDIOS.equals(clave)) {
             return "<div style=\"" + cajaBloque + "\">"
                     + bloqueEstudios.html(ctx, BloqueResultados.Estilo.de(el)) + "</div>";
+        }
+        if (ClaveCampo.BLOQUE_LISTADO_EXAMENES.equals(clave)) {
+            return "<div style=\"" + cajaBloque + "\">"
+                    + bloqueExamenes.html(ctx, BloqueResultados.Estilo.de(el), seleccion(el))
+                    + "</div>";
         }
 
         ClaveCampo.BloqueEstudio bloque = ClaveCampo.comoBloqueEstudio(clave);
@@ -173,6 +291,149 @@ public class MaquetadorReporte {
         List<Long> ids = new ArrayList<>(nodo.size());
         nodo.forEach(n -> ids.add(n.asLong()));
         return ids;
+    }
+
+    // ── Tablas hechas a mano ──────────────────────────────────
+
+    /**
+     * Con qué aspecto se dibuja lo que la tabla no traiga puesto.
+     *
+     * <p>Son los mismos valores que {@code TABLA_POR_DEFECTO} del editor. Están
+     * repetidos aquí porque el diseño solo guarda lo que se tocó: una tabla recién
+     * insertada no lleva ni un color, y sin estos números saldría en el papel con un
+     * aspecto distinto al que enseñó el editor.</p>
+     */
+    private static final double TABLA_TAMANO_PT        = 9;
+    private static final String TABLA_COLOR_TEXTO      = "#111111";
+    private static final String TABLA_COLOR_ENCABEZADO = "#33505c";
+    private static final String TABLA_FONDO_ENCABEZADO = "#eef3f5";
+    private static final String TABLA_COLOR_BORDE      = "#dde5e9";
+    private static final double TABLA_GROSOR_BORDE_MM  = 0.2;
+    private static final double TABLA_RELLENO_MM       = 1.5;
+
+    /** Las alineaciones que el editor sabe producir. Lo demás iría al style tal cual. */
+    private static final List<String> ALINEACIONES = List.of("left", "center", "right", "justify");
+
+    /**
+     * Una tabla dibujada a mano, con sus propios encabezados y su propio contenido.
+     *
+     * <p>Se emite con una tabla HTML de verdad, no con cajas colocadas a mano: es lo
+     * que reparte el ancho entre las columnas y lo que hace que una celda de dos
+     * renglones estire su fila entera. El lienzo del editor emite esta misma
+     * estructura, y por eso lo que se ve ahí es lo que sale en el papel.</p>
+     *
+     * <p>El texto de cada celda pasa por los marcadores <code>{{clave}}</code> antes de
+     * escaparse: una celda puede traer el nombre del participante sin dejar de ser
+     * texto.</p>
+     */
+    private String tabla(JsonNode el, String caja, ContextoReporte ctx) {
+        JsonNode filas = el.path("filas");
+        if (!filas.isArray() || filas.isEmpty()) return "";
+
+        int columnas = cuantasColumnas(el, filas);
+        double[] anchos = anchosDe(el, columnas);
+        boolean conEncabezado = el.path("conEncabezado").asBoolean(true);
+
+        double tamanoPt  = el.path("tamanoPt").asDouble(TABLA_TAMANO_PT);
+        double grosorMm  = el.path("grosorBordeMm").asDouble(TABLA_GROSOR_BORDE_MM);
+        double rellenoMm = el.path("rellenoMm").asDouble(TABLA_RELLENO_MM);
+
+        String colorTexto      = color(el, "colorTexto", TABLA_COLOR_TEXTO);
+        String colorBorde      = color(el, "colorBorde", TABLA_COLOR_BORDE);
+        String colorEncabezado = color(el, "colorEncabezado", TABLA_COLOR_ENCABEZADO);
+        String fondoEncabezado = color(el, "fondoEncabezado", TABLA_FONDO_ENCABEZADO);
+        // Sin fondo alterno todas las filas del cuerpo van iguales, así que aquí no
+        // sirve un valor por defecto: hay que poder distinguir «ausente» de «un color».
+        String fondoAlterno    = color(el, "fondoAlterno", "");
+
+        String borde   = grosorMm + "mm solid " + colorBorde;
+        String relleno = rellenoMm + "mm " + (rellenoMm * 1.3) + "mm";
+
+        // «Crecer» estira la caja igual que en los bloques de datos: el alto pasa a ser
+        // un mínimo y no un tope, o una tabla larga saldría cortada por abajo.
+        String cajaTabla = "recortar".equals(el.path("desbordamiento").asText("crecer"))
+                ? caja + "overflow:hidden;"
+                : caja.replace("height:", "min-height:");
+
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("<div style=\"").append(cajaTabla).append("\">")
+          .append("<table style=\"border-collapse:collapse;width:100%;table-layout:fixed;")
+          .append("font-size:").append(tamanoPt).append("pt;")
+          .append("color:").append(colorTexto).append(";\"><colgroup>");
+        for (double pct : anchos) sb.append("<col style=\"width:").append(pct).append("%;\"/>");
+        sb.append("</colgroup><tbody>");
+
+        for (int i = 0; i < filas.size(); i++) {
+            boolean esEncabezado = conEncabezado && i == 0;
+            // Las alternas se cuentan desde la primera fila del cuerpo, no desde la del
+            // encabezado: si no, con encabezado la franja empezaba invertida.
+            int indiceCuerpo = conEncabezado ? i - 1 : i;
+            boolean alterna = !esEncabezado && !fondoAlterno.isEmpty() && indiceCuerpo % 2 == 1;
+
+            sb.append("<tr>");
+            for (int j = 0; j < columnas; j++) {
+                // Una fila guardada antes de añadir una columna se queda corta; el nodo
+                // ausente se comporta como celda vacía y la tabla sale cuadrada igual.
+                JsonNode celda = filas.get(i).path(j);
+
+                String fondoCelda = color(celda, "fondo",
+                        esEncabezado ? fondoEncabezado : (alterna ? fondoAlterno : ""));
+                String colorCelda = color(celda, "colorTexto",
+                        esEncabezado ? colorEncabezado : colorTexto);
+                String alineacion = celda.path("alineacion").asText("left");
+                if (!ALINEACIONES.contains(alineacion)) alineacion = "left";
+
+                sb.append("<td style=\"border:").append(borde)
+                  .append(";padding:").append(relleno)
+                  .append(";vertical-align:top")
+                  .append(";text-align:").append(alineacion)
+                  .append(";font-weight:")
+                  .append(celda.path("negrita").asBoolean(false) || esEncabezado ? "bold" : "normal")
+                  .append(";font-style:")
+                  .append(celda.path("cursiva").asBoolean(false) ? "italic" : "normal")
+                  .append(";color:").append(colorCelda)
+                  .append(";word-wrap:break-word");
+                if (!fondoCelda.isEmpty()) sb.append(";background:").append(fondoCelda);
+                sb.append(";\">")
+                  .append(Html.escaparConSaltos(sustituirMarcadores(celda.path("texto").asText(""), ctx)))
+                  .append("</td>");
+            }
+            sb.append("</tr>");
+        }
+
+        sb.append("</tbody></table></div>");
+        return sb.toString();
+    }
+
+    /** Cuántas columnas tiene de verdad: manda la fila más ancha. */
+    private int cuantasColumnas(JsonNode el, JsonNode filas) {
+        int cuantas = el.path("columnas").isArray() ? el.path("columnas").size() : 0;
+        for (JsonNode fila : filas) cuantas = Math.max(cuantas, fila.size());
+        return Math.max(cuantas, 1);
+    }
+
+    /**
+     * Los anchos de las columnas, en porcentaje del ancho de la caja.
+     *
+     * <p>Se normalizan al vuelo: un diseño guardado a medias puede no sumar cien, y
+     * una tabla que ocupara el 92 % de su caja se vería descuadrada sin decir por qué.
+     * Cuando los anchos guardados no corresponden a las columnas que hay, se reparten
+     * a partes iguales, que es lo mismo que hace el editor.</p>
+     */
+    private double[] anchosDe(JsonNode el, int columnas) {
+        JsonNode cols = el.path("columnas");
+        double suma = 0;
+        if (cols.isArray()) for (JsonNode c : cols) suma += c.path("anchoPct").asDouble(0);
+
+        double[] anchos = new double[columnas];
+        if (!cols.isArray() || cols.size() != columnas || suma <= 0) {
+            java.util.Arrays.fill(anchos, 100.0 / columnas);
+            return anchos;
+        }
+        for (int i = 0; i < columnas; i++) {
+            anchos[i] = cols.get(i).path("anchoPct").asDouble(0) / suma * 100;
+        }
+        return anchos;
     }
 
     // ── Marcadores ───────────────────────────────────────────────────────────

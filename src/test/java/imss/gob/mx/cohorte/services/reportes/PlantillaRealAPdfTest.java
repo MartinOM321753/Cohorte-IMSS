@@ -37,7 +37,8 @@ class PlantillaRealAPdfTest {
     private final ResolvedorCampos resolvedor = new ResolvedorCampos();
     private final MaquetadorReporte maquetador = new MaquetadorReporte(
             new ObjectMapper(), resolvedor, new BloqueResultados(resolvedor),
-            new BloqueEstudios(), new EvidenciasReporte(null, null));
+            new BloqueEstudios(), new BloqueExamenes(resolvedor),
+            new EvidenciasReporte(null, null), new ImagenesReporte(null));
     private final ReportePdfService pdfService = new ReportePdfService();
 
     @Test

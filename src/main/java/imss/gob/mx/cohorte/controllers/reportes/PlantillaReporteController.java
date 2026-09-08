@@ -1,7 +1,9 @@
 package imss.gob.mx.cohorte.controllers.reportes;
 
 import imss.gob.mx.cohorte.application.reportes.PlantillaReporteApplicationService;
+import imss.gob.mx.cohorte.controllers.reportes.dto.DuplicarPlantillaDTO;
 import imss.gob.mx.cohorte.controllers.reportes.dto.PlantillaReporteMapper;
+import imss.gob.mx.cohorte.controllers.reportes.dto.RenombrarPlantillaDTO;
 import imss.gob.mx.cohorte.controllers.reportes.dto.PlantillaReporteRequestDTO;
 import imss.gob.mx.cohorte.modules.reportes.PlantillaReporte;
 import imss.gob.mx.cohorte.modules.reportes.TipoReporte;
@@ -81,6 +83,30 @@ public class PlantillaReporteController {
         PlantillaReporte actualizada = applicationService.actualizar(id, dto);
         return ResponseEntity.ok(new APIResponse(
                 "Plantilla actualizada", PlantillaReporteMapper.toResponse(actualizada), false, HttpStatus.OK));
+    }
+
+    @PutMapping("/{id}/nombre")
+    @Operation(summary = "Renombrar una plantilla",
+               description = "Cambia nombre y descripción sin tocar el diseño. Va aparte del "
+                           + "actualizar general, que exige mandar el diseño entero y podría "
+                           + "pisar el guardado bueno con una versión vieja.")
+    public ResponseEntity<APIResponse> renombrar(
+            @PathVariable Long id, @Valid @RequestBody RenombrarPlantillaDTO dto) {
+        PlantillaReporte renombrada = applicationService.renombrar(id, dto);
+        return ResponseEntity.ok(new APIResponse(
+                "Plantilla renombrada", PlantillaReporteMapper.toResumen(renombrada), false, HttpStatus.OK));
+    }
+
+    @PostMapping("/{id}/duplicar")
+    @Operation(summary = "Duplicar una plantilla",
+               description = "Copia el diseño para partir de algo ya hecho. Sin nombre en el "
+                           + "cuerpo se propone uno libre. La copia nunca nace como predeterminada.")
+    public ResponseEntity<APIResponse> duplicar(
+            @PathVariable Long id,
+            @RequestBody(required = false) @Valid DuplicarPlantillaDTO dto) {
+        PlantillaReporte copia = applicationService.duplicar(id, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new APIResponse(
+                "Plantilla duplicada", PlantillaReporteMapper.toResponse(copia), false, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}/toggle")

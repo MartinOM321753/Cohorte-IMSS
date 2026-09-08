@@ -2,6 +2,8 @@ package imss.gob.mx.cohorte.application.reportes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import imss.gob.mx.cohorte.controllers.reportes.dto.PlantillaReporteMapper;
+import imss.gob.mx.cohorte.controllers.reportes.dto.DuplicarPlantillaDTO;
+import imss.gob.mx.cohorte.controllers.reportes.dto.RenombrarPlantillaDTO;
 import imss.gob.mx.cohorte.controllers.reportes.dto.PlantillaReporteRequestDTO;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.modules.reportes.PlantillaReporte;
@@ -60,6 +62,16 @@ public class PlantillaReporteApplicationService {
     public PlantillaReporte actualizar(Long id, PlantillaReporteRequestDTO dto) {
         verificarDisenoEsJson(dto.getDiseno());
         return service.update(id, PlantillaReporteMapper.toEntity(dto), dto.getIdTipoEstudio());
+    }
+
+    @Transactional
+    public PlantillaReporte renombrar(Long id, RenombrarPlantillaDTO dto) {
+        return service.renombrar(id, dto.getNombre().trim(), dto.getDescripcion());
+    }
+
+    @Transactional
+    public PlantillaReporte duplicar(Long id, DuplicarPlantillaDTO dto) {
+        return service.duplicar(id, dto == null ? null : dto.getNombre());
     }
 
     @Transactional

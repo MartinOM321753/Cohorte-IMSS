@@ -37,7 +37,8 @@ class MaquetadorReporteTest {
     private final ResolvedorCampos resolvedor = new ResolvedorCampos();
     private final MaquetadorReporte maquetador = new MaquetadorReporte(
             new ObjectMapper(), resolvedor, new BloqueResultados(resolvedor),
-            new BloqueEstudios(), new EvidenciasReporte(null, null));
+            new BloqueEstudios(), new BloqueExamenes(resolvedor),
+            new EvidenciasReporte(null, null), new ImagenesReporte(null));
 
     // ── Escenario: un participante con tres estudios distintos ───────────────
 
@@ -94,7 +95,7 @@ class MaquetadorReporteTest {
         EstudioMedico tanita = estudio(TANITA, "TANITA", LocalDateTime.of(2026, 6, 2, 10, 0));
         conResultado(tanita, 301L, "Porcentaje de grasa", 28.4, "%");
 
-        return new ContextoReporte(participante(), List.of(dexa, signos, tanita), null,
+        return new ContextoReporte(participante(), List.of(dexa, signos, tanita), List.of(), null,
                 new ContextoReporte.Totales(3, 40, 2));
     }
 
@@ -263,5 +264,106 @@ class MaquetadorReporteTest {
         ValidationException e = assertThrows(ValidationException.class,
                 () -> maquetador.maquetar("{\"version\":1,\"paginas\":[]}", contexto()));
         assertTrue(e.getMessage().contains("página"), e.getMessage());
+    }
+
+    // ── Tablas hechas a mano ──────────────────────────────────
+
+    /**
+     * Una tabla dibujada a mano, en el JSON que guarda el editor.
+     *
+     * <p>Se deja incompleta a propósito: la segunda fila trae una sola celda para una
+     * tabla de dos columnas, que es como queda un diseño guardado antes de añadir la
+     * segunda. Cuadrarla es trabajo del maquetador, no de quien diseñó.</p>
+     */
+    private String tabla(String extra) {
+        return """
+            {"id":"tb1","tipo":"tabla","xMm":15,"yMm":40,"anchoMm":180,"altoMm":30,"z":1,
+             "columnas":[{"anchoPct":60},{"anchoPct":40}],
+             "filas":[[{"texto":"Parámetro"},{"texto":"Valor"}],
+                      [{"texto":"Folio {{participante.folio}}"}]],
+             "conEncabezado":true%s}
+            """.formatted(extra.isEmpty() ? "" : "," + extra);
+    }
+
+    @Test
+    @DisplayName("Una tabla hecha a mano sale en el documento, no en blanco")
+    void laTablaHechaAManoSeDibuja() {
+        String html = maquetador.maquetar(diseno(tabla("")), contexto());
+
+        assertTrue(html.contains("<table"), "La tabla no llegó al documento: " + html);
+        assertTrue(html.contains("Parámetro"), "Falta el encabezado escrito a mano");
+        assertTrue(html.contains("width:60.0%"), "No se respetó el ancho de la columna: " + html);
+    }
+
+    @Test
+    @DisplayName("El texto de una celda resuelve sus marcadores")
+    void lasCeldasResuelvenMarcadores() {
+        String html = maquetador.maquetar(diseno(tabla("")), contexto());
+
+        assertTrue(html.contains("HWCS-000418"), "La celda no resolvió el folio: " + html);
+        assertFalse(html.contains("{{"), "No debe quedar ningún marcador sin resolver");
+    }
+
+    /**
+     * El caso que la deja cuadrada: una fila corta no puede dejar la tabla con un
+     * hueco, porque en el papel eso se ve como un renglón sin bordes.
+     */
+    @Test
+    @DisplayName("Una fila más corta que la tabla se completa con celdas vacías")
+    void lasFilasCortasSeCuadran() {
+        String html = maquetador.maquetar(diseno(tabla("")), contexto());
+
+        int celdas = html.split("<td", -1).length - 1;
+        assertEquals(4, celdas, "Dos filas de dos columnas son cuatro celdas: " + html);
+    }
+
+    @Test
+    @DisplayName("La primera fila se pinta como encabezado y solo ella")
+    void elEncabezadoEsLaPrimeraFila() {
+        String html = maquetador.maquetar(diseno(tabla("")), contexto());
+
+        assertTrue(html.contains("background:#eef3f5"), "Falta el fondo del encabezado: " + html);
+        assertEquals(2, html.split("font-weight:bold", -1).length - 1,
+                "Solo las dos celdas del encabezado van en negrita: " + html);
+    }
+
+    @Test
+    @DisplayName("Sin encabezado ninguna fila se destaca")
+    void sinEncabezadoNadaSeDestaca() {
+        String html = maquetador.maquetar(diseno(tabla("\"conEncabezado\":false")), contexto());
+
+        assertFalse(html.contains("background:#eef3f5"), "No debía pintarse encabezado: " + html);
+        assertFalse(html.contains("font-weight:bold"), "Ninguna celda va en negrita: " + html);
+    }
+
+    /**
+     * «Crecer» convierte el alto en un mínimo. Es lo mismo que hacen los bloques de
+     * datos, y sin ello una tabla a la que se le añaden filas saldría cortada por
+     * abajo sin avisar.
+     */
+    @Test
+    @DisplayName("Al crecer, el alto de la caja es un mínimo y no un tope")
+    void alCrecerElAltoEsMinimo() {
+        String creciendo = maquetador.maquetar(diseno(tabla("\"desbordamiento\":\"crecer\"")), contexto());
+        String recortando = maquetador.maquetar(diseno(tabla("\"desbordamiento\":\"recortar\"")), contexto());
+
+        assertTrue(creciendo.contains("min-height:30.0mm"), creciendo);
+        assertTrue(recortando.contains("height:30.0mm") && recortando.contains("overflow:hidden"),
+                recortando);
+    }
+
+    @Test
+    @DisplayName("Un color inventado en una celda no se cuela en el estilo")
+    void losColoresDeCeldaSeValidan() {
+        String elemento = """
+            {"id":"tb2","tipo":"tabla","xMm":15,"yMm":40,"anchoMm":180,"altoMm":30,"z":1,
+             "columnas":[{"anchoPct":100}],
+             "filas":[[{"texto":"x","colorTexto":"red;position:fixed"}]],
+             "conEncabezado":false}
+            """;
+        String html = maquetador.maquetar(diseno(elemento), contexto());
+
+        assertFalse(html.contains("position:fixed"), "Se coló un valor sin validar: " + html);
+        assertTrue(html.contains("color:#111111"), "Se cae al color por defecto: " + html);
     }
 }

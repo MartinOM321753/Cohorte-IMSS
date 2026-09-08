@@ -36,8 +36,20 @@ public class ReportePdfService {
     private static final String FUENTE_REGULAR = "/fonts/DejaVuSans.ttf";
     private static final String FUENTE_NEGRITA = "/fonts/DejaVuSans-Bold.ttf";
 
+    /**
+     * La tipografia de iconos.
+     *
+     * <p>Un icono es un glifo, no un dibujo: este motor no pinta SVG sin arrastrar
+     * un procesador de XML entero, y PDFBox solo carga TTF. Material Symbols en su
+     * instancia estatica trae mas de cuatro mil iconos en menos de un mega.</p>
+     */
+    public static final String FUENTE_ICONOS = "/fonts/MaterialSymbolsOutlined.ttf";
+
     /** Nombre con el que el CSS del reporte pide esta familia. */
     public static final String FAMILIA = "Reporte";
+
+    /** Nombre con el que el CSS pide los iconos. */
+    public static final String FAMILIA_ICONOS = "Iconos";
 
     public byte[] aPdf(String html) {
         ByteArrayOutputStream salida = new ByteArrayOutputStream();
@@ -63,18 +75,20 @@ public class ReportePdfService {
      * dentro del jar no hay ruta de disco que darle al motor.</p>
      */
     private void registrarFuentes(PdfRendererBuilder builder) {
-        registrarSiExiste(builder, FUENTE_REGULAR, 400);
-        registrarSiExiste(builder, FUENTE_NEGRITA, 700);
+        registrarSiExiste(builder, FUENTE_REGULAR, 400, FAMILIA);
+        registrarSiExiste(builder, FUENTE_NEGRITA, 700, FAMILIA);
+        registrarSiExiste(builder, FUENTE_ICONOS, 400, FAMILIA_ICONOS);
     }
 
-    private void registrarSiExiste(PdfRendererBuilder builder, String ruta, int peso) {
+    private void registrarSiExiste(PdfRendererBuilder builder, String ruta, int peso,
+                                   String familia) {
         if (getClass().getResource(ruta) == null) {
             // Sin la fuente el reporte se genera igual, pero con las base del PDF y el
             // riesgo de que los acentos salgan mal. Se avisa una vez, al generar.
             log.warn("Tipografía {} no encontrada en el classpath; el PDF usará las fuentes base", ruta);
             return;
         }
-        builder.useFont(() -> abrir(ruta), FAMILIA, peso,
+        builder.useFont(() -> abrir(ruta), familia, peso,
                 com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle.NORMAL, true);
     }
 

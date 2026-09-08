@@ -45,6 +45,12 @@ public final class ClaveCampo {
     /** Un bloque que depende de un tipo de estudio. */
     public record BloqueEstudio(long idTipo, String bloque) {}
 
+    /** Un analito de laboratorio. Los exámenes no son paneles: cada uno es uno. */
+    public record CampoExamen(long idExamen, String campo) {}
+
+    private static final Pattern EXAMEN_CAMPO =
+            Pattern.compile("^examen\\.(\\d+)\\.(valor|fecha|unidad|referencia)$");
+
     public static Parametro comoParametro(String clave) {
         Matcher m = ESTUDIO_PARAM.matcher(clave);
         return m.matches() ? new Parametro(Long.parseLong(m.group(1)), Long.parseLong(m.group(2))) : null;
@@ -58,6 +64,44 @@ public final class ClaveCampo {
     public static BloqueEstudio comoBloqueEstudio(String clave) {
         Matcher m = BLOQUE_ESTUDIO.matcher(clave);
         return m.matches() ? new BloqueEstudio(Long.parseLong(m.group(1)), m.group(2)) : null;
+    }
+
+    public static CampoExamen comoCampoExamen(String clave) {
+        Matcher m = EXAMEN_CAMPO.matcher(clave);
+        return m.matches() ? new CampoExamen(Long.parseLong(m.group(1)), m.group(2)) : null;
+    }
+
+    private static final Pattern FORMULA = Pattern.compile("^formula\\.(\\d+)$");
+    private static final Pattern FORMULA_PARTE =
+            Pattern.compile("^formula\\.(\\d+)\\.(minimo|maximo|referencia|estado)$");
+
+    /** Una parte de una fórmula: sus límites, su referencia escrita o si el valor cae dentro. */
+    public record ParteFormula(long idFormula, String parte) {}
+
+    public static ParteFormula comoParteDeFormula(String clave) {
+        Matcher m = FORMULA_PARTE.matcher(clave);
+        return m.matches() ? new ParteFormula(Long.parseLong(m.group(1)), m.group(2)) : null;
+    }
+
+    public static String deParteDeFormula(long idFormula, String parte) {
+        return "formula." + idFormula + "." + parte;
+    }
+
+    /**
+     * Una fórmula del catálogo, por su identificador.
+     *
+     * <p>Es una clave más y no un tipo de elemento nuevo, y eso no es un atajo: al
+     * entrar por el mismo sitio que los demás campos, una fórmula se puede meter dentro
+     * de un párrafo, en una celda de una tabla hecha a mano y en un campo suelto, sin
+     * que ninguna de las tres pantallas tenga que enterarse de que existe.</p>
+     */
+    public static Long comoFormula(String clave) {
+        Matcher m = FORMULA.matcher(clave);
+        return m.matches() ? Long.parseLong(m.group(1)) : null;
+    }
+
+    public static String deFormula(long idFormula) {
+        return "formula." + idFormula;
     }
 
     // ── Construcción, para que el catálogo y el resolvedor no se separen ─────
@@ -78,6 +122,13 @@ public final class ClaveCampo {
         return "bloque.estudio." + idTipo + ".evidencias";
     }
 
+    public static String deExamen(long idExamen, String campo) {
+        return "examen." + idExamen + "." + campo;
+    }
+
     /** El listado de estudios del participante, que no depende de ningún tipo. */
     public static final String BLOQUE_LISTADO_ESTUDIOS = "bloque.estudios.listado";
+
+    /** La tabla con los resultados de laboratorio del participante. */
+    public static final String BLOQUE_LISTADO_EXAMENES = "bloque.examenes.listado";
 }

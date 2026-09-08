@@ -4,6 +4,7 @@ import imss.gob.mx.cohorte.application.EstudiosApplicationService;
 import imss.gob.mx.cohorte.application.PacienteApplicationService;
 import imss.gob.mx.cohorte.modules.estudios.EstudioMedico;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.modules.examenes.resultados.ResultadoExamen;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.reportes.PlantillaReporte;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
@@ -117,17 +118,18 @@ public class EmisionReporteApplicationService {
     private ContextoReporte contextoDe(String uuid, EstudioMedico focal) {
         if (uuid == null) {
             return new ContextoReporte(focal != null ? focal.getPaciente() : null,
-                    focal != null ? List.of(focal) : List.of(), focal,
+                    focal != null ? List.of(focal) : List.of(), List.of(), focal,
                     ContextoReporte.Totales.sinCalcular());
         }
 
         Paciente paciente = pacienteApplicationService.findByUUID(uuid);
         List<EstudioMedico> estudios = estudiosApplicationService.getEstudiosByPaciente(uuid);
+        // Los resultados de laboratorio se piden por el mismo camino que el
+        // expediente, que ya decide hasta dónde alcanza el acceso al participante.
+        List<ResultadoExamen> examenes = resultadoExamenService.findAllByUUID(uuid);
 
-        return new ContextoReporte(paciente, estudios, focal, new ContextoReporte.Totales(
-                estudios.size(),
-                resultadoExamenService.countByPacienteUuid(uuid),
-                muestraService.countByPacienteUuid(uuid)));
+        return new ContextoReporte(paciente, estudios, examenes, focal, new ContextoReporte.Totales(
+                estudios.size(), examenes.size(), muestraService.countByPacienteUuid(uuid)));
     }
 
     // ── Nombre del archivo ───────────────────────────────────────────────────
