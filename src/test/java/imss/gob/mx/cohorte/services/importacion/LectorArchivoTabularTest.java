@@ -220,4 +220,124 @@ class LectorArchivoTabularTest {
         assertEquals(2, t.totalFilas());
         assertEquals(java.util.List.of(2, 4), t.numerosDeFila());
     }
+
+    // ── Lectura reproducible (COMO_SE_VE) ────────────────────────────────────
+    //
+    // El modo canonico convierte cada celda a una forma inequivoca para poder
+    // parsearla; este modo hace lo contrario y conserva el formato, porque quien
+    // lo usa va a imprimir la celda, no a interpretarla. Las pruebas de abajo
+    // fijan esa diferencia caso por caso: si algun dia los dos modos devuelven lo
+    // mismo, es que uno de los dos dejo de servir para lo suyo.
+
+    /** Libro con una celda de cada tipo que Excel formatea distinto de su valor crudo. */
+    private byte[] libroConFormatos() throws Exception {
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet hoja = wb.createSheet("Datos");
+            Row enc = hoja.createRow(0);
+            enc.createCell(0).setCellValue("fecha");
+            enc.createCell(1).setCellValue("avance");
+            enc.createCell(2).setCellValue("folio");
+
+            var formatos = wb.createDataFormat();
+
+            var estiloFecha = wb.createCellStyle();
+            estiloFecha.setDataFormat(formatos.getFormat("dd/mm/yyyy"));
+            var estiloPorcentaje = wb.createCellStyle();
+            estiloPorcentaje.setDataFormat(formatos.getFormat("0.0%"));
+
+            Row f1 = hoja.createRow(1);
+            var fecha = f1.createCell(0);
+            fecha.setCellValue(java.time.LocalDate.of(2026, 3, 12));
+            fecha.setCellStyle(estiloFecha);
+
+            var avance = f1.createCell(1);
+            avance.setCellValue(0.155);
+            avance.setCellStyle(estiloPorcentaje);
+
+            f1.createCell(2).setCellValue(502);
+
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private MockMultipartFile xlsx(byte[] libro) {
+        return new MockMultipartFile("archivo", "d.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", libro);
+    }
+
+    @Test
+    void laFechaSaleComoSeVeEnLaHojaYNoEnIso() throws Exception {
+        byte[] libro = libroConFormatos();
+
+        assertEquals("2026-03-12T00:00", lector.leer(xlsx(libro)).filas().get(0).get(0),
+                "el modo canonico debe seguir dando ISO para poder parsearlo");
+        assertEquals("12/03/2026", lector.leerComoSeVe(xlsx(libro)).tabla().filas().get(0).get(0),
+                "en una etiqueta hay que imprimir lo que la persona ve en su hoja");
+    }
+
+    @Test
+    void elPorcentajeConservaSuFormato() throws Exception {
+        byte[] libro = libroConFormatos();
+
+        // Es la diferencia mas traicionera de las dos lecturas: 0.155 y 15.5% son
+        // el mismo dato, pero solo uno de los dos es el que hay que imprimir.
+        assertEquals("0.155", lector.leer(xlsx(libro)).filas().get(0).get(1));
+        assertEquals("15.5%", lector.leerComoSeVe(xlsx(libro)).tabla().filas().get(0).get(1));
+    }
+
+    @Test
+    void unEnteroNoGanaDecimalesEnNingunModo() throws Exception {
+        byte[] libro = libroConFormatos();
+
+        assertEquals("502", lector.leer(xlsx(libro)).filas().get(0).get(2));
+        assertEquals("502", lector.leerComoSeVe(xlsx(libro)).tabla().filas().get(0).get(2));
+    }
+
+    /** Libro con una formula ya calculada, como el que sale de guardar en Excel. */
+    private byte[] libroConFormula() throws Exception {
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet hoja = wb.createSheet("Datos");
+            Row enc = hoja.createRow(0);
+            enc.createCell(0).setCellValue("a");
+            enc.createCell(1).setCellValue("b");
+            Row f1 = hoja.createRow(1);
+            f1.createCell(0).setCellValue(2);
+            f1.createCell(1).setCellFormula("A2*2");
+            // Sin esto la formula viaja sin resultado guardado, que no es como
+            // llega un archivo que alguien guardo desde Excel.
+            org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator.evaluateAllFormulaCells(wb);
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    @Test
+    void laFormulaNoRechazaElArchivoPeroSeReportaLaCelda() throws Exception {
+        byte[] libro = libroConFormula();
+
+        // Canonico: se rechaza, porque un resultado clinico que quiza pertenece a
+        // otros datos es peor que no tener resultado.
+        assertThrows(ArchivoInvalidoException.class, () -> lector.leer(xlsx(libro)));
+
+        // Reproducible: se imprime lo que la hoja muestra, y se dice cual celda es.
+        LectorArchivoTabular.TablaConAvisos leido = lector.leerComoSeVe(xlsx(libro));
+        assertEquals("4", leido.tabla().filas().get(0).get(1));
+        assertEquals(1, leido.celdasDerivadas().size());
+        assertEquals("B2", leido.celdasDerivadas().get(0).referencia());
+    }
+
+    @Test
+    void unCsvSeLeeIgualEnLosDosModos() {
+        // Un CSV ya es texto literal: no hay formato que reproducir. Que los dos
+        // modos coincidan aqui es lo correcto, y conviene fijarlo para que nadie
+        // le invente un tratamiento distinto mas adelante.
+        String contenido = "fecha,folio\n12/03/2026,000502";
+
+        TablaLeida canonico = lector.leer(csv("d.csv", contenido));
+        LectorArchivoTabular.TablaConAvisos comoSeVe = lector.leerComoSeVe(csv("d.csv", contenido));
+
+        assertEquals(canonico.filas(), comoSeVe.tabla().filas());
+        assertTrue(comoSeVe.celdasDerivadas().isEmpty());
+    }
 }

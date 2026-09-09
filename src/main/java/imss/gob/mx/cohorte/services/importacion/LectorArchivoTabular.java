@@ -13,6 +13,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Abre un CSV o un XLSX y devuelve su contenido como texto.
@@ -31,10 +32,11 @@ import java.util.List;
  *   <li><b>Archivo disfrazado.</b> La extension la pone quien sube el archivo; lo
  *       que manda es el contenido.</li>
  *   <li><b>Volumen.</b> Topes de bytes, filas, columnas y tamano de celda.</li>
- *   <li><b>Formulas.</b> Se rechazan: Excel guarda el ultimo resultado calculado,
- *       que puede no corresponder a los datos actuales si el archivo se edito sin
- *       recalcular, y no hay forma de saberlo desde fuera. Un resultado clinico
- *       que quiza pertenece a otros datos es peor que no tener resultado.</li>
+ *   <li><b>Formulas.</b> Se rechazan en modo {@link ModoLectura#CANONICO}: Excel
+ *       guarda el ultimo resultado calculado, que puede no corresponder a los
+ *       datos actuales si el archivo se edito sin recalcular, y no hay forma de
+ *       saberlo desde fuera. Un resultado clinico que quiza pertenece a otros
+ *       datos es peor que no tener resultado.</li>
  * </ul>
  */
 @Service
@@ -45,7 +47,57 @@ public class LectorArchivoTabular {
 
     private static final char BOM = '﻿';
 
+    /**
+     * Como se convierte cada celda a texto. Son dos politicas distintas y las dos
+     * son correctas; lo que cambia es para que se va a usar el valor.
+     */
+    public enum ModoLectura {
+        /**
+         * Valor canonico, pensado para <b>interpretar</b>: fechas en ISO-8601 y
+         * numeros sin el formato que Excel les aplica encima, para poder parsearlos
+         * sin depender de la configuracion regional de quien exporto. Las formulas
+         * se rechazan.
+         */
+        CANONICO,
+
+        /**
+         * Texto tal como se ve en la hoja, pensado para <b>reproducir</b>.
+         *
+         * <p>Existe porque hay usos en los que el requisito es literalmente que lo
+         * que esta en la celda sea lo que sale: imprimir una etiqueta, por ejemplo.
+         * Ahi el valor canonico es el equivocado — una fecha saldria como
+         * {@code 2026-03-12T00:00} y un porcentaje que en pantalla dice 15.5% se
+         * imprimiria como 0.155.</p>
+         *
+         * <p>Las formulas no rechazan el archivo: se lee su ultimo resultado
+         * calculado y la celda se reporta como derivada, para poder avisarlo. La
+         * cautela clinica que justifica el rechazo no aplica a un texto que el
+         * usuario va a revisar en pantalla antes de imprimirlo.</p>
+         */
+        COMO_SE_VE
+    }
+
+    /** Una celda cuyo valor venia de una formula, en modo {@link ModoLectura#COMO_SE_VE}. */
+    public record CeldaDerivada(int fila, int columna, String referencia) {}
+
+    /**
+     * Lo que devuelve la lectura reproducible: la tabla y las celdas sobre las que
+     * conviene avisar. Se mantiene aparte de {@link TablaLeida} para no cambiarle
+     * la forma a lo que ya consumen los importadores.
+     */
+    public record TablaConAvisos(TablaLeida tabla, List<CeldaDerivada> celdasDerivadas) {}
+
+    /** Lectura canonica: la que usan los importadores. Rechaza formulas. */
     public TablaLeida leer(MultipartFile archivo) {
+        return leerInterno(archivo, ModoLectura.CANONICO).tabla();
+    }
+
+    /** Lectura reproducible: el texto tal como se ve en Excel, con avisos. */
+    public TablaConAvisos leerComoSeVe(MultipartFile archivo) {
+        return leerInterno(archivo, ModoLectura.COMO_SE_VE);
+    }
+
+    private TablaConAvisos leerInterno(MultipartFile archivo, ModoLectura modo) {
         if (archivo == null || archivo.isEmpty()) {
             throw new ArchivoInvalidoException("No se recibio ningun archivo.");
         }
@@ -73,7 +125,7 @@ public class LectorArchivoTabular {
                         "El archivo parece un libro de Excel pero no tiene extension .xlsx. "
                                 + "Vuelve a exportarlo o renombralo correctamente.");
             }
-            return leerXlsx(contenido);
+            return leerXlsx(contenido, modo);
         }
 
         if (nombre.endsWith(".xlsx")) {
@@ -84,7 +136,9 @@ public class LectorArchivoTabular {
                     "El formato .xls antiguo no esta soportado. Guarda el archivo como .xlsx o .csv.");
         }
 
-        return leerCsv(contenido);
+        // Un CSV ya es texto literal: no hay formato de celda que reproducir ni
+        // formulas que resolver, asi que los dos modos leen exactamente igual.
+        return new TablaConAvisos(leerCsv(contenido), List.of());
     }
 
     private boolean tieneFirmaZip(byte[] contenido) {
@@ -148,7 +202,7 @@ public class LectorArchivoTabular {
 
     // ── XLSX ─────────────────────────────────────────────────────────────────
 
-    private TablaLeida leerXlsx(byte[] contenido) {
+    private TablaConAvisos leerXlsx(byte[] contenido, ModoLectura modo) {
         // Los topes de POI son estaticos y globales; se fijan en cada lectura para
         // no depender de que otro punto del sistema los haya dejado como estaban.
         ZipSecureFile.setMinInflateRatio(LimitesArchivo.RATIO_MINIMO_INFLADO);
@@ -157,6 +211,12 @@ public class LectorArchivoTabular {
         List<String> encabezados;
         List<List<String>> filas = new ArrayList<>();
         List<Integer> numeros = new ArrayList<>();
+        List<CeldaDerivada> derivadas = new ArrayList<>();
+
+        // El formateador aplica el formato que la celda tiene puesto en la hoja.
+        // Se le da la configuracion regional del cliente porque de ella dependen
+        // los formatos de fecha y numero heredados de Excel.
+        DataFormatter formateador = new DataFormatter(Locale.of("es", "MX"));
 
         // XSSFWorkbook directamente y no WorkbookFactory: asi solo se acepta xlsx y
         // no se abre la puerta a otros formatos que POI sepa interpretar.
@@ -174,7 +234,7 @@ public class LectorArchivoTabular {
             encabezados = new ArrayList<>();
             for (int c = 0; c < filaEncabezados.getLastCellNum(); c++) {
                 encabezados.add(valorDeCelda(filaEncabezados.getCell(c),
-                        filaEncabezados.getRowNum() + 1, c));
+                        filaEncabezados.getRowNum() + 1, c, modo, formateador, derivadas));
             }
             encabezados = limpiar(encabezados);
             quitarColumnasVaciasFinales(encabezados);
@@ -187,7 +247,7 @@ public class LectorArchivoTabular {
                 List<String> celdas = new ArrayList<>();
                 boolean vacia = true;
                 for (int c = 0; c < encabezados.size(); c++) {
-                    String valor = valorDeCelda(fila.getCell(c), f + 1, c);
+                    String valor = valorDeCelda(fila.getCell(c), f + 1, c, modo, formateador, derivadas);
                     if (!valor.isEmpty()) vacia = false;
                     celdas.add(valor);
                 }
@@ -210,15 +270,27 @@ public class LectorArchivoTabular {
                             + "y que sea un .xlsx valido.");
         }
 
-        return new TablaLeida(encabezados, filas, numeros);
+        return new TablaConAvisos(new TablaLeida(encabezados, filas, numeros), derivadas);
     }
 
     /**
-     * Texto de una celda. Las fechas salen en ISO para que el importador las
-     * reconozca sin depender de la configuracion regional de quien exporto.
+     * Texto de una celda, segun el modo de lectura.
+     *
+     * <p>En modo canonico las fechas salen en ISO para que el importador las
+     * reconozca sin depender de la configuracion regional de quien exporto. En
+     * modo reproducible sale lo que la hoja muestra, que es lo contrario: el
+     * formato de la celda es justamente lo que hay que conservar.</p>
      */
-    private String valorDeCelda(Cell celda, int numeroFila, int numeroColumna) {
+    private String valorDeCelda(Cell celda, int numeroFila, int numeroColumna,
+                                ModoLectura modo, DataFormatter formateador,
+                                List<CeldaDerivada> derivadas) {
         if (celda == null) return "";
+
+        if (modo == ModoLectura.COMO_SE_VE) {
+            String valor = valorComoSeVe(celda, numeroFila, numeroColumna, formateador, derivadas);
+            verificarLargo(valor, numeroFila, numeroColumna);
+            return valor == null ? "" : valor.trim();
+        }
 
         CellType tipo = celda.getCellType();
         if (tipo == CellType.FORMULA) {
@@ -247,6 +319,42 @@ public class LectorArchivoTabular {
 
         verificarLargo(valor, numeroFila, numeroColumna);
         return valor == null ? "" : valor.trim();
+    }
+
+    /**
+     * Texto de la celda tal como lo muestra Excel.
+     *
+     * <p>Las formulas se resuelven leyendo el resultado que el propio archivo trae
+     * guardado, sin recalcular nada: evaluar las formulas aqui significaria
+     * ejecutar el libro ajeno en el servidor, con las funciones que traiga y los
+     * enlaces externos que le hayan puesto. Ese resultado guardado es el mismo que
+     * la persona ve en su pantalla, que es exactamente lo que se pide reproducir;
+     * aun asi la celda se reporta como derivada para poder avisarlo.</p>
+     */
+    private String valorComoSeVe(Cell celda, int numeroFila, int numeroColumna,
+                                 DataFormatter formateador, List<CeldaDerivada> derivadas) {
+        if (celda.getCellType() != CellType.FORMULA) {
+            // Cubre texto, numero, fecha, moneda, porcentaje y booleano: en todos
+            // aplica el formato que la celda tiene puesto en la hoja.
+            return formateador.formatCellValue(celda);
+        }
+
+        derivadas.add(new CeldaDerivada(numeroFila, numeroColumna,
+                referencia(numeroFila, numeroColumna)));
+
+        // Sin evaluador, formatCellValue devolveria el texto de la formula en vez
+        // de su resultado, asi que hay que ir al valor cacheado a mano.
+        return switch (celda.getCachedFormulaResultType()) {
+            case STRING -> celda.getRichStringCellValue().getString();
+            case BOOLEAN -> celda.getBooleanCellValue() ? "VERDADERO" : "FALSO";
+            case NUMERIC -> formateador.formatRawCellContents(
+                    celda.getNumericCellValue(),
+                    celda.getCellStyle().getDataFormat(),
+                    celda.getCellStyle().getDataFormatString());
+            // Una formula en error (#N/A, #REF!) no tiene valor que imprimir. Se
+            // deja vacia y la fila sale marcada por celda faltante.
+            default -> "";
+        };
     }
 
     // ── Comunes ──────────────────────────────────────────────────────────────
