@@ -41,6 +41,21 @@ public class Examen {
     @Column(name = "valor_max_hombres")
     private Double valorMaxHombres;
 
+    /**
+     * Cuánto se puede pasar del límite y seguir contando como diferencia menor, en
+     * las unidades del propio analito.
+     *
+     * <p>Separa «ligeramente fuera» de «revisar con su médico» en el reporte que se
+     * entrega al participante. Depende del analito —un colesterol total de 214 con
+     * techo en 200 hay que revisarlo; un hematocrito de 34 con piso en 36 es una
+     * diferencia menor— así que se guarda en vez de calcularse.</p>
+     *
+     * <p>Sin valor, el reporte usa una décima parte de la amplitud del rango. Un
+     * cero es una decisión: cualquier diferencia hay que revisarla.</p>
+     */
+    @Column(name = "margen_revision")
+    private Double margenRevision;
+
     @Column(name = "activo")
     private Boolean activo = true;
 

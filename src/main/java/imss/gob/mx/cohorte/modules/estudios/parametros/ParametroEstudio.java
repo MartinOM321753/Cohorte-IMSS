@@ -69,6 +69,21 @@ public class ParametroEstudio {
     private Double valorMaxHombres;
 
     /**
+     * Cuánto se puede pasar del límite y seguir contando como diferencia menor, en
+     * las unidades del propio parámetro.
+     *
+     * <p>Separa «ligeramente fuera» de «revisar con su médico» en el reporte que se
+     * entrega al participante. Esa frontera depende del parámetro y no se puede
+     * deducir del rango, así que se guarda; sin valor, el reporte usa una décima
+     * parte de la amplitud.</p>
+     *
+     * <p>Un cero es una decisión, no un hueco: significa que cualquier diferencia
+     * hay que revisarla.</p>
+     */
+    @Column(name = "margen_revision")
+    private Double margenRevision;
+
+    /**
      * Opciones válidas para parámetros de tipo TEXTO_OPCIONES.
      * Vacío para cualquier otro tipo.
      */

@@ -56,18 +56,23 @@ public class BloqueExamenes {
 
         sb.append("<tbody>");
         for (ResultadoExamen r : resultados) {
-            boolean fuera = fueraDeRango(r, sexo);
+            EstadoResultado estado = estadoDe(r, sexo);
             sb.append("<tr>");
             for (String col : columnas) {
                 String contenido = switch (col) {
                     case "examen" -> r.getExamen() != null ? r.getExamen().getParametro() : "";
-                    case "valor"  -> resolvedor.numero(r.getValorObtenido()) + (fuera ? " *" : "");
+                    case "valor"  -> resolvedor.numero(r.getValorObtenido());
                     case "unidad" -> r.getExamen() != null ? r.getExamen().getUnidad() : "";
                     case "referencia" -> referencia(r, sexo);
+                    case "estado" -> estado.medido() ? estado.etiquetaCorta() : "";
                     case "fecha"  -> ctx.fechaHora(r.getFechaResultado());
                     default -> "";
                 };
-                String color = "valor".equals(col) && fuera ? "#a8352c" : estilo.colorTexto();
+                // El color lo pone el estado, no un rojo único: el reporte distingue
+                // una diferencia menor de algo que hay que atender, y pintarlas igual
+                // borraba justo esa distinción.
+                String color = ("valor".equals(col) || "estado".equals(col)) && estado.fuera()
+                        ? estado.color() : estilo.colorTexto();
                 sb.append("<td style=\"border-bottom:0.2mm solid ").append(estilo.colorBorde())
                   .append(";padding:1.4mm 2mm;color:").append(color)
                   .append("valor".equals(col) ? ";font-weight:bold;" : ";")
@@ -79,16 +84,27 @@ public class BloqueExamenes {
         return sb.toString();
     }
 
-    private RangoReferencia.Rango rangoDe(ResultadoExamen r, Persona.Sexo sexo) {
-        if (r.getExamen() == null || sexo == null) return null;
+    /**
+     * El rango de ese analito para ese sexo.
+     *
+     * <p>Es público y estático porque la fila repetible del reporte necesita el mismo
+     * rango que esta tabla, y calcularlo dos veces es como acaban divergiendo: el
+     * documento diría una referencia en la tabla y otra en la barra.</p>
+     */
+    public static RangoReferencia.Rango rangoDe(ResultadoExamen r, Persona.Sexo sexo) {
+        if (r == null || r.getExamen() == null || sexo == null) return null;
         boolean mujer = sexo == Persona.Sexo.F;
         Double min = mujer ? r.getExamen().getValorMinMujeres() : r.getExamen().getValorMinHombres();
         Double max = mujer ? r.getExamen().getValorMaxMujeres() : r.getExamen().getValorMaxHombres();
-        return min == null && max == null ? null : new RangoReferencia.Rango(min, max);
+        if (min == null && max == null) return null;
+        return new RangoReferencia.Rango(min, max, r.getExamen().getMargenRevision());
     }
 
-    private boolean fueraDeRango(ResultadoExamen r, Persona.Sexo sexo) {
-        return RangoReferencia.fueraDeRango(r.getValorObtenido(), rangoDe(r, sexo));
+    /** En qué situación queda ese resultado. */
+    public static EstadoResultado estadoDe(ResultadoExamen r, Persona.Sexo sexo) {
+        return r == null
+                ? EstadoResultado.SIN_DATO
+                : RangoReferencia.estado(r.getValorObtenido(), rangoDe(r, sexo));
     }
 
     private String referencia(ResultadoExamen r, Persona.Sexo sexo) {

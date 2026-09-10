@@ -156,19 +156,21 @@ public class BloqueResultados {
         for (ResultadoEstudio r : resultados) {
             ParametroEstudio p = r.getParametro();
             RangoReferencia.Rango rango = RangoReferencia.de(p, sexo);
-            boolean fuera = p != null && p.getTipo() == TipoParametro.NUMERICO
-                    && RangoReferencia.fueraDeRango(r.getValorNumerico(), rango);
+            EstadoResultado estado = estadoDe(r, sexo);
 
             sb.append("<tr>");
             for (String col : estilo.columnas()) {
                 String contenido = switch (col) {
                     case "parametro"  -> p != null ? p.getNombre() : "";
-                    case "valor"      -> resolvedor.textoDelValor(r) + (fuera ? " *" : "");
+                    case "valor"      -> resolvedor.textoDelValor(r);
                     case "unidad"     -> p != null ? p.getUnidad() : "";
                     case "referencia" -> RangoReferencia.texto(rango);
+                    case "estado"     -> estado.medido() ? estado.etiquetaCorta() : "";
                     default -> "";
                 };
-                String colorCelda = "valor".equals(col) && fuera ? "#a8352c" : estilo.colorTexto();
+                // El color lo pone el estado, no un rojo único.
+                String colorCelda = ("valor".equals(col) || "estado".equals(col)) && estado.fuera()
+                        ? estado.color() : estilo.colorTexto();
                 sb.append("<td style=\"border-bottom:0.2mm solid ").append(estilo.colorBorde())
                   .append(";padding:1.4mm 2mm;color:").append(colorCelda)
                   .append("valor".equals(col) ? ";font-weight:bold;" : ";")
@@ -181,13 +183,21 @@ public class BloqueResultados {
     }
 
     private String rotuloColumna(String col) {
-        return switch (col) {
-            case "parametro"  -> "Parámetro";
-            case "valor"      -> "Resultado";
-            case "unidad"     -> "Unidad";
-            case "referencia" -> "Referencia";
-            default -> col;
-        };
+        return ColumnasBloque.RESULTADOS.getOrDefault(col, col);
+    }
+
+    /**
+     * En qué situación queda un resultado de estudio.
+     *
+     * <p>Sólo los numéricos se comparan. Un parámetro de texto o de opción no tiene
+     * rango contra el que estar dentro o fuera, y forzarlo daría un estado inventado
+     * para algo que nunca se midió en una escala.</p>
+     */
+    public static EstadoResultado estadoDe(ResultadoEstudio r, Persona.Sexo sexo) {
+        if (r == null) return EstadoResultado.SIN_DATO;
+        ParametroEstudio p = r.getParametro();
+        if (p == null || p.getTipo() != TipoParametro.NUMERICO) return EstadoResultado.SIN_DATO;
+        return RangoReferencia.estado(r.getValorNumerico(), RangoReferencia.de(p, sexo));
     }
 
     private String vacio(Estilo estilo, String mensaje) {
