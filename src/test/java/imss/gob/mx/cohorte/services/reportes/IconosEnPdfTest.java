@@ -125,7 +125,7 @@ class IconosEnPdfTest {
         var maquetador = new MaquetadorReporte(
                 new com.fasterxml.jackson.databind.ObjectMapper(), resolvedor,
                 new BloqueResultados(resolvedor), new BloqueEstudios(),
-                new BloqueExamenes(resolvedor), new EvidenciasReporte(null, null),
+                new BloqueExamenes(resolvedor), new BloqueLista(resolvedor), new EvidenciasReporte(null, null),
                 new ImagenesReporte(null));
 
         var persona = new imss.gob.mx.cohorte.modules.persona.Persona();
@@ -153,7 +153,7 @@ class IconosEnPdfTest {
         var maquetador = new MaquetadorReporte(
                 new com.fasterxml.jackson.databind.ObjectMapper(), resolvedor,
                 new BloqueResultados(resolvedor), new BloqueEstudios(),
-                new BloqueExamenes(resolvedor), new EvidenciasReporte(null, null),
+                new BloqueExamenes(resolvedor), new BloqueLista(resolvedor), new EvidenciasReporte(null, null),
                 new ImagenesReporte(null));
 
         String diseno = """

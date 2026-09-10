@@ -58,6 +58,7 @@ class FormulaEnElReporteTest {
         maquetador = new MaquetadorReporte(
                 new ObjectMapper(), resolvedor, new BloqueResultados(resolvedor),
                 new BloqueEstudios(), new BloqueExamenes(resolvedor),
+                new BloqueLista(resolvedor),
                 new EvidenciasReporte(null, null), new ImagenesReporte(null));
 
         when(formulaService.buscar(1L)).thenReturn(Optional.of(imc()));

@@ -41,6 +41,7 @@ public class MaquetadorReporte {
     private final BloqueResultados bloqueResultados;
     private final BloqueEstudios bloqueEstudios;
     private final BloqueExamenes bloqueExamenes;
+    private final BloqueLista bloqueLista;
     private final EvidenciasReporte evidencias;
     private final ImagenesReporte imagenes;
 
@@ -56,7 +57,7 @@ public class MaquetadorReporte {
 
         StringBuilder html = new StringBuilder(8192);
         html.append("<html><head><meta charset=\"utf-8\"/><style>")
-            .append(estilos(anchoMm, altoMm))
+            .append(estilos(anchoMm, altoMm, MargenesFlujo.de(diseno)))
             .append("</style></head><body>");
 
         JsonNode paginas = diseno.path("paginas");
@@ -67,6 +68,13 @@ public class MaquetadorReporte {
         double origenPie = pie == null ? 0 : altoMm - pie.path("altoMm").asDouble(0);
 
         for (int i = 0; i < paginas.size(); i++) {
+            JsonNode pagina = paginas.get(i);
+
+            if (pagina.path("flujo").asBoolean(false)) {
+                html.append(hojaDeFlujo(pagina, contexto, cacheImagenes));
+                continue;
+            }
+
             html.append("<div class=\"hoja\">");
 
             // Las bandas van primero para quedar debajo: un membrete no debe taparle
@@ -75,7 +83,7 @@ public class MaquetadorReporte {
             html.append(banda(pie, origenPie, contexto, cacheImagenes));
 
             if (i > 0) for (JsonNode el : repetidos) html.append(elemento(el, contexto, cacheImagenes));
-            for (JsonNode el : ordenados(paginas.get(i).path("elementos"))) {
+            for (JsonNode el : ordenados(pagina.path("elementos"))) {
                 html.append(elemento(el, contexto, cacheImagenes));
             }
             html.append("</div>");
@@ -83,6 +91,76 @@ public class MaquetadorReporte {
 
         html.append("</body></html>");
         return html.toString();
+    }
+
+    // ── Hojas de flujo ───────────────────────────────────────────────────────
+
+    /**
+     * Una hoja cuyo contenido se reparte solo entre las páginas que haga falta.
+     *
+     * <p>Es lo contrario del lienzo: aquí los elementos no llevan coordenadas, van uno
+     * detrás de otro y el motor decide dónde corta. Existe porque el lienzo no puede
+     * con una lista que crece — la hoja tiene alto fijo y {@code overflow:hidden}, así
+     * que <b>una tabla larga se recortaba sin avisar</b>: el PDF salía, se veía bien y
+     * le faltaban filas. Comprobado: 60 filas entraban y salían 38.</p>
+     *
+     * <p>Los márgenes van en una {@code @page} con nombre y no en el relleno de esta
+     * caja. Un relleno sólo separa la primera página; a partir de la segunda el
+     * contenido arrancaría pegado al borde del papel.</p>
+     *
+     * <p>El orden es el de arriba abajo y, a igual altura, de izquierda a derecha: es
+     * el que tenían en el lienzo, para que pasar un diseño a flujo no lo baraje.</p>
+     */
+    private String hojaDeFlujo(JsonNode pagina, ContextoReporte ctx,
+                               Map<String, ImagenesReporte.Resuelta> cacheImagenes) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div class=\"hoja-flujo\">");
+        for (JsonNode el : ordenados(pagina.path("elementos"))) {
+            sb.append(elementoEnFlujo(el, ctx, cacheImagenes));
+        }
+        sb.append("</div>");
+        return sb.toString();
+    }
+
+    /**
+     * Un elemento dentro de una hoja de flujo.
+     *
+     * <p>Se envuelve en un bloque que reserva su separación y deja que el contenido
+     * mande en el alto. {@code break-inside:avoid} mantiene entero lo que quepa en una
+     * página; lo que no quepa —una tabla larga— se parte, que es justo para lo que
+     * está esta hoja.</p>
+     */
+    private String elementoEnFlujo(JsonNode el, ContextoReporte ctx,
+                                   Map<String, ImagenesReporte.Resuelta> cacheImagenes) {
+        if (el.path("oculto").asBoolean(false)) return "";
+
+        String tipo = el.path("tipo").asText("");
+        boolean partible = "datos".equals(tipo) || "tabla".equals(tipo) || "lista".equals(tipo);
+
+        String envoltura = "margin:0 0 " + el.path("separacionMm").asDouble(4) + "mm;"
+                + (partible ? "" : "page-break-inside:avoid;");
+
+        // En flujo el elemento ocupa el ancho disponible y su caja no lleva posición:
+        // pasarle left/top absolutos lo sacaría del flujo y volvería el recorte.
+        String caja = "position:relative;width:100%;";
+
+        String dibujo = switch (tipo) {
+            case "texto"  -> texto(el, caja, ctx);
+            case "imagen" -> imagen(el, cajaConAlto(el, caja), cacheImagenes);
+            case "figura" -> figura(el, cajaConAlto(el, caja));
+            case "datos"  -> datos(el, caja, ctx);
+            case "icono"  -> icono(el, cajaConAlto(el, caja));
+            case "tabla"  -> tabla(el, caja, ctx);
+            case "lista"  -> lista(el, caja, ctx);
+            default -> "";
+        };
+        if (dibujo.isEmpty()) return "";
+        return "<div style=\"" + envoltura + "\">" + dibujo + "</div>";
+    }
+
+    /** Lo que necesita alto propio para dibujarse: una imagen, una figura, un icono. */
+    private String cajaConAlto(JsonNode el, String caja) {
+        return caja + "height:" + mm(el, "altoMm") + ";";
     }
 
     // ── Bandas ───────────────────────────────────────────────────────────────
@@ -145,8 +223,54 @@ public class MaquetadorReporte {
             case "datos"  -> datos(el, caja, ctx);
             case "icono"  -> icono(el, caja);
             case "tabla"  -> tabla(el, caja, ctx);
+            case "lista"  -> lista(el, caja, ctx);
             default -> "";
         };
+    }
+
+    /**
+     * La lista de resultados con barra de rango.
+     *
+     * <p>Sale de la misma clave que la tabla de datos —{@code bloque.examenes.listado}
+     * o {@code bloque.estudio.N.resultados}— y de la misma selección de parámetros. Es
+     * el mismo contenido con otro trato, no otro dato, y compartir la clave es lo que
+     * garantiza que el expediente y el reporte del participante no acaben diciendo
+     * cosas distintas.</p>
+     *
+     * <p>Como una tabla, se deja crecer: en una hoja de flujo se parte entre páginas,
+     * y en el lienzo se comporta igual que la tabla de datos.</p>
+     */
+    private String lista(JsonNode el, String caja, ContextoReporte ctx) {
+        String clave = el.path("clave").asText("");
+        Persona.Sexo sexo = ctx.persona() != null ? ctx.persona().getSexo() : null;
+
+        List<BloqueLista.Fila> filas;
+        if (ClaveCampo.BLOQUE_LISTADO_EXAMENES.equals(clave)) {
+            filas = bloqueLista.deExamenes(ctx, seleccion(el));
+        } else {
+            ClaveCampo.BloqueEstudio bloque = ClaveCampo.comoBloqueEstudio(clave);
+            if (bloque == null || !"resultados".equals(bloque.bloque())) return "";
+            filas = bloqueLista.deEstudio(
+                    ctx.estudioDeTipo(bloque.idTipo()).orElse(null), sexo, seleccion(el));
+        }
+
+        String cajaBloque = "crecer".equals(el.path("desbordamiento").asText("crecer"))
+                ? caja.replace("height:", "min-height:")
+                : caja + "overflow:hidden;";
+
+        return "<div style=\"" + cajaBloque + "\">"
+                + bloqueLista.html(filas, columnasDeLista(el), BloqueLista.Estilo.de(el))
+                + "</div>";
+    }
+
+    /** Las columnas marcadas en el diseño, descartando las que la lista no dibuja. */
+    private List<String> columnasDeLista(JsonNode el) {
+        List<String> cols = new ArrayList<>();
+        for (JsonNode c : el.path("estilo").path("columnas")) {
+            String col = c.asText();
+            if (BloqueLista.COLUMNAS.contains(col)) cols.add(col);
+        }
+        return cols;
     }
 
     private String texto(JsonNode el, String caja, ContextoReporte ctx) {
@@ -511,11 +635,36 @@ public class MaquetadorReporte {
     }
 
     private String estilos(double anchoMm, double altoMm) {
+        return estilos(anchoMm, altoMm, MargenesFlujo.POR_DEFECTO);
+    }
+
+    /**
+     * El CSS del documento.
+     *
+     * <p>Hay dos {@code @page} a propósito. La sin nombre no lleva margen porque en el
+     * lienzo cada elemento ya trae sus milímetros desde la esquina del papel; darle
+     * margen movería todos los diseños que ya existen. La llamada {@code flujo} sí lo
+     * lleva, y es la única forma de que la separación se repita en todas las páginas:
+     * un relleno en la caja sólo separa la primera.</p>
+     */
+    private String estilos(double anchoMm, double altoMm, MargenesFlujo m) {
         return "@page { size: " + anchoMm + "mm " + altoMm + "mm; margin: 0; }\n"
+             + "@page flujo { size: " + anchoMm + "mm " + altoMm + "mm; margin: "
+             + m.arribaMm() + "mm " + m.derechaMm() + "mm "
+             + m.abajoMm() + "mm " + m.izquierdaMm() + "mm; }\n"
              + "body { margin:0; font-family: sans-serif; color:#111; }\n"
              + ".hoja { position:relative; width:" + anchoMm + "mm; height:" + altoMm + "mm;"
              + " page-break-after: always; overflow:hidden; }\n"
              + ".hoja:last-child { page-break-after: auto; }\n"
+             // El ancho va escrito y no en 100%. El motor coloca el contenido dentro
+             // del margen de la @page, pero un porcentaje lo resuelve contra el ancho
+             // del PAPEL, no contra el area util: una tabla al 100% se salia 32 mm por
+             // la derecha y lo alineado a ese lado —la columna de estado— caia fuera
+             // de la hoja y no se imprimia. Nada fallaba; la columna simplemente no
+             // estaba.
+             + ".hoja-flujo { page: flujo; position:relative; page-break-after: always;"
+             + " width:" + (anchoMm - m.izquierdaMm() - m.derechaMm()) + "mm; }\n"
+             + ".hoja-flujo:last-child { page-break-after: auto; }\n"
              + ".evid { display:inline-block; vertical-align:top; margin:0 3mm 3mm 0; }\n"
              + ".evid-img { max-width:80mm; max-height:80mm; border:0.2mm solid #dde5e9; }\n"
              + ".evid-pie { font-size:7.5pt; color:#5a6b78; margin-top:1mm; }\n"
