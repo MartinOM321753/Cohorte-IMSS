@@ -25,6 +25,14 @@ public class ExamenRequestDTO {
     private Double valorMinHombres;
     private Double valorMaxHombres;
 
+    /**
+     * Cuánto se puede pasar del límite y seguir contando como diferencia menor,
+     * en las unidades de este analito. Separa «ligeramente fuera» de «revisar con
+     * su médico» en el reporte del participante. Sin valor, el reporte usa una
+     * décima parte de la amplitud del rango.
+     */
+    private Double margenRevision;
+
 
     /**
      * Nombres con los que los instrumentos titulan la columna de este examen.

@@ -95,6 +95,7 @@ public class ParametroEstudioService {
         parametroDB.setValorMaxMujeres(parametroEstudio.getValorMaxMujeres());
         parametroDB.setValorMinHombres(parametroEstudio.getValorMinHombres());
         parametroDB.setValorMaxHombres(parametroEstudio.getValorMaxHombres());
+        parametroDB.setMargenRevision(parametroEstudio.getMargenRevision());
 
         return parametroRepository.save(parametroDB);
     }

@@ -26,6 +26,14 @@ public class ParametroEstudioResponseDTO {
     private Double valorMinHombres;
     private Double valorMaxHombres;
 
+    /**
+     * Cuánto se puede pasar del límite y seguir contando como diferencia menor,
+     * en las unidades de este parámetro. Separa «ligeramente fuera» de «revisar con
+     * su médico» en el reporte del participante. Sin valor, el reporte usa una
+     * décima parte de la amplitud del rango.
+     */
+    private Double margenRevision;
+
     /** Valores predefinidos. Presente (no null) solo cuando tipo == TEXTO_OPCIONES. */
     private List<String> opciones;
 

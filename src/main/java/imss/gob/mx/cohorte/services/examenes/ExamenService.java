@@ -61,6 +61,7 @@ public class ExamenService {
         examenBD.setValorMaxMujeres(examen.getValorMaxMujeres());
         examenBD.setValorMinHombres(examen.getValorMinHombres());
         examenBD.setValorMaxHombres(examen.getValorMaxHombres());
+        examenBD.setMargenRevision(examen.getMargenRevision());
         examenBD.setActivo(examen.getActivo());
         // La fechaCreacion no se actualiza (por ser updatable = false)
         return examenRepository.save(examenBD);
