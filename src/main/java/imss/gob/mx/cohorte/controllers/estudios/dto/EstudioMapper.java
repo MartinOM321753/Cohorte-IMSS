@@ -87,6 +87,8 @@ public class EstudioMapper {
                                 .valorMaxMujeres(p.getValorMaxMujeres())
                                 .valorMinHombres(p.getValorMinHombres())
                                 .valorMaxHombres(p.getValorMaxHombres())
+            .margenRevision(p.getMargenRevision())
+                                .margenRevision(p.getMargenRevision())
                                 .opciones(p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null
                                     ? p.getOpciones().stream().map(op -> op.getValor()).collect(java.util.stream.Collectors.toList())
                                     : null)

@@ -55,6 +55,7 @@ public class CatalogoCamposReporte {
     private static final String G_ESTUDIOS     = "Estudios";
     private static final String G_EXAMENES     = "Exámenes de laboratorio";
     private static final String G_FORMULAS     = "Fórmulas";
+    private static final String G_RESUMEN      = "Resumen de laboratorio";
 
     private final TipoService tipoService;
     private final ExamenService examenService;
@@ -233,7 +234,27 @@ public class CatalogoCamposReporte {
 
                 campo(ResolvedorCampos.TOTAL_ESTUDIOS, "Total de estudios", G_TOTALES, null, null),
                 campo(ResolvedorCampos.TOTAL_EXAMENES, "Total de exámenes", G_TOTALES, null, null),
-                campo(ResolvedorCampos.TOTAL_MUESTRAS, "Total de muestras", G_TOTALES, null, null));
+                campo(ResolvedorCampos.TOTAL_MUESTRAS, "Total de muestras", G_TOTALES, null, null),
+
+                // El encabezado del reporte del participante: cuántas mediciones hay
+                // en cada situación. Cuentan los laboratorios, que son los que la hoja
+                // lista; un total que incluyera lo que no se enseña no cuadraría con
+                // lo que se lee debajo.
+                new Campo(ClaveCampo.deResumen("total"), "Mediciones realizadas", G_RESUMEN, null,
+                        Clase.CAMPO, "Cuántos laboratorios tiene registrados el participante",
+                        null, false, Map.of()),
+                new Campo(ClaveCampo.deResumen("enRango"), "En rango habitual", G_RESUMEN, null,
+                        Clase.CAMPO, "Dentro del rango que aplica a su sexo",
+                        null, false, Map.of()),
+                new Campo(ClaveCampo.deResumen("ligeramenteFuera"), "Ligeramente fuera", G_RESUMEN, null,
+                        Clase.CAMPO, "Fuera, pero dentro del margen configurado en el analito",
+                        null, false, Map.of()),
+                new Campo(ClaveCampo.deResumen("revisar"), "A revisar", G_RESUMEN, null,
+                        Clase.CAMPO, "Fuera y más allá de ese margen",
+                        null, false, Map.of()),
+                new Campo(ClaveCampo.deResumen("sinDato"), "Sin dato", G_RESUMEN, null,
+                        Clase.CAMPO, "Sin valor o sin rango con el que comparar; no cuentan como normales",
+                        null, false, Map.of()));
     }
 
     /**

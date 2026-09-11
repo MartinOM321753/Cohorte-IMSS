@@ -23,6 +23,7 @@ class BandasYOcultosTest {
     private final MaquetadorReporte maquetador = new MaquetadorReporte(
             new ObjectMapper(), resolvedor, new BloqueResultados(resolvedor),
             new BloqueEstudios(), new BloqueExamenes(resolvedor),
+            new BloqueLista(resolvedor),
             new EvidenciasReporte(null, null), new ImagenesReporte(null));
 
     private ContextoReporte contexto() {

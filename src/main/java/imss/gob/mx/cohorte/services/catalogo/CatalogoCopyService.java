@@ -99,6 +99,7 @@ public class CatalogoCopyService {
                 paramClon.setValorMaxMujeres(paramOriginal.getValorMaxMujeres());
                 paramClon.setValorMinHombres(paramOriginal.getValorMinHombres());
                 paramClon.setValorMaxHombres(paramOriginal.getValorMaxHombres());
+                paramClon.setMargenRevision(paramOriginal.getMargenRevision());
 
                 List<OpcionParametro> opcionesClonadas = new ArrayList<>();
                 for (OpcionParametro opOriginal : paramOriginal.getOpciones()) {
@@ -142,6 +143,7 @@ public class CatalogoCopyService {
             clon.setValorMaxMujeres(original.getValorMaxMujeres());
             clon.setValorMinHombres(original.getValorMinHombres());
             clon.setValorMaxHombres(original.getValorMaxHombres());
+            clon.setMargenRevision(original.getMargenRevision());
             clon.setActivo(true);
             clon.setFechaCreacion(new Timestamp(System.currentTimeMillis()));
             clon.setInstitucion(destino);

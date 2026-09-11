@@ -71,6 +71,9 @@ public class ResolvedorCampos {
         ClaveCampo.ParteFormula parte = ClaveCampo.comoParteDeFormula(clave);
         if (parte != null) return valorDeParteDeFormula(parte, ctx);
 
+        String resumen = ClaveCampo.comoResumen(clave);
+        if (resumen != null) return conteoDelResumen(resumen, ctx);
+
         return switch (clave) {
             case PARTICIPANTE_NOMBRE     -> ctx.nombreCompleto();
             case PARTICIPANTE_FOLIO      -> ctx.folio();
@@ -88,6 +91,40 @@ public class ResolvedorCampos {
 
             default -> "";
         };
+    }
+
+    /**
+     * Cuántas mediciones de laboratorio caen en cada situación.
+     *
+     * <p>Se cuenta aquí y no en el bloque de la lista porque estos números encabezan
+     * el reporte, arriba del todo, y la lista puede ir tres páginas más abajo o no
+     * estar. Que el conteo dependiera de haber dibujado la lista sería la clase de
+     * atadura que un día deja el encabezado en cero sin motivo aparente.</p>
+     */
+    private String conteoDelResumen(String parte, ContextoReporte ctx) {
+        imss.gob.mx.cohorte.modules.persona.Persona.Sexo sexo =
+                ctx.persona() != null ? ctx.persona().getSexo() : null;
+
+        int total = 0, enRango = 0, ligeramente = 0, revisar = 0, sinDato = 0;
+        for (var r : ctx.examenesOrdenados()) {
+            if (r.getExamen() == null) continue;
+            total++;
+            switch (BloqueExamenes.estadoDe(r, sexo)) {
+                case EN_RANGO -> enRango++;
+                case LIGERAMENTE_FUERA -> ligeramente++;
+                case REVISAR -> revisar++;
+                case SIN_DATO -> sinDato++;
+            }
+        }
+
+        return String.valueOf(switch (parte) {
+            case "total" -> total;
+            case "enRango" -> enRango;
+            case "ligeramenteFuera" -> ligeramente;
+            case "revisar" -> revisar;
+            case "sinDato" -> sinDato;
+            default -> 0;
+        });
     }
 
     /**

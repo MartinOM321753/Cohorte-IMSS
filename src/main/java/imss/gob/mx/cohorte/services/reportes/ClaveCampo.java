@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.services.reportes;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -125,6 +126,35 @@ public final class ClaveCampo {
     public static String deExamen(long idExamen, String campo) {
         return "examen." + idExamen + "." + campo;
     }
+
+    // ── Resumen de laboratorio ───────────────────────────────────────────────
+
+    /**
+     * Cuántas mediciones de laboratorio hay en cada situación.
+     *
+     * <p>Es lo que encabeza el reporte del participante: «23 mediciones · 14 en rango
+     * · 7 ligeramente fuera · 2 a revisar». No sale de una fórmula porque una fórmula
+     * opera sobre variables sueltas y esto cuenta un conjunto entero.</p>
+     *
+     * <p>Cuenta los laboratorios y no todo lo capturado a propósito: son los que el
+     * reporte de salud lista, y meter en el mismo total mediciones de estudios que la
+     * hoja no enseña daría un «23» que no cuadra con lo que se ve debajo.</p>
+     */
+    private static final Pattern RESUMEN = Pattern.compile(
+            "^resumen\\.examenes\\.(total|enRango|ligeramenteFuera|revisar|sinDato)$");
+
+    public static String comoResumen(String clave) {
+        Matcher m = RESUMEN.matcher(clave);
+        return m.matches() ? m.group(1) : null;
+    }
+
+    public static String deResumen(String parte) {
+        return "resumen.examenes." + parte;
+    }
+
+    /** Las partes que se pueden pedir, en el orden en que se leen en el documento. */
+    public static final List<String> PARTES_RESUMEN =
+            List.of("total", "enRango", "ligeramenteFuera", "revisar", "sinDato");
 
     /** El listado de estudios del participante, que no depende de ningún tipo. */
     public static final String BLOQUE_LISTADO_ESTUDIOS = "bloque.estudios.listado";

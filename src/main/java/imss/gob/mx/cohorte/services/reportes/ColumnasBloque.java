@@ -24,7 +24,8 @@ public final class ColumnasBloque {
             "parametro", "Parámetro",
             "valor", "Resultado",
             "unidad", "Unidad",
-            "referencia", "Referencia");
+            "referencia", "Referencia",
+            "estado", "Estado");
 
     /** Columnas del listado de estudios del participante. */
     public static final Map<String, String> LISTADO_ESTUDIOS = columnas(
@@ -38,6 +39,7 @@ public final class ColumnasBloque {
             "valor", "Resultado",
             "unidad", "Unidad",
             "referencia", "Referencia",
+            "estado", "Estado",
             "fecha", "Fecha");
 
     /** Las que admite ese bloque, o vacío si el bloque no lleva tabla. */

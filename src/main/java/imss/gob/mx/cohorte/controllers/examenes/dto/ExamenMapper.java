@@ -15,6 +15,7 @@ public class ExamenMapper {
         examen.setValorMaxMujeres(dto.getValorMaxMujeres());
         examen.setValorMinHombres(dto.getValorMinHombres());
         examen.setValorMaxHombres(dto.getValorMaxHombres());
+        examen.setMargenRevision(dto.getMargenRevision());
 
         return examen;
     }
@@ -29,6 +30,7 @@ public class ExamenMapper {
             .valorMaxMujeres(e.getValorMaxMujeres())
             .valorMinHombres(e.getValorMinHombres())
             .valorMaxHombres(e.getValorMaxHombres())
+            .margenRevision(e.getMargenRevision())
             .alias(e.getAlias() == null ? List.of()
                     : e.getAlias().stream().map(a -> a.getAlias()).toList())
             .activo(e.getActivo())

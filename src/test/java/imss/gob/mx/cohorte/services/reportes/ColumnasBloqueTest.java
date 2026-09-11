@@ -36,11 +36,11 @@ class ColumnasBloqueTest {
     @DisplayName("cada bloque declara sus propias columnas")
     void cadaBloqueTieneLasSuyas() {
         assertThat(ColumnasBloque.clavesDe("bloque.estudio.10.resultados"))
-                .containsExactly("parametro", "valor", "unidad", "referencia");
+                .containsExactly("parametro", "valor", "unidad", "referencia", "estado");
         assertThat(ColumnasBloque.clavesDe(ClaveCampo.BLOQUE_LISTADO_ESTUDIOS))
                 .containsExactly("estudio", "fecha", "resultados");
         assertThat(ColumnasBloque.clavesDe(ClaveCampo.BLOQUE_LISTADO_EXAMENES))
-                .containsExactly("examen", "valor", "unidad", "referencia", "fecha");
+                .containsExactly("examen", "valor", "unidad", "referencia", "estado", "fecha");
     }
 
     @Test
@@ -57,7 +57,7 @@ class ColumnasBloqueTest {
         assertThat(BloqueResultados.Estilo.de(elemento(ClaveCampo.BLOQUE_LISTADO_ESTUDIOS, null)).columnas())
                 .containsExactly("estudio", "fecha", "resultados");
         assertThat(BloqueResultados.Estilo.de(elemento(ClaveCampo.BLOQUE_LISTADO_EXAMENES, null)).columnas())
-                .containsExactly("examen", "valor", "unidad", "referencia", "fecha");
+                .containsExactly("examen", "valor", "unidad", "referencia", "estado", "fecha");
     }
 
     @Test
