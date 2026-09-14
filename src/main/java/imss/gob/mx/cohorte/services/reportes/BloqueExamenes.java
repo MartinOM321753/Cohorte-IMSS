@@ -64,7 +64,9 @@ public class BloqueExamenes {
                     case "valor"  -> resolvedor.numero(r.getValorObtenido());
                     case "unidad" -> r.getExamen() != null ? r.getExamen().getUnidad() : "";
                     case "referencia" -> referencia(r, sexo);
-                    case "estado" -> estado.medido() ? estado.etiquetaCorta() : "";
+                    case "estado" -> estado.medido()
+                            ? RangoReferencia.etiquetaEstado(r.getValorObtenido(), rangoDe(r, sexo))
+                            : "";
                     case "fecha"  -> ctx.fechaHora(r.getFechaResultado());
                     default -> "";
                 };

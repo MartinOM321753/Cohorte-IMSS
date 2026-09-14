@@ -165,7 +165,9 @@ public class BloqueResultados {
                     case "valor"      -> resolvedor.textoDelValor(r);
                     case "unidad"     -> p != null ? p.getUnidad() : "";
                     case "referencia" -> RangoReferencia.texto(rango);
-                    case "estado"     -> estado.medido() ? estado.etiquetaCorta() : "";
+                    case "estado"     -> estado.medido()
+                            ? RangoReferencia.etiquetaEstado(r.getValorNumerico(), rango)
+                            : "";
                     default -> "";
                 };
                 // El color lo pone el estado, no un rojo único.

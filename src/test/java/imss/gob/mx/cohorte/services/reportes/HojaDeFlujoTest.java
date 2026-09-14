@@ -224,11 +224,36 @@ class HojaDeFlujoTest {
         byte[] bytes = pdf.aPdf(maquetador.maquetar(diseno(true, "lista"), conMediciones(30)));
         try (PDDocument doc = Loader.loadPDF(bytes)) {
             String texto = new PDFTextStripper().getText(doc);
-            // Los valores van de 81 a 110 con rango 70–99, así que salen los tres:
-            // dentro, un poco por arriba, y lo bastante como para revisarlo.
-            assertThat(texto).contains(EstadoResultado.EN_RANGO.etiquetaCorta());
-            assertThat(texto).contains("Por arriba");
-            assertThat(texto).contains(EstadoResultado.REVISAR.etiquetaCorta());
+            // Los valores van de 81 a 110 con rango 70–99: salen dentro y por arriba.
+            assertThat(texto).contains(RangoReferencia.DENTRO_DEL_RANGO);
+            assertThat(texto).contains(RangoReferencia.POR_ARRIBA);
+        }
+    }
+
+    @Test
+    @DisplayName("Solo tres estados, y el rango sin la interpretación delante")
+    void soloTresEstadosYRangoLimpio() throws Exception {
+        byte[] bytes = pdf.aPdf(maquetador.maquetar(diseno(true, "lista"), conMediciones(30)));
+        try (PDDocument doc = Loader.loadPDF(bytes)) {
+            String texto = new PDFTextStripper().getText(doc);
+            // El rango ya no lleva «Por arriba ·» delante: eso lo dice la columna de
+            // estado, y repetirlo en la misma fila era la interpretación que sobraba.
+            assertThat(texto).doesNotContain("·");
+            assertThat(texto).doesNotContain("A revisar", "Ligeramente", "En rango", "Por abajo", "Sin dato");
+            assertThat(texto).contains(RangoReferencia.POR_ARRIBA).contains("70 – 99");
+        }
+    }
+
+    @Test
+    @DisplayName("Se puede quitar cualquier columna: aquí solo resultado y estado")
+    void columnasOcultables() throws Exception {
+        String soloValorYEstado = diseno(true, "lista")
+                .replace("\"nombre\",\"valor\",\"barra\",\"referencia\",\"estado\"", "\"valor\",\"estado\"");
+        byte[] bytes = pdf.aPdf(maquetador.maquetar(soloValorYEstado, conMediciones(5)));
+        try (PDDocument doc = Loader.loadPDF(bytes)) {
+            String texto = new PDFTextStripper().getText(doc);
+            assertThat(texto).doesNotContain("MEDICION-1").doesNotContain("70 – 99");
+            assertThat(texto).contains("81").contains(RangoReferencia.DENTRO_DEL_RANGO);
         }
     }
 }
