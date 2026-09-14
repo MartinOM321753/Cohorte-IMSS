@@ -106,6 +106,7 @@ public class ResolvedorCampos {
                 ctx.persona() != null ? ctx.persona().getSexo() : null;
 
         int total = 0, enRango = 0, ligeramente = 0, revisar = 0, sinDato = 0;
+        int porDebajo = 0, porArriba = 0;
         for (var r : ctx.examenesOrdenados()) {
             if (r.getExamen() == null) continue;
             total++;
@@ -115,11 +116,17 @@ public class ResolvedorCampos {
                 case REVISAR -> revisar++;
                 case SIN_DATO -> sinDato++;
             }
+            String lado = RangoReferencia.sentido(r.getValorObtenido(), BloqueExamenes.rangoDe(r, sexo));
+            if (RangoReferencia.POR_DEBAJO.equals(lado)) porDebajo++;
+            if (RangoReferencia.POR_ARRIBA.equals(lado)) porArriba++;
         }
 
         return String.valueOf(switch (parte) {
             case "total" -> total;
-            case "enRango" -> enRango;
+            case "dentroDelRango", "enRango" -> enRango;
+            case "porDebajo" -> porDebajo;
+            case "porArriba" -> porArriba;
+            // De antes de que el documento hablara solo de tres estados.
             case "ligeramenteFuera" -> ligeramente;
             case "revisar" -> revisar;
             case "sinDato" -> sinDato;

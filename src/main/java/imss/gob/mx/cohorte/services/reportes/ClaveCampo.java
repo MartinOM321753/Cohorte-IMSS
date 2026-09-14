@@ -140,8 +140,11 @@ public final class ClaveCampo {
      * reporte de salud lista, y meter en el mismo total mediciones de estudios que la
      * hoja no enseña daría un «23» que no cuadra con lo que se ve debajo.</p>
      */
+    // enRango, ligeramenteFuera, revisar y sinDato se siguen resolviendo para no
+    // dejar en blanco plantillas ya guardadas, pero el catálogo ya no los ofrece.
     private static final Pattern RESUMEN = Pattern.compile(
-            "^resumen\\.examenes\\.(total|enRango|ligeramenteFuera|revisar|sinDato)$");
+            "^resumen\\.examenes\\.(total|dentroDelRango|porDebajo|porArriba"
+            + "|enRango|ligeramenteFuera|revisar|sinDato)$");
 
     public static String comoResumen(String clave) {
         Matcher m = RESUMEN.matcher(clave);
@@ -154,7 +157,7 @@ public final class ClaveCampo {
 
     /** Las partes que se pueden pedir, en el orden en que se leen en el documento. */
     public static final List<String> PARTES_RESUMEN =
-            List.of("total", "enRango", "ligeramenteFuera", "revisar", "sinDato");
+            List.of("total", "dentroDelRango", "porDebajo", "porArriba");
 
     /** El listado de estudios del participante, que no depende de ningún tipo. */
     public static final String BLOQUE_LISTADO_ESTUDIOS = "bloque.estudios.listado";

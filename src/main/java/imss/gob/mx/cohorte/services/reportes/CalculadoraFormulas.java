@@ -160,9 +160,10 @@ public class CalculadoraFormulas {
         Magnitud max = maximo(formula, ctx, porClave);
         if (min.ausente() && max.ausente()) return "";
 
-        if (max.presente() && valor.valor().compareTo(max.valor()) > 0) return "Por arriba";
-        if (min.presente() && valor.valor().compareTo(min.valor()) < 0) return "Por abajo";
-        return "Dentro del rango";
+        // Los mismos tres rótulos que las tablas y las listas.
+        if (max.presente() && valor.valor().compareTo(max.valor()) > 0) return RangoReferencia.POR_ARRIBA;
+        if (min.presente() && valor.valor().compareTo(min.valor()) < 0) return RangoReferencia.POR_DEBAJO;
+        return RangoReferencia.DENTRO_DEL_RANGO;
     }
 
     private Magnitud limite(FormulaReporte formula, String expresion, ContextoReporte ctx,

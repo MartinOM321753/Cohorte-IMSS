@@ -171,7 +171,7 @@ class ReferenciaCalculadaTest {
         assertThat(calculadora.estado(f, arriba, datosDe(arriba))).isEqualTo("Por arriba");
 
         ContextoReporte abajo = contextoConPeso(45);
-        assertThat(calculadora.estado(f, abajo, datosDe(abajo))).isEqualTo("Por abajo");
+        assertThat(calculadora.estado(f, abajo, datosDe(abajo))).isEqualTo("Por debajo");
     }
 
     @Test

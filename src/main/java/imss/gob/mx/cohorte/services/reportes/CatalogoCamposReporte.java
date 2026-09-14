@@ -243,17 +243,14 @@ public class CatalogoCamposReporte {
                 new Campo(ClaveCampo.deResumen("total"), "Mediciones realizadas", G_RESUMEN, null,
                         Clase.CAMPO, "Cuántos laboratorios tiene registrados el participante",
                         null, false, Map.of()),
-                new Campo(ClaveCampo.deResumen("enRango"), "En rango habitual", G_RESUMEN, null,
+                new Campo(ClaveCampo.deResumen("dentroDelRango"), "Dentro del rango", G_RESUMEN, null,
                         Clase.CAMPO, "Dentro del rango que aplica a su sexo",
                         null, false, Map.of()),
-                new Campo(ClaveCampo.deResumen("ligeramenteFuera"), "Ligeramente fuera", G_RESUMEN, null,
-                        Clase.CAMPO, "Fuera, pero dentro del margen configurado en el analito",
+                new Campo(ClaveCampo.deResumen("porDebajo"), "Por debajo", G_RESUMEN, null,
+                        Clase.CAMPO, "Por debajo del mínimo del rango",
                         null, false, Map.of()),
-                new Campo(ClaveCampo.deResumen("revisar"), "A revisar", G_RESUMEN, null,
-                        Clase.CAMPO, "Fuera y más allá de ese margen",
-                        null, false, Map.of()),
-                new Campo(ClaveCampo.deResumen("sinDato"), "Sin dato", G_RESUMEN, null,
-                        Clase.CAMPO, "Sin valor o sin rango con el que comparar; no cuentan como normales",
+                new Campo(ClaveCampo.deResumen("porArriba"), "Por arriba", G_RESUMEN, null,
+                        Clase.CAMPO, "Por arriba del máximo del rango",
                         null, false, Map.of()));
     }
 

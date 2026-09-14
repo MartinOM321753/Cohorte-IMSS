@@ -43,30 +43,25 @@ public class BloqueLista {
                        RangoReferencia.Rango rango, Double numero,
                        EstadoResultado estado) {
 
-        /** El texto de la referencia, en las palabras del reporte. */
+        /**
+         * El rango, y nada más: «90 – 120».
+         *
+         * <p>Antes llevaba delante hacia dónde se salía el valor —«Por arriba · 90 –
+         * 120»—, lo que repetía la columna de estado en la misma fila. El rango y el
+         * estado son columnas distintas y cada una se puede ocultar por su lado.</p>
+         */
         public String referencia() {
-            String base = RangoReferencia.texto(rango);
-            if (base.isEmpty()) return "";
-            String sentido = RangoReferencia.sentido(numero, rango);
-            return sentido.isEmpty() ? base : sentido + " · " + base;
+            return RangoReferencia.texto(rango);
         }
 
         /**
-         * Cómo se rotula el estado en la fila.
-         *
-         * <p>Una diferencia menor se nombra por su lado —«Por arriba», «Por abajo»—
-         * porque es lo que el participante necesita saber, y lo que hay que atender se
-         * nombra como tal. Los tres caben en una columna sin partirse, que es la
-         * condición para que se lean de un vistazo.</p>
+         * El estado: «Dentro del rango», «Por debajo» o «Por arriba».
          *
          * <p>No basta con el color: un documento que sólo distinga por color deja
          * fuera a quien no lo percibe y no sobrevive a una fotocopia.</p>
          */
         public String etiquetaEstado() {
-            if (!estado.medido()) return "";
-            if (estado == EstadoResultado.REVISAR) return estado.etiquetaCorta();
-            String sentido = RangoReferencia.sentido(numero, rango);
-            return sentido.isEmpty() ? EstadoResultado.EN_RANGO.etiquetaCorta() : sentido;
+            return estado.medido() ? RangoReferencia.etiquetaEstado(numero, rango) : "";
         }
     }
 
@@ -185,11 +180,14 @@ public class BloqueLista {
 
     private static double peso(String col) {
         return switch (col) {
-            case "nombre" -> 32;
+            // El estado lleva más que antes: «Dentro del rango» no cabe donde cabía
+            // «En rango», y en una lista de altura fija partirlo en dos renglones
+            // lo dejaría cortado.
+            case "nombre" -> 30;
             case "valor" -> 16;
             case "barra" -> 22;
-            case "referencia" -> 20;
-            case "estado" -> 14;
+            case "referencia" -> 18;
+            case "estado" -> 18;
             default -> 10;
         };
     }

@@ -85,12 +85,35 @@ public final class RangoReferencia {
                 : EstadoResultado.REVISAR;
     }
 
-    /** Hacia qué lado se sale, en las palabras del reporte. Vacío si no se sale. */
+    // ── Los tres estados que escribe el documento ───────────────────────────
+    //
+    // Son los únicos. Ni «En rango», ni «Ligeramente fuera», ni «A revisar», ni
+    // «Por abajo»: los mismos tres en todas las tablas, listas y fórmulas, para que
+    // un participante no tenga que aprender dos vocabularios para lo mismo.
+
+    public static final String DENTRO_DEL_RANGO = "Dentro del rango";
+    public static final String POR_DEBAJO = "Por debajo";
+    public static final String POR_ARRIBA = "Por arriba";
+
+    /** Hacia qué lado se sale. Vacío si no se sale o no se sabe. */
     public static String sentido(Double valor, Rango rango) {
         if (valor == null || rango == null) return "";
-        if (rango.min() != null && valor < rango.min()) return "Por abajo";
-        if (rango.max() != null && valor > rango.max()) return "Por arriba";
+        if (rango.min() != null && valor < rango.min()) return POR_DEBAJO;
+        if (rango.max() != null && valor > rango.max()) return POR_ARRIBA;
         return "";
+    }
+
+    /**
+     * El estado tal como se escribe: «Dentro del rango», «Por debajo» o «Por arriba».
+     *
+     * <p>Vacío cuando no hay valor o no hay rango. No se escribe «Sin dato»: una
+     * celda vacía ya dice que no hay con qué comparar, y un cuarto rótulo sería justo
+     * lo que se pidió quitar.</p>
+     */
+    public static String etiquetaEstado(Double valor, Rango rango) {
+        if (valor == null || rango == null) return "";
+        String lado = sentido(valor, rango);
+        return lado.isEmpty() ? DENTRO_DEL_RANGO : lado;
     }
 
     /** Texto legible del rango, para la columna de referencia. */
