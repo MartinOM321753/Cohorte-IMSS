@@ -9,6 +9,7 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TuboMuestra;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PaginaMuestras;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -80,6 +83,68 @@ public class  MuestraController {
             "totalElements", page.getTotalElements(),
             "totalPages", page.getTotalPages()
         );
+        return ResponseEntity.ok(new APIResponse("Muestras encontradas", body, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/cursor")
+    @Operation(summary = "Listar muestras por cursor",
+        description = "Devuelve una ventana del listado situada por cursor en vez de por número de página, "
+            + "ordenada de la muestra más reciente a la más antigua. Cada elemento es una tarjeta "
+            + "—muestra sin padre, o alícuota cuyo padre no es visible para la institución— y sus "
+            + "alícuotas viajan en una lista aparte. La búsqueda y los filtros se resuelven aquí: con "
+            + "solo una página cargada, aplicarlos en la pantalla contestaría sobre esas filas y "
+            + "escondería el resto sin avisar.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
+    public ResponseEntity<APIResponse> getPaginaCursor(
+            @Parameter(description = "Cursor devuelto por una página anterior. Omitirlo empieza por el extremo.")
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @Parameter(description = "SIGUIENTE avanza hacia lo más antiguo; ANTERIOR vuelve hacia lo más "
+                + "reciente. ANTERIOR sin cursor entrega el final de la lista.")
+            @RequestParam(value = "direccion", defaultValue = "SIGUIENTE") String direccion,
+            @Parameter(description = "Tarjetas por página (default 20, máximo 100).")
+            @RequestParam(value = "size", defaultValue = "20") int size,
+            @RequestParam(value = "incluirHistorico", defaultValue = "false") boolean incluirHistorico,
+            @Parameter(description = "Oculta las alícuotas ajenas que ya no están en el biobanco propio.")
+            @RequestParam(value = "ocultarDevueltasHuerfanas", defaultValue = "true") boolean ocultarDevueltasHuerfanas,
+            @Parameter(description = "Texto libre: etiqueta, unidad, folio o nombre del participante, tipo o tubo.")
+            @RequestParam(value = "busqueda", required = false) String busqueda,
+            @Parameter(description = "Fecha de recolección mínima (YYYY-MM-DD).")
+            @RequestParam(value = "fechaDesde", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @Parameter(description = "Fecha de recolección máxima (YYYY-MM-DD), inclusiva.")
+            @RequestParam(value = "fechaHasta", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @Parameter(description = "Nombres de tipo de muestra. Por nombre y no por id: cada institución "
+                + "tiene su propio registro de «Heces», y filtrar por id escondería las de otra sede.")
+            @RequestParam(value = "tipos", required = false) List<String> tipos,
+            @RequestParam(value = "sexo", required = false) String sexo,
+            @RequestParam(value = "folioDesde", required = false) String folioDesde,
+            @RequestParam(value = "folioHasta", required = false) String folioHasta) {
+
+        PaginaMuestras pagina = muestraApplicationService.buscarPaginaMuestras(
+                cursor, "ANTERIOR".equalsIgnoreCase(direccion), size,
+                incluirHistorico, ocultarDevueltasHuerfanas,
+                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta);
+
+        PaginaMuestrasResponseDTO body = PaginaMuestrasResponseDTO.builder()
+                .muestras(MuestraMapper.toResponseDTOList(pagina.muestras()))
+                .alicuotas(MuestraMapper.toResponseDTOList(pagina.alicuotas()))
+                .cursorInicio(pagina.cursorInicio())
+                .cursorFin(pagina.cursorFin())
+                .hayAnteriores(pagina.hayAnteriores())
+                .haySiguientes(pagina.haySiguientes())
+                .total(pagina.total())
+                .huerfanasDevueltas(pagina.huerfanasDevueltas())
+                .build();
+
         return ResponseEntity.ok(new APIResponse("Muestras encontradas", body, false, HttpStatus.OK));
     }
 
@@ -253,14 +318,16 @@ public class  MuestraController {
             entity.setTuboMuestra(tb);
         }
 
-        Muestra saved = muestraApplicationService.createMuestra(entity);
-        MuestraResponseDTO responseDTO = MuestraMapper.toResponseDTO(saved);
-        // Si el tubo generó alícuotas, indicarlo en la respuesta
-        if (saved.getTuboMuestra() != null
-                && saved.getTuboMuestra().getNumeroAlicuotas() != null
-                && saved.getTuboMuestra().getNumeroAlicuotas() > 0) {
-            responseDTO.setAlicuotasGeneradas(saved.getTuboMuestra().getNumeroAlicuotas());
-        }
+        var resultado = muestraApplicationService.createMuestra(
+            entity,
+            dto.getGenerarAlicuotas(),
+            dto.getPlanAlicuotas() != null ? dto.getPlanAlicuotas().getVolumenes() : null);
+
+        MuestraResponseDTO responseDTO = MuestraMapper.toResponseDTO(resultado.muestra());
+        // El conteo real, no el del tubo: pueden ser menos si el volumen extraído
+        // no alcanzaba para el lote completo, o ninguna si no se pidieron.
+        responseDTO.setAlicuotasGeneradas(resultado.totalAlicuotas());
+
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Muestra registrada exitosamente", responseDTO, false, HttpStatus.CREATED));
     }
@@ -269,8 +336,10 @@ public class  MuestraController {
     @Operation(summary = "Muestras en el biobanco de mi institución",
                description = "Muestras cuyo tenedor actual es la institución del usuario logueado (incluye SIN_POSICION, EN_BIOBANCO y PRESTADAS recibidas).")
     @PreAuthorize("hasAuthority('MUESTRAS_VER')")
-    public ResponseEntity<APIResponse> getMuestrasEnBiobanco(Pageable pageable) {
-        Page<Muestra> page = muestraApplicationService.getMuestrasEnBiobancoPage(pageable);
+    public ResponseEntity<APIResponse> getMuestrasEnBiobanco(
+            Pageable pageable,
+            @RequestParam(required = false, defaultValue = "false") boolean incluirAgotadas) {
+        Page<Muestra> page = muestraApplicationService.getMuestrasEnBiobancoPage(pageable, incluirAgotadas);
         Map<String, Object> body = Map.of(
             "content", MuestraMapper.toResponseDTOList(page.getContent()),
             "page", page.getNumber(),
@@ -352,17 +421,59 @@ public class  MuestraController {
     }
 
     @PostMapping("/{id}/generar-alicuotas")
-    @Operation(summary = "Generar alícuotas en institución receptora",
-               description = "Genera alícuotas de una muestra padre recibida usando un tipo+tubo seleccionado por la institución receptora.")
+    @Operation(summary = "Generar un lote de alícuotas",
+               description = "Genera alícuotas de una muestra padre ya registrada, con el tipo+tubo que elija "
+                           + "la institución que la tiene. Sirve tanto para la receptora de un préstamo como "
+                           + "para la propietaria que no alicuotó al registrar.")
     @PreAuthorize("hasAuthority('MUESTRAS_CREAR')")
-    public ResponseEntity<APIResponse> generarAlicuotasEnReceptora(
+    public ResponseEntity<APIResponse> generarLoteAlicuotas(
             @PathVariable Long id,
             @Validated @RequestBody GenerarAlicuotasRequestDTO dto) {
-        List<Muestra> alicuotas = muestraApplicationService.generarAlicuotasEnReceptora(
-            id, dto.getIdTipoMuestra(), dto.getIdTuboMuestra());
+        List<Muestra> alicuotas = muestraApplicationService.generarLoteAlicuotas(
+            id, dto.getIdTipoMuestra(), dto.getIdTuboMuestra(),
+            dto.getPlanAlicuotas() != null ? dto.getPlanAlicuotas().getVolumenes() : null);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Alícuotas generadas",
                 MuestraMapper.toResponseDTOList(alicuotas), false, HttpStatus.CREATED));
+    }
+
+    @GetMapping("/plan-alicuotas")
+    @Operation(summary = "Previsualizar el lote de alícuotas",
+               description = "Calcula cuántas alícuotas alcanzan con el volumen indicado, qué sobra y qué "
+                           + "repartos son posibles. No crea nada.")
+    @PreAuthorize("hasAuthority('MUESTRAS_CREAR')")
+    public ResponseEntity<APIResponse> previsualizarPlan(
+            @RequestParam Long idTuboMuestra,
+            @RequestParam(required = false) Double valor,
+            @RequestParam(required = false) Long idMuestra) {
+        var plan = idMuestra != null
+            ? muestraApplicationService.previsualizarPlanDeMuestra(idMuestra, idTuboMuestra)
+            : muestraApplicationService.previsualizarPlan(idTuboMuestra, valor);
+        return ResponseEntity.ok(new APIResponse("Plan de alícuotas",
+            PlanAlicuotasMapper.toResponseDTO(plan), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{id}/alicuotas/pendientes")
+    @Operation(summary = "Alícuotas del lote que siguen sin ubicar",
+               description = "Alícuotas creadas cuyo volumen sigue reservado en la muestra padre.")
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
+    public ResponseEntity<APIResponse> getAlicuotasPendientes(@PathVariable Long id) {
+        List<Muestra> pendientes = muestraApplicationService.getAlicuotasPendientes(id);
+        return ResponseEntity.ok(new APIResponse("Alícuotas pendientes de ubicar",
+            MuestraMapper.toResponseDTOList(pendientes), false, HttpStatus.OK));
+    }
+
+    @PostMapping("/{id}/alicuotas/ubicar-lote")
+    @Operation(summary = "Ubicar el lote completo de alícuotas",
+               description = "Asigna posición a varias alícuotas de una misma muestra padre en una sola "
+                           + "operación. Todo o nada: si un hueco se ocupó entretanto, no queda medio lote ubicado.")
+    @PreAuthorize("hasAnyAuthority('MUESTRAS_EDITAR', 'TRASLADOS_CONFIRMAR')")
+    public ResponseEntity<APIResponse> ubicarLote(
+            @PathVariable Long id,
+            @RequestBody UbicarLoteRequestDTO dto) {
+        List<Muestra> ubicadas = muestraApplicationService.ubicarLote(id, dto.getAsignaciones());
+        return ResponseEntity.ok(new APIResponse("Lote ubicado",
+            MuestraMapper.toResponseDTOList(ubicadas), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}/tipo-institucion")

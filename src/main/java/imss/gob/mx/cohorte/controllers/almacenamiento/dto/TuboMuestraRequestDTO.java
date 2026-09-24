@@ -31,4 +31,18 @@ public class TuboMuestraRequestDTO {
     private Integer orden;
 
     private Boolean activo = true;
+
+    /**
+     * Valor por omisión de la generación de alícuotas al registrar.
+     *
+     * <p>Sin valor por defecto a propósito: {@code null} significa «no lo
+     * menciono», y la actualización lo respeta. Ponerle {@code TRUE} aquí haría
+     * que cualquier petición que omitiera el campo —por ejemplo la que solo
+     * activa o desactiva el tubo— devolviera a automático un tubo configurado
+     * en manual, sin que nadie lo pidiera.</p>
+     */
+    private Boolean generacionAutomatica;
+
+    /** Si el lote puede cerrarse con una alícuota incompleta. Ver la nota de arriba. */
+    private Boolean permiteAlicuotaParcial;
 }

@@ -79,16 +79,13 @@ public class MuestraMapper {
                 .build();
         }
 
-        TuboMuestraResumenDTO tuboMuestraDTO = null;
-        if (m.getTuboMuestra() != null) {
-            var tb = m.getTuboMuestra();
-            tuboMuestraDTO = TuboMuestraResumenDTO.builder()
-                .id(tb.getId())
-                .nombre(tb.getNombre())
-                .prefijoCodigo(tb.getPrefijoCodigo())
-                .numeroAlicuotas(tb.getNumeroAlicuotas())
-                .build();
-        }
+        // La receta completa, no solo el nombre: el planificador de lotes de la
+        // pantalla necesita volumen, unidad y si admite alícuotas incompletas.
+        TuboMuestraResumenDTO tuboMuestraDTO = TipoMuestraMapper.tuboToResumenDTO(m.getTuboMuestra());
+
+        Double comprometido = m.getValorComprometido() != null ? m.getValorComprometido() : 0.0;
+        Double disponible = m.getValorDisponible();
+        boolean esAlicuota = m.getMuestraPadre() != null;
 
         return MuestraResponseDTO.builder()
             .id(m.getId())
@@ -110,7 +107,32 @@ public class MuestraMapper {
             .nombreInstitucion(m.getInstitucion() != null ? m.getInstitucion().getNombre() : null)
             .idInstitucionActual(m.getInstitucionActual() != null ? m.getInstitucionActual().getId() : null)
             .nombreInstitucionActual(m.getInstitucionActual() != null ? m.getInstitucionActual().getNombre() : null)
+            // Contabilidad de volumen
+            .valorComprometido(esAlicuota ? null : comprometido)
+            .valorDisponible(esAlicuota ? m.getValor() : disponible)
+            .materializada(esAlicuota ? m.isMaterializada() : null)
+            .fechaMaterializacion(m.getFechaMaterializacion() != null
+                ? m.getFechaMaterializacion().toLocalDateTime() : null)
+            .agotada(m.isAgotada())
+            .fechaAgotamiento(m.getFechaAgotamiento() != null
+                ? m.getFechaAgotamiento().toLocalDateTime() : null)
+            // Tiene líquido pero todo prometido: no admite estudios ni lotes nuevos
+            // aunque `valor` sea mayor que cero.
+            .sinDisponible(!esAlicuota && !m.isAgotada() && disponible != null && disponible <= 0.000001)
             .build();
+    }
+
+    /**
+     * Versión con el conteo de alícuotas pendientes ya resuelto.
+     *
+     * <p>El conteo se pasa desde fuera en lugar de consultarlo aquí: este mapper
+     * se usa en 23 sitios, varios de ellos sobre listados paginados, y una
+     * consulta por fila sería un N+1 en la pantalla principal del biobanco.</p>
+     */
+    public static MuestraResponseDTO toResponseDTO(Muestra m, Integer alicuotasPendientes) {
+        MuestraResponseDTO dto = toResponseDTO(m);
+        dto.setAlicuotasPendientes(alicuotasPendientes);
+        return dto;
     }
 
     public static List<MuestraResponseDTO> toResponseDTOList(List<Muestra> list) {

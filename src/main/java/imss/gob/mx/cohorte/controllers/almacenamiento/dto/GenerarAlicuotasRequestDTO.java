@@ -13,4 +13,7 @@ public class GenerarAlicuotasRequestDTO {
 
     @NotNull(message = "El tubo de muestra es obligatorio")
     private Long idTuboMuestra;
+
+    /** Reparto del lote; null = el plan por omisión del planificador. */
+    private PlanAlicuotasRequestDTO planAlicuotas;
 }

@@ -59,4 +59,47 @@ public class TuboMuestra {
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
+
+    /**
+     * Si al registrar una muestra con este tubo las alícuotas se crean solas.
+     *
+     * <p>Es un valor por omisión, no una regla: quien registra puede activarlo
+     * en un tubo marcado como manual o saltárselo en uno automático, y siempre
+     * puede generar el lote más tarde. Existe porque no toda muestra se alicuota
+     * en la unidad que la tomó —muchas se guardan y se alicuotan en otra, o
+     * nunca—, y crearlas siempre imponía un caso particular a todos.</p>
+     *
+     * <p><b>Nullable a propósito, con {@code null} = automático.</b> MySQL
+     * rellena una columna booleana NOT NULL nueva con 0 en las filas que ya
+     * existen: declararla obligatoria habría dejado en manual, de golpe y sin
+     * un solo error visible, todos los tubos ya configurados. Léase siempre con
+     * {@link #esGeneracionAutomatica()}.</p>
+     */
+    @Column(name = "generacion_automatica")
+    private Boolean generacionAutomatica = Boolean.TRUE;
+
+    /**
+     * Si se admite cerrar el lote con una alícuota incompleta —los 20 mL que
+     * sobran metidos en un vial de 50—. Hay tipos de muestra donde un vial a
+     * medias no sirve y conviene apagarlo.
+     *
+     * <p>Nullable con {@code null} = permitido, por el mismo motivo que
+     * {@link #generacionAutomatica}. Léase con {@link #admiteAlicuotaParcial()}.</p>
+     */
+    @Column(name = "permite_alicuota_parcial")
+    private Boolean permiteAlicuotaParcial = Boolean.TRUE;
+
+    /** Generación automática, tratando el dato heredado (null) como activada. */
+    @Transient
+    @JsonIgnore
+    public boolean esGeneracionAutomatica() {
+        return !Boolean.FALSE.equals(generacionAutomatica);
+    }
+
+    /** Alícuotas incompletas, tratando el dato heredado (null) como permitidas. */
+    @Transient
+    @JsonIgnore
+    public boolean admiteAlicuotaParcial() {
+        return !Boolean.FALSE.equals(permiteAlicuotaParcial);
+    }
 }

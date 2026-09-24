@@ -25,6 +25,8 @@ public class TipoMuestraMapper {
         tubo.setDestinoSugerido(dto.getDestinoSugerido());
         tubo.setOrden(dto.getOrden() != null ? dto.getOrden() : 0);
         tubo.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
+        tubo.setGeneracionAutomatica(dto.getGeneracionAutomatica() != null ? dto.getGeneracionAutomatica() : Boolean.TRUE);
+        tubo.setPermiteAlicuotaParcial(dto.getPermiteAlicuotaParcial() != null ? dto.getPermiteAlicuotaParcial() : Boolean.TRUE);
         return tubo;
     }
 
@@ -39,6 +41,23 @@ public class TipoMuestraMapper {
                 .destinoSugerido(tubo.getDestinoSugerido())
                 .orden(tubo.getOrden())
                 .activo(tubo.getActivo())
+                .generacionAutomatica(tubo.esGeneracionAutomatica())
+                .permiteAlicuotaParcial(tubo.admiteAlicuotaParcial())
+                .build();
+    }
+
+    /** Resumen del tubo con la receta completa: el planificador de lotes la necesita. */
+    public static TuboMuestraResumenDTO tuboToResumenDTO(TuboMuestra tubo) {
+        if (tubo == null) return null;
+        return TuboMuestraResumenDTO.builder()
+                .id(tubo.getId())
+                .nombre(tubo.getNombre())
+                .prefijoCodigo(tubo.getPrefijoCodigo())
+                .numeroAlicuotas(tubo.getNumeroAlicuotas())
+                .volumenAlicuota(tubo.getVolumenAlicuota())
+                .unidadVolumen(tubo.getUnidadVolumen())
+                .generacionAutomatica(tubo.esGeneracionAutomatica())
+                .permiteAlicuotaParcial(tubo.admiteAlicuotaParcial())
                 .build();
     }
 

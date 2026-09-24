@@ -16,4 +16,8 @@ public class TuboMuestraResponseDTO {
     private String destinoSugerido;
     private Integer orden;
     private Boolean activo;
+    /** Si al registrar una muestra con este tubo las alícuotas se crean solas. */
+    private Boolean generacionAutomatica;
+    /** Si se admite cerrar el lote con una alícuota incompleta. */
+    private Boolean permiteAlicuotaParcial;
 }
