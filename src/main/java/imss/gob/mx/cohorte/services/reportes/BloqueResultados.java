@@ -102,6 +102,9 @@ public class BloqueResultados {
         List<ResultadoEstudio> mostrables = resultados.stream()
                 .filter(r -> visibles.isEmpty()
                         || (r.getParametro() != null && visibles.contains(r.getParametro().getId())))
+                // El orden es el del catálogo, el mismo que usa el expediente: el
+                // reporte y la pantalla de donde salió tienen que verse igual.
+                .sorted(imss.gob.mx.cohorte.modules.estudios.resultados.OrdenDeResultados.POR_CATALOGO)
                 .toList();
 
         if (mostrables.isEmpty()) {

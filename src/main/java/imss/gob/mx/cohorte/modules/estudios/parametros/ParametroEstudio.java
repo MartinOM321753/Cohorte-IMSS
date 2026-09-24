@@ -54,6 +54,21 @@ public class ParametroEstudio {
     @Column(name = "activo", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean activo = true;
 
+    /**
+     * Posición de este parámetro dentro de su tipo de estudio. Manda en todas
+     * partes: el formulario de captura, las columnas de la carga masiva, el
+     * catálogo de campos del diseñador de reportes y el expediente.
+     *
+     * <p>El DEFAULT de la columna solo evita que la fila quede en NULL cuando
+     * Hibernate la añade a una tabla con datos; no basta, porque dejaría a todos
+     * los parámetros de un tipo empatados en cero y el orden volvería a ser el
+     * que quisiera la base. Quien reparte los números iniciales —respetando el
+     * orden por id, que es el que el usuario ya conocía— es
+     * {@code OrdenParametrosInitializer}.</p>
+     */
+    @Column(name = "orden", nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private Integer orden = 0;
+
     /** Rango de referencia para mujeres (solo aplica a parámetros NUMERICO). */
     @Column(name = "valor_min_mujeres")
     private Double valorMinMujeres;

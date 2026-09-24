@@ -20,5 +20,8 @@ public class ParametroEstudioMuestraResponseDTO {
     private Double valorMinimo;
     private Double valorMaximo;
     /** Poblado solo cuando tipo = TEXTO_OPCIONES */
+    /** Posición dentro de su tipo de estudio de muestra. Es el orden en que hay que mostrarlo. */
+    private Integer orden;
+
     private List<String> opciones;
 }

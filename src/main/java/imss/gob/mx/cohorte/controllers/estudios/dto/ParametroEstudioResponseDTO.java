@@ -34,6 +34,13 @@ public class ParametroEstudioResponseDTO {
      */
     private Double margenRevision;
 
+    /**
+     * Posición dentro de su tipo de estudio. Es el orden en que hay que mostrarlo:
+     * el cliente lo recibe ya ordenado, pero lo necesita para la pantalla de
+     * configuración, que es donde se reacomoda.
+     */
+    private Integer orden;
+
     /** Valores predefinidos. Presente (no null) solo cuando tipo == TEXTO_OPCIONES. */
     private List<String> opciones;
 

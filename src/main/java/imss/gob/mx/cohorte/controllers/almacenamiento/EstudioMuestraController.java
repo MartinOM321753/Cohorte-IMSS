@@ -162,6 +162,21 @@ public class EstudioMuestraController {
                 "Parámetro actualizado", HttpStatus.OK, false));
     }
 
+    @PutMapping("/estudios/tipos/{id}/parametros/orden")
+    @Operation(summary = "Reordenar los parámetros de un tipo de estudio de muestra",
+               description = "Recibe todos los parámetros del tipo, en el orden deseado. "
+                           + "La lista tiene que traer exactamente los parámetros del tipo: si falta "
+                           + "o sobra alguno se rechaza completa.")
+    public ResponseEntity<APIResponse> reordenarParametros(
+            @PathVariable Long id,
+            @Valid @RequestBody ReordenarParametrosEstudioMuestraRequestDTO dto) {
+        List<ParametroEstudioMuestra> parametros = gestionAppService.reordenarParametros(id, dto.getIds());
+        List<ParametroEstudioMuestraResponseDTO> dtos = parametros.stream()
+                .map(EstudioMuestraMapper::toParametroDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(new APIResponse(dtos, "Orden de los parámetros actualizado", HttpStatus.OK, false));
+    }
+
     @DeleteMapping("/estudios/parametros/{id}")
     @Operation(summary = "Eliminar parámetro de estudio de muestra")
     public ResponseEntity<APIResponse> deleteParametro(@PathVariable Long id) {

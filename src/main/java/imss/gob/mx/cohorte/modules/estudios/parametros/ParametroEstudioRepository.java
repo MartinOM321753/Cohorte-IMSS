@@ -11,5 +11,12 @@ public interface ParametroEstudioRepository extends JpaRepository<ParametroEstud
 
     List<ParametroEstudio> findAllByTipoEstudio_Nombre(String tipoEstudioNombre);
 
+    /**
+     * Los parámetros del tipo en el orden configurado. Es el finder que debe usar
+     * todo lo que muestre o recorra parámetros: sin ORDER BY, el orden lo decide
+     * la base y cambia entre motores y entre planes de consulta.
+     */
+    List<ParametroEstudio> findAllByTipoEstudio_IdOrderByOrdenAscIdAsc(Long tipoEstudioId);
+
     List<ParametroEstudio> findAllByTipoEstudio_Id(Long tipoEstudioId);
 }

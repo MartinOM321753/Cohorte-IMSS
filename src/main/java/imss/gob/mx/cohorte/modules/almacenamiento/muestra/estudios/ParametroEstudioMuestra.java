@@ -41,6 +41,15 @@ public class ParametroEstudioMuestra {
     @Column(name = "tipo", nullable = false, length = 15)
     private TipoParametro tipo;
 
+    /**
+     * Posición de este parámetro dentro de su tipo de estudio de muestra. Ver la
+     * nota equivalente en {@code ParametroEstudio}: el DEFAULT de la columna solo
+     * cubre el alta de la columna sobre datos existentes; el reparto inicial de
+     * números lo hace {@code OrdenParametrosInitializer}.
+     */
+    @Column(name = "orden", nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private Integer orden = 0;
+
     @Column(name = "valor_minimo")
     private Double valorMinimo;
 

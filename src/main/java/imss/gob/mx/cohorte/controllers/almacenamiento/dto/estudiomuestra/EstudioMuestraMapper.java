@@ -16,6 +16,19 @@ public class EstudioMuestraMapper {
     private static final String ROOT = "ROOT";
     private static final int ROOT_ORDER = 0;
 
+    /**
+     * En qué orden se devuelven los resultados de un estudio de muestra ya
+     * guardado: el que hoy tiene el parámetro en el catálogo. Ver la nota
+     * equivalente en {@code EstudioMapper}.
+     */
+    private static final java.util.Comparator<ResultadoEstudioMuestra> POR_ORDEN_DEL_CATALOGO =
+            java.util.Comparator
+                    .comparing((ResultadoEstudioMuestra r) -> r.getGrupoCodigo() == null ? "" : r.getGrupoCodigo())
+                    .thenComparing(r -> r.getOrdenResultado() == null ? ROOT_ORDER : r.getOrdenResultado())
+                    .thenComparing(r -> r.getParametro() == null || r.getParametro().getOrden() == null
+                            ? Integer.MAX_VALUE : r.getParametro().getOrden())
+                    .thenComparing(r -> r.getId() == null ? Long.MAX_VALUE : r.getId());
+
     // ─── EstudioMuestra ──────────────────────────────────────────────────────
 
     public static EstudioMuestra toEntity(EstudioMuestraRequestDTO dto) {
@@ -70,6 +83,7 @@ public class EstudioMuestraMapper {
         List<ResultadoEstudioMuestraResponseDTO> resultadosDTO = null;
         if (e.getResultados() != null) {
             resultadosDTO = e.getResultados().stream()
+                    .sorted(POR_ORDEN_DEL_CATALOGO)
                     .map(r -> ResultadoEstudioMuestraResponseDTO.builder()
                             .id(r.getId())
                             .idParametro(r.getParametro() != null ? r.getParametro().getId() : null)
@@ -138,6 +152,7 @@ public class EstudioMuestraMapper {
                 .tipo(p.getTipo())
                 .valorMinimo(p.getValorMinimo())
                 .valorMaximo(p.getValorMaximo())
+                .orden(p.getOrden())
                 .opciones(opciones)
                 .build();
     }
@@ -162,6 +177,9 @@ public class EstudioMuestraMapper {
                 case PRESTAMO_DEVUELTO -> "Préstamo devuelto";
                 case PRESTAMO_CANCELADO -> "Préstamo cancelado";
                 case MUESTRA_DADA_BAJA -> "Muestra dada de baja";
+                case ALICUOTAS_COMPROMETIDAS -> "Alícuotas comprometidas";
+                case ALICUOTA_MATERIALIZADA -> "Alícuota materializada";
+                case MUESTRA_AGOTADA -> "Muestra agotada";
                 case ACTUALIZACION_CAMPO -> null;
             };
         }

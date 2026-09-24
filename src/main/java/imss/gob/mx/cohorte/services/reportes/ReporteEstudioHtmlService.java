@@ -106,10 +106,13 @@ public class ReporteEstudioHtmlService {
 
         Persona.Sexo sexo = persona != null ? persona.getSexo() : null;
 
-        // LinkedHashMap: el orden de los grupos es el que trae la consulta, que ya
-        // viene ordenada por grupo y posición.
+        // LinkedHashMap: los grupos quedan en el orden en que se recorren, y el
+        // recorrido va por grupo y, dentro de cada uno, por el orden que el
+        // administrador configuró en el catálogo.
         Map<String, List<ResultadoEstudio>> porGrupo = new LinkedHashMap<>();
-        for (ResultadoEstudio r : resultados) {
+        for (ResultadoEstudio r : resultados.stream()
+                .sorted(imss.gob.mx.cohorte.modules.estudios.resultados.OrdenDeResultados.POR_CATALOGO)
+                .toList()) {
             String clave = r.getGrupoCodigo() == null ? GRUPO_PLANO : r.getGrupoCodigo();
             porGrupo.computeIfAbsent(clave, k -> new ArrayList<>()).add(r);
         }
