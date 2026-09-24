@@ -81,6 +81,19 @@ public class PacienteService {
         return findPatient;
     }
 
+    /**
+     * Busca por número consecutivo, igual que {@link #getByFolio}: dentro de la
+     * institución y solo si el participante sigue activo.
+     */
+    public Paciente getByNoConsecutivo(Long noConsecutivo, Long idInstitucion) {
+        Paciente findPatient = pacienteRepository.findByNoConsecutivoAndInstitucion_Id(noConsecutivo, idInstitucion)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
+        if (!findPatient.getActivo()) {
+            throw new ObjNotFoundException("El participante no se encuentra activo");
+        }
+        return findPatient;
+    }
+
     public Paciente cretePatient(Paciente paciente) {
         String folioCapturado = paciente.getFolio();
         String folio;
@@ -94,6 +107,11 @@ public class PacienteService {
             }
         }
         paciente.setFolio(folio);
+
+        Long noConsecutivo = paciente.getNoConsecutivo();
+        if (noConsecutivo != null && pacienteRepository.existsByNoConsecutivo(noConsecutivo)) {
+            throw new ObjConflictException("El número consecutivo " + noConsecutivo + " ya está asignado a otro participante");
+        }
 
         paciente.setFechaRegistro(LocalDateTime.now());
         paciente.setFechaActualizacion(LocalDateTime.now());
@@ -139,6 +157,22 @@ public class PacienteService {
             throw new ObjConflictException("El folio ya existe");
         }
 
+        // El consecutivo solo se comprueba cuando cambia. Revisarlo siempre haría que
+        // guardar un participante sin tocarle el número chocara contra su propio
+        // registro, que es el que ya lo tiene.
+        //
+        // Venir vacío significa quitarlo, no dejarlo como estaba —al revés que el
+        // folio, que no se puede borrar porque es obligatorio—. La edición manda el
+        // formulario completo, así que un campo vacío es alguien que lo vació, y un
+        // número mal tecleado tiene que poder deshacerse.
+        Long noConsecutivo = paciente.getNoConsecutivo();
+        if (!java.util.Objects.equals(noConsecutivo, pacienteBD.getNoConsecutivo())) {
+            if (noConsecutivo != null && pacienteRepository.existsByNoConsecutivo(noConsecutivo)) {
+                throw new ObjConflictException("El número consecutivo " + noConsecutivo + " ya está asignado a otro participante");
+            }
+            pacienteBD.setNoConsecutivo(noConsecutivo);
+        }
+
         pacienteBD.setFolio(folio);
         pacienteBD.setPersona(paciente.getPersona());
         pacienteBD.setFechaActualizacion(LocalDateTime.now());
@@ -156,11 +190,35 @@ public class PacienteService {
     }
 
     public Page<Paciente> buscarPaginado(Long idInstitucion, String buscar, Boolean soloActivos, Pageable pageable) {
-        return pacienteRepository.buscarPaginado(idInstitucion, buscar, soloActivos, pageable);
+        return pacienteRepository.buscarPaginado(
+                idInstitucion, buscar, numeroDeBusqueda(buscar), soloActivos, pageable);
+    }
+
+    /**
+     * El número consecutivo que se está buscando, o null si lo que se escribió no
+     * es uno.
+     *
+     * <p>La caja de búsqueda es una sola y sirve para nombre, CURP, correo, folio y
+     * ahora el consecutivo. Interpretar aquí lo que se escribió —en vez de
+     * convertir la columna a texto dentro de la consulta— deja la comparación en
+     * números, que es la que puede usar el índice.</p>
+     *
+     * <p>Un número que no cabe en un {@code long} no es un consecutivo de nadie:
+     * se descarta como criterio y la búsqueda sigue con el resto de los campos, en
+     * lugar de fallar.</p>
+     */
+    private Long numeroDeBusqueda(String buscar) {
+        if (buscar == null || buscar.isBlank()) return null;
+        try {
+            return Long.valueOf(buscar.trim());
+        } catch (NumberFormatException noEsUnNumero) {
+            return null;
+        }
     }
 
     public Page<Paciente> buscarPaginadoEnInstituciones(List<Long> ids, String buscar, Boolean soloActivos, Pageable pageable) {
-        return pacienteRepository.buscarPaginadoEnInstituciones(ids, buscar, soloActivos, pageable);
+        return pacienteRepository.buscarPaginadoEnInstituciones(
+                ids, buscar, numeroDeBusqueda(buscar), soloActivos, pageable);
     }
 
     public Paciente getByUUID(String uuid, List<Long> idsInstituciones) {

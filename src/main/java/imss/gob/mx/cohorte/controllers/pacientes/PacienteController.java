@@ -72,7 +72,8 @@ public class PacienteController {
     @GetMapping("/paginado")
     @Operation(summary = "Listar pacientes paginados con búsqueda server-side",
                description = "Obtiene los pacientes en páginas con filtro de texto opcional. " +
-                       "El parámetro 'buscar' filtra por nombre, apellidos, CURP, correo o folio. " +
+                       "El parámetro 'buscar' filtra por nombre, apellidos, CURP, correo o folio; " +
+                       "si lo escrito es un número, también por número consecutivo, que se compara exacto. " +
                        "Parámetros de paginación estándar de Spring: page, size, sort.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Éxito",
@@ -209,7 +210,7 @@ public class PacienteController {
         return ResponseEntity.ok(new APIResponse("UUID propio", Map.of("uuid", propio.getUuid()), false, HttpStatus.OK));
     }
 
-    /** Coincidencia por folio o nombre, como la busqueda normal. */
+    /** Coincidencia por folio, número consecutivo o nombre, como la busqueda normal. */
     private boolean coincide(Paciente p, String filtro) {
         String folio = p.getFolio() != null ? p.getFolio().toLowerCase() : "";
         var per = p.getPersona();
@@ -217,7 +218,11 @@ public class PacienteController {
                 (per.getNombre() != null ? per.getNombre() : "") + " " +
                 (per.getApellidoPaterno() != null ? per.getApellidoPaterno() : "") + " " +
                 (per.getApellidoMaterno() != null ? per.getApellidoMaterno() : "")).toLowerCase();
-        return folio.contains(filtro) || nombre.contains(filtro);
+        // El consecutivo se compara completo, no por partes: es un número, y "12"
+        // se parecería a 12, 120 y 512 sin que quien lo escribió buscara ninguno.
+        boolean porConsecutivo = p.getNoConsecutivo() != null
+                && p.getNoConsecutivo().toString().equals(filtro);
+        return folio.contains(filtro) || porConsecutivo || nombre.contains(filtro);
     }
 
     @GetMapping("/buscar")
@@ -290,6 +295,21 @@ public class PacienteController {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
         return ResponseEntity.ok(new APIResponse("Participante encontrado", PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
+    }
+
+    @GetMapping("/no-consecutivo/{noConsecutivo}")
+    @Operation(summary = "Obtener participante por número consecutivo",
+               description = "Igual que la consulta por folio, pero con el número consecutivo. "
+                           + "Es un identificador único en todo el padrón, así que devuelve a lo sumo un participante.")
+    public ResponseEntity<APIResponse> getByNoConsecutivo(
+            @Parameter(description = "Número consecutivo del participante", required = true)
+            @PathVariable Long noConsecutivo) {
+        Paciente paciente = pacienteApplicationService.findByNoConsecutivo(noConsecutivo);
+        var reclutamiento = pacienteApplicationService.getReclutamiento(paciente.getId());
+        Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
+        Boolean tieneAcceso = paciente.getPersona() != null && userRepository.existsByPersona_Id(paciente.getPersona().getId());
+        return ResponseEntity.ok(new APIResponse("Participante encontrado",
+                PacienteMapper.toResponseDTO(paciente, reclutamiento, idInstActual, tieneAcceso), false, HttpStatus.OK));
     }
 
     @PostMapping

@@ -22,6 +22,17 @@ public class PacienteRequestDTO {
     @Pattern(regexp = "^[A-Za-z0-9-]*$", message = "El folio solo puede contener letras, números y guiones")
     private String folio;
 
+    /**
+     * Número consecutivo del participante. Opcional, y único en todo el padrón: si
+     * el número ya está asignado a otro participante, el registro se rechaza.
+     *
+     * <p>Al actualizar, mandarlo vacío lo quita. El folio no funciona así porque no
+     * se puede quedar sin uno; este sí, y es lo que permite corregir un número mal
+     * capturado.</p>
+     */
+    @Positive(message = "El número consecutivo debe ser mayor que cero")
+    private Long noConsecutivo;
+
     @NotNull(message = "Los datos de persona son obligatorios")
     @Valid
     private PacientePersonaRequestDTO persona;

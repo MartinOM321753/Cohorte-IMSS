@@ -16,6 +16,15 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     boolean existsByFolio(String folio);
 
+    /**
+     * ¿Hay ya un participante con este número consecutivo? Se pregunta en todo el
+     * padrón, no en la institución en turno: el número identifica a la persona, y
+     * dos iguales en sedes distintas volverían ambiguo cualquier registro que lo
+     * cite. Es también lo que impide que un choque se descubra hasta el momento en
+     * que las sedes comparten datos.
+     */
+    boolean existsByNoConsecutivo(Long noConsecutivo);
+
     @Query(value = "SELECT CAST(p.folio AS UNSIGNED) FROM paciente p WHERE p.folio REGEXP '^[0-9]{6}$' ORDER BY 1", nativeQuery = true)
     List<Integer> findAllFoliosNumericos();
 
@@ -34,6 +43,8 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     // ── Variantes filtradas por institución (aislamiento de datos) ──
 
     Optional<Paciente> findByFolioAndInstitucion_Id(String folio, Long idInstitucion);
+
+    Optional<Paciente> findByNoConsecutivoAndInstitucion_Id(Long noConsecutivo, Long idInstitucion);
 
     Optional<Paciente> findByUuidAndInstitucion_Id(String uuid, Long idInstitucion);
 
@@ -111,9 +122,21 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     Optional<Paciente> findByFolioAndInstitucion_IdIn(String folio, List<Long> ids);
 
+    Optional<Paciente> findByNoConsecutivoAndInstitucion_IdIn(Long noConsecutivo, List<Long> ids);
+
     Optional<Paciente> findByIdAndInstitucion_IdIn(Long id, List<Long> ids);
 
     // ── Búsqueda paginada con filtro de texto (server-side search) ──
+    //
+    // El número consecutivo entra a la búsqueda por igualdad y no por LIKE, al
+    // revés que el folio. Es un número, y un "12" escrito en la caja se parece por
+    // dentro a 12, 120, 512 y 1200: quien lo teclea busca a una persona concreta,
+    // no a un puñado de parecidos. La comparación numérica además usa el índice
+    // único de la columna, mientras que convertirla a texto lo descarta.
+    //
+    // :buscarNumero llega ya interpretado desde el servicio —null cuando lo que se
+    // escribió no es un número— para no repetir la conversión en las dos consultas
+    // ni dejarla en manos del motor.
 
     @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id = :idInstitucion "
          + "AND (:buscar IS NULL OR :buscar = '' OR "
@@ -124,11 +147,13 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
          + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%'))) "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "(:buscarNumero IS NOT NULL AND p.noConsecutivo = :buscarNumero)) "
          + "AND (:soloActivos IS NULL OR p.activo = :soloActivos) "
          + "ORDER BY p.activo DESC, p.folio ASC")
     Page<Paciente> buscarPaginado(@Param("idInstitucion") Long idInstitucion,
                                   @Param("buscar") String buscar,
+                                  @Param("buscarNumero") Long buscarNumero,
                                   @Param("soloActivos") Boolean soloActivos,
                                   Pageable pageable);
 
@@ -141,11 +166,13 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
          + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
          + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
-         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%'))) "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "(:buscarNumero IS NOT NULL AND p.noConsecutivo = :buscarNumero)) "
          + "AND (:soloActivos IS NULL OR p.activo = :soloActivos) "
          + "ORDER BY p.activo DESC, p.folio ASC")
     Page<Paciente> buscarPaginadoEnInstituciones(@Param("ids") List<Long> ids,
                                                  @Param("buscar") String buscar,
+                                                 @Param("buscarNumero") Long buscarNumero,
                                                  @Param("soloActivos") Boolean soloActivos,
                                                  Pageable pageable);
 }
