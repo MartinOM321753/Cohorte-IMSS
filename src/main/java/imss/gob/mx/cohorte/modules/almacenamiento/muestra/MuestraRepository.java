@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface MuestraRepository extends JpaRepository<Muestra, Long> {
+public interface MuestraRepository extends JpaRepository<Muestra, Long>, MuestraCursorRepository {
     Optional<Muestra> findByEtiquetaIgnoreCase(String etiqueta);
     Optional<Muestra> findByEtiquetaIgnoreCaseAndInstitucion_Id(String etiqueta, Long idInstitucion);
     List<Muestra> findAllByPaciente_Uuid(String uuid);
@@ -105,4 +105,79 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long> {
 
     boolean existsByMuestraPadre_IdAndTipoMuestra_IdAndTuboMuestra_IdAndInstitucion_Id(
             Long idMuestraPadre, Long idTipoMuestra, Long idTuboMuestra, Long idInstitucion);
+
+    /**
+     * Alícuotas que una institución ya creó de una padre con un tubo dado: el
+     * lote, en el sentido de los huecos que ese tubo define.
+     *
+     * <p>Se usa para saber qué números de alícuota están ocupados y cuáles
+     * quedan libres, de modo que un lote pueda completarse en varias tandas sin
+     * repetir etiqueta.</p>
+     */
+    List<Muestra> findAllByMuestraPadre_IdAndTuboMuestra_IdAndInstitucion_Id(
+            Long idMuestraPadre, Long idTuboMuestra, Long idInstitucion);
+
+    // ── Contabilidad de volumen ──────────────────────────────────────────────
+
+    /** Alícuotas creadas y todavía sin ubicar: lo que la padre tiene reservado. */
+    long countByMuestraPadre_IdAndFechaMaterializacionIsNull(Long idMuestraPadre);
+
+    /** Alícuotas sin ubicar de una padre, para ubicarlas en bloque. */
+    List<Muestra> findAllByMuestraPadre_IdAndFechaMaterializacionIsNullOrderByNumeroAlicuotaAsc(
+            Long idMuestraPadre);
+
+    /**
+     * Comprometido real de una muestra padre, recalculado desde sus alícuotas.
+     *
+     * <p>{@code valor_comprometido} está desnormalizado —se mantiene al crear el
+     * lote y al materializar— porque calcularlo en cada lectura provocaría un
+     * N+1 en el listado paginado, que mapea cada fila con un mapper estático
+     * usado en 23 sitios. Esta consulta es la red de seguridad: permite
+     * comprobar el invariante en las pruebas y reparar el dato si se desvía.</p>
+     */
+    @Query("SELECT COALESCE(SUM(a.valor), 0) FROM Muestra a "
+         + "WHERE a.muestraPadre.id = :idPadre "
+         + "AND a.fechaMaterializacion IS NULL "
+         + "AND a.estadoMuestra <> imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra.BAJA")
+    double sumarComprometidoReal(@Param("idPadre") Long idMuestraPadre);
+
+    /**
+     * Comprometido de varias padres a la vez, para no disparar una consulta por
+     * fila al pintar un listado.
+     */
+    @Query("SELECT a.muestraPadre.id, COALESCE(SUM(a.valor), 0) FROM Muestra a "
+         + "WHERE a.muestraPadre.id IN :idsPadre "
+         + "AND a.fechaMaterializacion IS NULL "
+         + "AND a.estadoMuestra <> imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra.BAJA "
+         + "GROUP BY a.muestraPadre.id")
+    List<Object[]> sumarComprometidoPorPadre(@Param("idsPadre") List<Long> idsPadre);
+
+    /**
+     * Vista del biobanco propio ocultando lo ya consumido.
+     *
+     * <p>Una padre agotada es un tubo que se fue a la basura: sigue siendo la
+     * cabeza de la procedencia de sus alícuotas, pero no está en ningún
+     * congelador y no tiene por qué ensuciar el inventario. Se llega a ella
+     * desde cualquiera de sus alícuotas y desde el expediente del participante.</p>
+     */
+    @Query("SELECT m FROM Muestra m WHERE m.institucionActual.id = :idInst "
+         + "AND (m.fechaAgotamiento IS NULL OR m.posicionCaja IS NOT NULL)")
+    Page<Muestra> findEnBiobancoNoAgotadas(@Param("idInst") Long idInstitucion, Pageable pageable);
+
+    @Query("SELECT m FROM Muestra m WHERE (m.institucion.id = :idInst OR m.institucionActual.id = :idInst) "
+         + "AND (m.fechaAgotamiento IS NULL OR m.posicionCaja IS NOT NULL)")
+    List<Muestra> findAllVisiblesNoAgotadasPorInstitucion(@Param("idInst") Long idInstitucion);
+
+    /**
+     * Cuáles de estas etiquetas ya existen en la institución.
+     *
+     * <p>Para la carga masiva: comprobarlas una por una serían tantas consultas
+     * como viales traiga el archivo, y el choque hay que detectarlo antes de
+     * escribir nada, no cuando salte {@code uk_muestra_etiqueta_institucion} a
+     * mitad de la transacción.</p>
+     */
+    @Query("SELECT m.etiqueta FROM Muestra m WHERE m.institucion.id = :idInst "
+         + "AND UPPER(m.etiqueta) IN :etiquetas")
+    List<String> findEtiquetasExistentes(@Param("etiquetas") List<String> etiquetasEnMayusculas,
+                                         @Param("idInst") Long idInstitucion);
 }

@@ -106,6 +106,21 @@ public class GestionEstudiosApplicationService {
         return actualizado;
     }
 
+    /**
+     * Reordena los parámetros de un tipo de estudio.
+     *
+     * <p>Pasa por {@code tipoService.getOne} por la misma razón que el alta, la
+     * edición y el borrado: el parámetro no guarda institución, la hereda del tipo,
+     * y sin ese paso bastaría con mandar el id de un tipo ajeno para reacomodarle
+     * el catálogo a otra institución.</p>
+     */
+    @Transactional
+    public List<ParametroEstudio> reordenarParametros(Long idTipoEstudio, List<Long> idsEnOrden) {
+        TipoEstudio tipoEstudio = tipoService.getOne(idTipoEstudio);
+        if (tipoEstudio == null) throw new ObjNotFoundException("No se encontro el tipo de estudio");
+        return parametroService.reordenar(idTipoEstudio, idsEnOrden);
+    }
+
     @Transactional
     public void deleteTipo(Long id) {
         TipoEstudio tipo = tipoService.getOne(id);

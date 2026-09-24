@@ -38,4 +38,62 @@ public final class EtiquetaPosicionCaja {
         if (fila == null || columna == null) return "";
         return letraFila(fila) + columna;
     }
+
+    /** Fila y columna, 1-based, tal como se guardan. */
+    public record Coordenada(int fila, int columna) {}
+
+    /**
+     * Lee una etiqueta escrita a mano y la convierte en fila y columna.
+     *
+     * <p>Es la inversa de {@link #etiqueta}, y existe porque la carga masiva
+     * recibe el hueco como lo escribe una persona —{@code A1}, {@code b7},
+     * {@code AA 12}— mientras que la base guarda dos enteros. Vive aquí, junto a
+     * la ida, para que las dos direcciones de la misma convención no puedan
+     * separarse.</p>
+     *
+     * @return null si el texto no tiene la forma letra(s) + número, o si alguno
+     *         de los dos es cero. Devolver null en vez de lanzar deja que quien
+     *         llama redacte el error con el contexto de su fila.
+     */
+    public static Coordenada parsear(String texto) {
+        if (texto == null) return null;
+        String limpio = texto.trim().replace(" ", "").toUpperCase(java.util.Locale.ROOT);
+        if (limpio.isEmpty()) return null;
+
+        int corte = 0;
+        while (corte < limpio.length() && Character.isLetter(limpio.charAt(corte))) {
+            corte++;
+        }
+        if (corte == 0 || corte == limpio.length()) return null;
+
+        String letras = limpio.substring(0, corte);
+        String digitos = limpio.substring(corte);
+        for (int i = 0; i < letras.length(); i++) {
+            if (letras.charAt(i) < 'A' || letras.charAt(i) > 'Z') return null;
+        }
+        for (int i = 0; i < digitos.length(); i++) {
+            if (!Character.isDigit(digitos.charAt(i))) return null;
+        }
+
+        int fila = filaDeLetras(letras);
+        int columna;
+        try {
+            columna = Integer.parseInt(digitos);
+        } catch (NumberFormatException e) {
+            // Más dígitos de los que caben en un int no es una caja, es un error
+            // de tecleo; el llamador lo dirá con su número de fila.
+            return null;
+        }
+        if (fila < 1 || columna < 1) return null;
+        return new Coordenada(fila, columna);
+    }
+
+    /** Número de fila de una o más letras: A→1, Z→26, AA→27. */
+    public static int filaDeLetras(String letras) {
+        int n = 0;
+        for (int i = 0; i < letras.length(); i++) {
+            n = n * 26 + (letras.charAt(i) - 'A' + 1);
+        }
+        return n;
+    }
 }

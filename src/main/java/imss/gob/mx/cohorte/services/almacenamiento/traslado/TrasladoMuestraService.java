@@ -48,6 +48,7 @@ public class TrasladoMuestraService {
     private final PosicionCajaService posicionCajaService;
     private final HistorialCambioMuestraService historialService;
     private final EmailService emailService;
+    private final imss.gob.mx.cohorte.services.almacenamiento.muestra.MaterializacionAlicuotaService materializacionService;
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
@@ -250,6 +251,16 @@ public class TrasladoMuestraService {
             muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
         }
         muestraRepository.save(muestra);
+
+        // Si lo recibido es una alícuota que nunca llegó a ubicarse en origen,
+        // este es el momento en que el vial pasa a existir de verdad y su padre
+        // debe descontarlo —aunque la padre esté en otra institución: el líquido
+        // que se sacó del tubo se sacó, no depende de quién lo guarde—. Si ya
+        // estaba materializada, la marca de fecha hace que esto no haga nada.
+        if (idPosicionCaja != null) {
+            materializacionService.materializar(muestra, confirma,
+                    "Recepción de traslado en " + traslado.getInstitucionDestino().getNombre());
+        }
 
         traslado.setEstado(EstadoTraslado.RECIBIDA);
         traslado.setRecibidoPor(confirma);

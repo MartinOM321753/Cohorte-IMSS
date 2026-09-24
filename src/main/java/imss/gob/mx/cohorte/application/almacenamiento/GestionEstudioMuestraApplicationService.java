@@ -101,6 +101,15 @@ public class GestionEstudioMuestraApplicationService {
         return actualizado;
     }
 
+    /**
+     * Reordena los parámetros de un tipo de estudio de muestra. La validación de
+     * institución la hace el servicio, que llega al tipo del que cuelgan.
+     */
+    @Transactional
+    public List<ParametroEstudioMuestra> reordenarParametros(Long idTipo, List<Long> idsEnOrden) {
+        return parametroService.reordenar(idTipo, idsEnOrden);
+    }
+
     @Transactional
     public void deleteParametro(Long id) {
         parametroService.getById(id);   // valida institución a través de su tipo

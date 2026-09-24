@@ -43,7 +43,14 @@ public class TipoEstudio {
     @JoinColumn(name = "id_institucion", nullable = false)
     private Institucion institucion;
 
+    /**
+     * Los parámetros en el orden que el administrador configuró. El {@code id}
+     * desempata: sin él, dos parámetros con el mismo orden —posible mientras se
+     * reparte el orden inicial— quedarían a merced de la base, que es justo lo
+     * que el orden configurable viene a resolver.
+     */
     @OneToMany(mappedBy = "tipoEstudio", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orden ASC, Id ASC")
     private List<ParametroEstudio> parametros;
 
 }

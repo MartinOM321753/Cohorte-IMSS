@@ -17,6 +17,8 @@ public class PacienteResponseDTO {
     private Long id;
     private String uuid;
     private String folio;
+    /** Número consecutivo. Nulo cuando el participante no tiene uno asignado. */
+    private Long noConsecutivo;
     private Boolean activo;
     private LocalDateTime fechaRegistro;
     private LocalDateTime fechaActualizacion;

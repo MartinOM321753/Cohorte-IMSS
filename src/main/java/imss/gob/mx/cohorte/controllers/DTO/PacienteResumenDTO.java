@@ -13,6 +13,8 @@ public class PacienteResumenDTO {
     private Long id;
     private String uuid;
     private String folio;
+    /** Número consecutivo. Nulo cuando el participante no tiene uno asignado. */
+    private Long noConsecutivo;
     private String nombreCompleto;
     private String sexo;
     /**

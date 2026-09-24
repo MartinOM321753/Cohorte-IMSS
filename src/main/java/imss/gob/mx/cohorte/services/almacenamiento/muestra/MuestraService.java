@@ -3,6 +3,8 @@ package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 import imss.gob.mx.cohorte.services.pacientes.ParticipanteAccesoService;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.CriteriosMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.CursorMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
@@ -69,7 +71,28 @@ public class MuestraService {
 
     @Transactional(readOnly = true)
     public Page<Muestra> getAllEnBiobancoPage(Pageable pageable) {
-        return muestraRepository.findAllByInstitucionActual_Id(institucionContextService.getIdInstitucionActual(), pageable);
+        return getAllEnBiobancoPage(pageable, false);
+    }
+
+    /**
+     * Biobanco propio, ocultando por omisión lo ya consumido.
+     *
+     * <p>Una muestra padre agotada es un tubo que se desechó: sigue siendo la
+     * cabeza de la procedencia de sus alícuotas y su registro es justamente el
+     * producto —cuántos tubos salieron y de qué cantidad—, pero no está en
+     * ningún congelador. Este listado responde «qué hay en mis congeladores»,
+     * así que se sale de él, salvo que conserve posición asignada: en ese caso
+     * el tubo vacío sigue ocupando un hueco real y hay que poder verlo para ir
+     * a retirarlo.</p>
+     *
+     * @param incluirAgotadas lo que enciende el interruptor «mostrar agotadas»
+     */
+    @Transactional(readOnly = true)
+    public Page<Muestra> getAllEnBiobancoPage(Pageable pageable, boolean incluirAgotadas) {
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        return incluirAgotadas
+                ? muestraRepository.findAllByInstitucionActual_Id(idInst, pageable)
+                : muestraRepository.findEnBiobancoNoAgotadas(idInst, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -93,6 +116,66 @@ public class MuestraService {
         return incluirHistorico
                 ? muestraRepository.findAllVisiblesConHistoricoPorInstitucion(idInst)
                 : muestraRepository.findAllVisiblesPorInstitucion(idInst);
+    }
+
+    // ── Listado paginado por llave ───────────────────────────────────────────
+
+    /** Cuántas tarjetas trae una página cuando la pantalla no pide otra cosa. */
+    public static final int TAMANO_PAGINA = 20;
+
+    /**
+     * Tope duro del tamaño de página.
+     *
+     * <p>El parámetro llega de la URL, así que sin un techo cualquiera podría
+     * pedir la tabla entera de una sentada y anular el motivo de paginar.</p>
+     */
+    public static final int TAMANO_MAXIMO = 100;
+
+    /**
+     * Una ventana del listado, situada por el cursor en vez de por un número de
+     * página.
+     *
+     * @param cursorCodificado posición de la que se parte; nulo = desde el extremo
+     * @param haciaAtras       false avanza a lo más antiguo, true vuelve a lo más reciente.
+     *                         Con cursor nulo, true significa «el final de la lista».
+     */
+    @Transactional(readOnly = true)
+    public PaginaMuestras buscarPagina(CriteriosMuestra criterios, String cursorCodificado,
+                                       boolean haciaAtras, int tamano) {
+        int size = Math.max(1, Math.min(tamano, TAMANO_MAXIMO));
+        CursorMuestra cursor = CursorMuestra.decodificar(cursorCodificado);
+
+        /*
+         * Se pide una fila de más de las que se van a entregar. Si llega, es que
+         * del otro lado queda página; si no, se llegó al extremo. Es la forma de
+         * saberlo sin contar el conjunto completo en cada desplazamiento, que es
+         * justo el trabajo que la paginación por llave viene a evitar.
+         */
+        List<Muestra> filas = muestraRepository.buscarPagina(criterios, cursor, haciaAtras, size + 1);
+        boolean hayMas = filas.size() > size;
+        if (hayMas) {
+            // Yendo hacia atrás la lista ya viene volteada, así que la fila
+            // sobrante quedó al principio y no al final.
+            filas = haciaAtras
+                    ? filas.subList(filas.size() - size, filas.size())
+                    : filas.subList(0, size);
+        }
+
+        List<Long> ids = filas.stream().map(Muestra::getId).toList();
+        List<Muestra> alicuotas = muestraRepository.buscarAlicuotasDe(ids, criterios);
+
+        String cursorInicio = filas.isEmpty() ? null : CursorMuestra.de(filas.get(0)).codificar();
+        String cursorFin = filas.isEmpty() ? null : CursorMuestra.de(filas.get(filas.size() - 1)).codificar();
+
+        // Venir de un cursor prueba por sí solo que hay página del lado contrario:
+        // esas filas se acaban de entregar.
+        boolean hayAnteriores = haciaAtras ? hayMas : cursor != null;
+        boolean haySiguientes = haciaAtras ? cursor != null : hayMas;
+
+        return new PaginaMuestras(filas, alicuotas, cursorInicio, cursorFin,
+                hayAnteriores, haySiguientes,
+                muestraRepository.contarPagina(criterios),
+                muestraRepository.contarHuerfanasDevueltas(criterios));
     }
 
     /**
@@ -333,6 +416,22 @@ public class MuestraService {
                     + "La cadena de custodia debe preservarse.");
         }
 
+        // Una alícuota ya ubicada descontó volumen de su padre, y ese descuento
+        // no se revierte —no se puede despipetear—. Borrar su registro dejaría a
+        // la padre con menos volumen del que puede justificar. Es la misma regla
+        // que se aplica al borrar la padre en cascada, aquí para la alícuota
+        // suelta.
+        if (muestra.getMuestraPadre() != null && muestra.isMaterializada()) {
+            throw new ObjConflictException(
+                    "No se puede eliminar la alícuota '" + muestra.getEtiqueta()
+                    + "' porque ya fue ubicada y descontó "
+                    + (muestra.getCantidadDescontadaPadre() != null
+                        ? PlanificadorAlicuotas.fmt(muestra.getCantidadDescontadaPadre()) + " "
+                          + (muestra.getUnidad() != null ? muestra.getUnidad() : "")
+                        : "volumen")
+                    + " de la muestra padre. Dé de baja la alícuota en lugar de eliminarla.");
+        }
+
         Long idInst = institucionContextService.getIdInstitucionActual();
         List<Muestra> alicuotas = muestra.getAlicuotas();
         if (alicuotas != null) {
@@ -360,6 +459,15 @@ public class MuestraService {
                             "No se puede eliminar la muestra porque la alícuota '"
                                     + alicuota.getEtiqueta() + "' tiene posición asignada. "
                                     + "Libere todas las posiciones de las alícuotas antes de eliminar.");
+                }
+                // Una alícuota ya materializada representa líquido que salió del
+                // tubo padre. Borrar el registro no lo devuelve: la contabilidad
+                // quedaría descuadrada sin rastro de por qué.
+                if (alicuota.isMaterializada()) {
+                    throw new ObjConflictException(
+                            "No se puede eliminar la muestra porque la alícuota '"
+                                    + alicuota.getEtiqueta() + "' ya fue ubicada y descontó volumen "
+                                    + "de la muestra padre. Dé de baja la muestra en lugar de eliminarla.");
                 }
             }
         }
@@ -515,6 +623,16 @@ public class MuestraService {
             throw new ObjConflictException(
                     "No se puede dar de baja una muestra en tránsito. "
                     + "Cancela o completa el préstamo primero.");
+        }
+
+        // Las alícuotas sin ubicar son una promesa contra esta muestra: darla de
+        // baja las dejaría creadas y sin respaldo, y su materialización posterior
+        // intentaría descontar de un tubo descartado.
+        long pendientes = muestraRepository.countByMuestraPadre_IdAndFechaMaterializacionIsNull(idMuestra);
+        if (pendientes > 0) {
+            throw new ObjConflictException(
+                    "No se puede dar de baja: hay " + pendientes + " alícuota(s) de esta muestra "
+                    + "pendientes de ubicar. Ubíquelas o elimínelas antes de dar de baja la muestra padre.");
         }
 
         // Ser la dueña no basta: hay que tenerla. Una muestra ya recibida por

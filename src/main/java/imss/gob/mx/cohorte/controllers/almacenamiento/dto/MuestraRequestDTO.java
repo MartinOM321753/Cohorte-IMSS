@@ -33,4 +33,16 @@ public class MuestraRequestDTO {
 
     private Long idTipoMuestra;
     private Long idTuboMuestra;
+
+    /**
+     * Si generar el lote de alícuotas al registrar.
+     *
+     * <p>{@code null} = lo que diga la configuración del tubo. Un valor
+     * explícito manda sobre ella en ambos sentidos: se puede alicuotar un tubo
+     * configurado en manual y saltarse uno configurado en automático.</p>
+     */
+    private Boolean generarAlicuotas;
+
+    /** Reparto del lote; null = el plan por omisión del planificador. */
+    private PlanAlicuotasRequestDTO planAlicuotas;
 }

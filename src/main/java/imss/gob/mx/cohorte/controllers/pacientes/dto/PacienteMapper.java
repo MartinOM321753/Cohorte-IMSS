@@ -16,6 +16,7 @@ public class PacienteMapper {
     public static Paciente toEntity(PacienteRequestDTO dto) {
         Paciente paciente = new Paciente();
         paciente.setFolio(dto.getFolio());
+        paciente.setNoConsecutivo(dto.getNoConsecutivo());
 
         Persona persona = new Persona();
         persona.setNombre(dto.getPersona().getNombre());
@@ -72,6 +73,7 @@ public class PacienteMapper {
             .id(p.getId())
             .uuid(p.getUuid())
             .folio(p.getFolio())
+            .noConsecutivo(p.getNoConsecutivo())
             .activo(p.getActivo())
             .fechaRegistro(p.getFechaRegistro())
             .fechaActualizacion(p.getFechaActualizacion())
@@ -96,6 +98,7 @@ public class PacienteMapper {
             .id(p.getId())
             .uuid(p.getUuid())
             .folio(p.getFolio())
+            .noConsecutivo(p.getNoConsecutivo())
             .nombreCompleto(nombreCompleto.trim())
             .sexo(p.getPersona() != null && p.getPersona().getSexo() != null ? p.getPersona().getSexo().name() : null)
             .activo(p.getActivo())

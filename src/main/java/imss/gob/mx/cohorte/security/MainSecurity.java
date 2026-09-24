@@ -245,6 +245,13 @@ public class MainSecurity {
                                 .hasAnyAuthority("TRASLADOS_ACCEDER", "TRASLADOS_LOOKUP",
                                                  "MUESTRAS_VER", "TIPOS_MUESTRA_ACCEDER", "TIPOS_MUESTRA_LOOKUP")
 
+                        // ── Muestras — carga masiva (ANTES de reglas generales de muestras) ──
+                        // Va primero porque el comodín POST /muestras/** la concedería a
+                        // cualquiera que pueda crear una muestra a mano, y cargar seiscientas
+                        // de golpe —ocupando huecos físicos de las cajas— es otra cosa.
+                        .requestMatchers("/api/almacenamiento/muestras/carga-masiva/**")
+                                .hasAuthority("MUESTRAS_CARGA_MASIVA")
+
                         // ── Muestras — impresión (ANTES de reglas generales de muestras) ──
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/muestras/impresoras").hasAuthority("MUESTRAS_IMPRIMIR")
                         .requestMatchers(HttpMethod.POST, "/api/almacenamiento/muestras/*/etiqueta/imprimir").hasAuthority("MUESTRAS_IMPRIMIR")

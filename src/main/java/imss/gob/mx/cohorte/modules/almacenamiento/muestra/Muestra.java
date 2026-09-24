@@ -38,7 +38,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "Muestra",
-        uniqueConstraints = @UniqueConstraint(name = "uk_muestra_etiqueta_institucion", columnNames = {"etiqueta", "id_institucion"}))
+        uniqueConstraints = @UniqueConstraint(name = "uk_muestra_etiqueta_institucion", columnNames = {"etiqueta", "id_institucion"}),
+        // El listado pagina por llave sobre (fecha_registro, id_muestra). Sin este
+        // indice, cada pagina obliga a ordenar la tabla entera para devolver veinte
+        // filas, que es justo lo que la paginacion venia a evitar.
+        indexes = @Index(name = "idx_muestra_orden_listado", columnList = "fecha_registro, id_muestra"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -139,5 +143,86 @@ public class Muestra {
     @OneToMany(mappedBy = "muestraPadre", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Muestra> alicuotas = new ArrayList<>();
+
+    // ─── Contabilidad de volumen ──────────────────────────────────────────────
+    //
+    // Tres cantidades, no una:
+    //
+    //   valor             = líquido que queda físicamente en este tubo
+    //   valorComprometido = suma de las alícuotas creadas pero aún SIN ubicar
+    //   disponible        = valor − valorComprometido   (ver getValorDisponible)
+    //
+    // Invariante: `disponible` NO cambia al materializar una alícuota —el valor
+    // baja y el comprometido baja en la misma cantidad—, así que no existe
+    // ningún instante en el que el mismo mililitro se cuente dos veces.
+    //
+    // Todo lo que consume muestra (estudios, lotes nuevos) valida contra
+    // `disponible`, nunca contra `valor`: sin eso, un estudio se comería el
+    // volumen ya prometido a una alícuota que todavía no se ha ubicado.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Volumen reservado para alícuotas creadas que aún no se han ubicado.
+     * Solo tiene sentido en una muestra padre; en una alícuota siempre es 0.
+     */
+    @Column(name = "valor_comprometido")
+    private Double valorComprometido = 0.0;
+
+    /**
+     * Momento en que esta alícuota ocupó posición física por primera vez, en
+     * cualquier institución. Null = todavía es una promesa contra la padre.
+     *
+     * <p>Es un evento, no un estado: liberar la posición, prestarla o darla de
+     * baja no lo borran, porque no se puede despipetear. Esta marca es lo que
+     * garantiza que el descuento a la padre ocurra exactamente una vez aunque
+     * la posición se asigne por cualquiera de los cuatro caminos que existen
+     * (endpoint de posición, edición, recepción de traslado, cancelación).</p>
+     */
+    @Column(name = "fecha_materializacion")
+    private Timestamp fechaMaterializacion;
+
+    /**
+     * Cuánto se le descontó realmente a la muestra padre al materializar esta
+     * alícuota. Normalmente igual a {@code valor}; menor solo si la padre no
+     * alcanzaba a cubrirlo por datos heredados sin contabilidad.
+     */
+    @Column(name = "cantidad_descontada_padre")
+    private Double cantidadDescontadaPadre;
+
+    /**
+     * Momento en que la muestra se quedó sin volumen por consumo normal
+     * (alícuotas o estudios). Null = todavía tiene líquido.
+     *
+     * <p>No es lo mismo que {@link EstadoMuestra#BAJA}: la baja es una decisión
+     * —contaminación, pérdida, retiro de consentimiento— y el agotamiento es un
+     * hecho consumado. Mezclarlos haría imposible responder cuántas muestras se
+     * echaron a perder, porque quedarían sepultadas entre decenas de miles de
+     * agotamientos normales.</p>
+     */
+    @Column(name = "fecha_agotamiento")
+    private Timestamp fechaAgotamiento;
+
+    /** Volumen que esta muestra puede comprometer: lo que tiene menos lo ya prometido. */
+    @Transient
+    @JsonIgnore
+    public Double getValorDisponible() {
+        double v = valor != null ? valor : 0.0;
+        double c = valorComprometido != null ? valorComprometido : 0.0;
+        return v - c;
+    }
+
+    /** Si el tubo ya se vació por consumo normal. */
+    @Transient
+    @JsonIgnore
+    public boolean isAgotada() {
+        return fechaAgotamiento != null;
+    }
+
+    /** Si esta alícuota ya ocupó posición y por tanto ya descontó de su padre. */
+    @Transient
+    @JsonIgnore
+    public boolean isMaterializada() {
+        return fechaMaterializacion != null;
+    }
 }
 

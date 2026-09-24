@@ -93,6 +93,24 @@ public class ParametroEstudioController {
             activo, false, HttpStatus.OK));
     }
 
+    @PutMapping("/orden/{idTipoEstudio}")
+    @Operation(summary = "Reordenar los parámetros de un tipo de estudio",
+               description = "Recibe todos los parámetros del tipo, en el orden deseado. "
+                           + "Ese orden es el que se usa al capturar, en las columnas de la carga "
+                           + "masiva, en el catálogo de campos de reportes y en el expediente. "
+                           + "La lista tiene que traer exactamente los parámetros del tipo: si falta "
+                           + "o sobra alguno se rechaza completa, porque una lista parcial dejaría "
+                           + "parámetros en posiciones que nadie eligió.")
+    public ResponseEntity<APIResponse> reordenarParametros(
+        @Parameter(description = "Identificador del tipo de estudio", required = true)
+        @PathVariable Long idTipoEstudio,
+        @Valid @RequestBody ReordenarParametrosRequestDTO dto) {
+        var parametros = gestionEstudiosApplicationService.reordenarParametros(idTipoEstudio, dto.getIds());
+        return ResponseEntity.ok(new APIResponse(
+            parametros.stream().map(EstudioMapper::toParametroDTO).toList(),
+            "Orden de los parámetros actualizado correctamente", HttpStatus.OK, false));
+    }
+
     // ─── Opciones para TEXTO_OPCIONES ────────────────────────────────────────
 
     @PostMapping("/{id}/opciones")

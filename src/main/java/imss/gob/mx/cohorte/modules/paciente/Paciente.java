@@ -26,6 +26,24 @@ public class Paciente {
     @Column(name = "folio", nullable = false, unique = true, length = 50)
     private String folio;
 
+    /**
+     * Número consecutivo del participante. Opcional: no todos lo traen, y la
+     * columna admite nulos para eso.
+     *
+     * <p>Único como el folio, y por el mismo motivo: sirve para identificar a una
+     * persona, así que dos participantes con el mismo número harían ambiguo el
+     * registro que lo cite. El ámbito también es el del folio —todo el padrón, no
+     * cada institución—, porque un participante se reasigna de sede sin que su
+     * identificador cambie.</p>
+     *
+     * <p>Que sea nulo no rompe la unicidad: MySQL no compara nulos entre sí en un
+     * índice único, así que pueden convivir todos los participantes sin número que
+     * haga falta. Esa es también la razón de que agregar la columna a una tabla con
+     * datos no necesite rellenar nada.</p>
+     */
+    @Column(name = "no_consecutivo", unique = true)
+    private Long noConsecutivo;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 

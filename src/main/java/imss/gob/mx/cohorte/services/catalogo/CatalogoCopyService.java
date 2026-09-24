@@ -88,7 +88,8 @@ public class CatalogoCopyService {
             clon.setInstitucion(destino);
             tipoEstudioRepository.save(clon);
 
-            List<ParametroEstudio> parametrosOriginales = parametroEstudioRepository.findAllByTipoEstudio_Id(original.getId());
+            List<ParametroEstudio> parametrosOriginales =
+                    parametroEstudioRepository.findAllByTipoEstudio_IdOrderByOrdenAscIdAsc(original.getId());
             for (ParametroEstudio paramOriginal : parametrosOriginales) {
                 ParametroEstudio paramClon = new ParametroEstudio();
                 paramClon.setTipoEstudio(clon);
@@ -100,6 +101,9 @@ public class CatalogoCopyService {
                 paramClon.setValorMinHombres(paramOriginal.getValorMinHombres());
                 paramClon.setValorMaxHombres(paramOriginal.getValorMaxHombres());
                 paramClon.setMargenRevision(paramOriginal.getMargenRevision());
+                // El orden viaja con la copia: quien copia un catálogo lo quiere tal
+                // como está, y el acomodo de los parámetros es parte de cómo está.
+                paramClon.setOrden(paramOriginal.getOrden());
 
                 List<OpcionParametro> opcionesClonadas = new ArrayList<>();
                 for (OpcionParametro opOriginal : paramOriginal.getOpciones()) {
@@ -231,6 +235,7 @@ public class CatalogoCopyService {
                 paramClon.setTipo(paramOriginal.getTipo());
                 paramClon.setValorMinimo(paramOriginal.getValorMinimo());
                 paramClon.setValorMaximo(paramOriginal.getValorMaximo());
+                paramClon.setOrden(paramOriginal.getOrden());
 
                 List<OpcionParametroEstudioMuestra> opcionesClonadas = new ArrayList<>();
                 for (OpcionParametroEstudioMuestra opOriginal : paramOriginal.getOpciones()) {

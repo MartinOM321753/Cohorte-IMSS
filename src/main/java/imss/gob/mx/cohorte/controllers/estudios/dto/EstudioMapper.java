@@ -87,8 +87,8 @@ public class EstudioMapper {
                                 .valorMaxMujeres(p.getValorMaxMujeres())
                                 .valorMinHombres(p.getValorMinHombres())
                                 .valorMaxHombres(p.getValorMaxHombres())
-            .margenRevision(p.getMargenRevision())
                                 .margenRevision(p.getMargenRevision())
+                                .orden(p.getOrden())
                                 .opciones(p.getTipo() == imss.gob.mx.cohorte.modules.estudios.parametros.TipoParametro.TEXTO_OPCIONES && p.getOpciones() != null
                                     ? p.getOpciones().stream().map(op -> op.getValor()).collect(java.util.stream.Collectors.toList())
                                     : null)
@@ -101,6 +101,7 @@ public class EstudioMapper {
         List<ResultadoEstudioResponseDTO> resultadosDTO = null;
         if (e.getResultadoEstudio() != null) {
             resultadosDTO = e.getResultadoEstudio().stream()
+                    .sorted(imss.gob.mx.cohorte.modules.estudios.resultados.OrdenDeResultados.POR_CATALOGO)
                     .map(r -> ResultadoEstudioResponseDTO.builder()
                             .id(r.getId())
                             .valorNumerico(r.getValorNumerico())
@@ -172,6 +173,8 @@ public class EstudioMapper {
             .valorMaxMujeres(p.getValorMaxMujeres())
             .valorMinHombres(p.getValorMinHombres())
             .valorMaxHombres(p.getValorMaxHombres())
+            .margenRevision(p.getMargenRevision())
+            .orden(p.getOrden())
             .opciones(opciones)
             .alias(p.getAlias() == null ? List.of()
                     : p.getAlias().stream().map(a -> a.getAlias()).collect(Collectors.toList()))

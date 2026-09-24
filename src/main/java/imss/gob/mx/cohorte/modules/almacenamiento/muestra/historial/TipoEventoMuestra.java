@@ -20,5 +20,11 @@ public enum TipoEventoMuestra {
     /** Préstamo cancelado por la institución origen antes de recepción confirmada. */
     PRESTAMO_CANCELADO,
     /** Muestra dada de baja de manera irreversible por su institución propietaria. */
-    MUESTRA_DADA_BAJA
+    MUESTRA_DADA_BAJA,
+    /** Se creó un lote de alícuotas: su volumen queda reservado en la padre. */
+    ALICUOTAS_COMPROMETIDAS,
+    /** Una alícuota ocupó posición por primera vez y descontó de su padre. */
+    ALICUOTA_MATERIALIZADA,
+    /** La muestra se quedó sin volumen por consumo normal (no es una baja). */
+    MUESTRA_AGOTADA
 }

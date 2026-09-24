@@ -13,7 +13,9 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMu
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.EstudioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.MaterializacionAlicuotaService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.ParametroEstudioMuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.TipoEstudioMuestraService;
 import imss.gob.mx.cohorte.services.usuarios.UserService;
@@ -48,6 +50,7 @@ public class EstudioMuestraApplicationService {
     private final UserService userService;
     private final HistorialCambioMuestraService historialService;
     private final imss.gob.mx.cohorte.security.institucion.InstitucionContextService institucionContextService;
+    private final MaterializacionAlicuotaService materializacionService;
 
     // ─── Estudios por muestra ─────────────────────────────────────────────────
 
@@ -87,8 +90,10 @@ public class EstudioMuestraApplicationService {
 
         // Descontar cantidad consumida del valor de la muestra
         Double valorAnterior = muestra.getValor();
-        muestra.setValor(valorAnterior - estudio.getCantidadConsumida());
+        muestra.setValor(PlanificadorAlicuotas.restar(valorAnterior, estudio.getCantidadConsumida()));
         muestraRepository.save(muestra);
+        // Un estudio también puede ser lo que termine de vaciar el tubo.
+        materializacionService.sellarAgotamientoSiProcede(muestra, estudio.getUsuarioRealiza());
 
         historialService.registrarEvento(muestra, estudio.getUsuarioRealiza(),
                 TipoEventoMuestra.ESTUDIO_REALIZADO,
@@ -130,11 +135,12 @@ public class EstudioMuestraApplicationService {
 
         // Recalcular: valor actual + consumo anterior = valor antes del estudio
         // Luego: valor antes del estudio - consumo nuevo = nuevo valor
-        Double valorRecuperado = muestra.getValor() + consumoAnterior;
-        if (consumoNuevo > valorRecuperado) {
-            throw new ValidationException(
-                    "La cantidad consumida (" + consumoNuevo + ") excede el valor disponible de la muestra ("
-                            + valorRecuperado + " " + muestra.getUnidad() + ").");
+        Double valorRecuperado = PlanificadorAlicuotas.sumar(muestra.getValor(), consumoAnterior);
+        // El tope sigue siendo el disponible: devolver el consumo anterior no
+        // libera lo que está reservado para alícuotas sin ubicar.
+        Double disponibleRecuperado = PlanificadorAlicuotas.sumar(muestra.getValorDisponible(), consumoAnterior);
+        if (PlanificadorAlicuotas.mayorQue(consumoNuevo, disponibleRecuperado)) {
+            throw new ValidationException(mensajeSinDisponible(muestra, consumoNuevo, disponibleRecuperado));
         }
 
         datos.setMuestra(muestra);
@@ -152,8 +158,9 @@ public class EstudioMuestraApplicationService {
         // Actualizar valor de la muestra si cambió la cantidad consumida
         if (!Objects.equals(consumoAnterior, consumoNuevo)) {
             Double valorAnterior = muestra.getValor();
-            muestra.setValor(valorRecuperado - consumoNuevo);
+            muestra.setValor(PlanificadorAlicuotas.restar(valorRecuperado, consumoNuevo));
             muestraRepository.save(muestra);
+            materializacionService.sellarAgotamientoSiProcede(muestra, datos.getUsuarioRealiza());
 
             historialService.registrar(muestra, datos.getUsuarioRealiza(), "valor",
                     String.valueOf(valorAnterior), String.valueOf(muestra.getValor()),
@@ -181,11 +188,34 @@ public class EstudioMuestraApplicationService {
             throw new ValidationException(
                     "La unidad consumida debe coincidir con la unidad de la muestra (" + muestra.getUnidad() + ").");
         }
-        if (cantidadConsumida > muestra.getValor()) {
+        if (muestra.isAgotada()) {
             throw new ValidationException(
-                    "La cantidad consumida (" + cantidadConsumida + ") excede el valor actual de la muestra ("
-                            + muestra.getValor() + " " + muestra.getUnidad() + ").");
+                    "La muestra está agotada: ya no tiene volumen sobre el que aplicar estudios.");
         }
+        // Contra el disponible, no contra el valor: lo ya prometido a alícuotas
+        // sin ubicar no se puede gastar aquí. Sin esto, el estudio se comería el
+        // volumen de una alícuota que luego no encontraría respaldo al ubicarse.
+        Double disponible = muestra.getValorDisponible();
+        if (PlanificadorAlicuotas.mayorQue(cantidadConsumida, disponible)) {
+            throw new ValidationException(mensajeSinDisponible(muestra, cantidadConsumida, disponible));
+        }
+    }
+
+    private String mensajeSinDisponible(Muestra muestra, Double solicitado, Double disponible) {
+        String u = muestra.getUnidad() != null ? " " + muestra.getUnidad() : "";
+        StringBuilder sb = new StringBuilder("La cantidad consumida (")
+                .append(PlanificadorAlicuotas.fmt(solicitado)).append(u)
+                .append(") excede el volumen disponible de la muestra (")
+                .append(PlanificadorAlicuotas.fmt(disponible)).append(u).append(").");
+
+        double comprometido = muestra.getValorComprometido() != null ? muestra.getValorComprometido() : 0.0;
+        if (comprometido > 0) {
+            long pendientes = muestraRepository.countByMuestraPadre_IdAndFechaMaterializacionIsNull(muestra.getId());
+            sb.append(" Tiene ").append(PlanificadorAlicuotas.fmt(comprometido)).append(u)
+              .append(" comprometidos en ").append(pendientes)
+              .append(" alícuota(s) pendientes de ubicar.");
+        }
+        return sb.toString();
     }
 
     private void resolveRelaciones(EstudioMuestra estudio) {

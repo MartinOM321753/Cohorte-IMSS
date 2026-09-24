@@ -16,12 +16,19 @@ import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DDTO;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.CriteriosMuestra;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PaginaMuestras;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.almacenamiento.ubicacion3d.Ubicacion3DService;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.EtiquetaMuestra;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.MaterializacionAlicuotaService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraTipoInstitucionService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanAlicuotas;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.RecetaTubo;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.TipoMuestraService;
 import imss.gob.mx.cohorte.modules.impresion.ConfiguracionEtiqueta;
 import imss.gob.mx.cohorte.services.impresion.ConfiguracionEtiquetaService;
@@ -39,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
@@ -63,6 +71,7 @@ public class MuestraApplicationService {
     private final DirectPrintService directPrintService;
     private final ConfiguracionEtiquetaService configuracionEtiquetaService;
     private final Ubicacion3DService ubicacion3DService;
+    private final MaterializacionAlicuotaService materializacionService;
 
     @Transactional(readOnly = true)
     public List<Muestra> getAllMuestras() {
@@ -77,6 +86,31 @@ public class MuestraApplicationService {
     @Transactional(readOnly = true)
     public Page<Muestra> getAllMuestrasPaginado(Pageable pageable) {
         return muestraService.getAllPaginado(pageable);
+    }
+
+    /**
+     * El listado de muestras, de veinte en veinte y situado por cursor.
+     *
+     * <p>Aquí se fija la institución —el resto de los criterios vienen de la
+     * pantalla, esta no— y se normaliza todo lo demás antes de consultar. Los
+     * filtros y la búsqueda se resuelven en la base y no en el navegador: con
+     * la lista completa a la vista daba igual dónde ocurriera, pero teniendo
+     * solo veinte tarjetas cargadas, filtrar en el cliente contestaría sobre
+     * esas veinte y escondería el resto sin decirlo.</p>
+     */
+    @Transactional(readOnly = true)
+    public PaginaMuestras buscarPaginaMuestras(
+            String cursor, boolean haciaAtras, int tamano,
+            boolean incluirHistorico, boolean ocultarDevueltasHuerfanas,
+            String busqueda, LocalDate fechaDesde, LocalDate fechaHasta,
+            List<String> tipos, String sexo, String folioDesde, String folioHasta) {
+
+        CriteriosMuestra criterios = CriteriosMuestra.de(
+                institucionContextService.getIdInstitucionActual(),
+                incluirHistorico, ocultarDevueltasHuerfanas,
+                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta);
+
+        return muestraService.buscarPagina(criterios, cursor, haciaAtras, tamano);
     }
 
     @Transactional(readOnly = true)
@@ -124,8 +158,18 @@ public class MuestraApplicationService {
         return muestraService.countByPacienteUuid(uuid);
     }
 
+    /**
+     * Registra una muestra padre y, si procede, su primer lote de alícuotas.
+     *
+     * @param generarAlicuotas {@code null} = lo que diga la configuración del
+     *                         tubo; {@code true}/{@code false} = decisión
+     *                         explícita de quien registra, que manda sobre ella
+     * @param planVolumenes    volumen de cada alícuota; {@code null} = el plan
+     *                         por omisión que calcule el planificador
+     */
     @Transactional
-    public Muestra createMuestra(Muestra muestra) {
+    public ResultadoRegistroMuestra createMuestra(Muestra muestra, Boolean generarAlicuotas,
+                                                  List<Double> planVolumenes) {
         // La institución propietaria de la muestra la determina el contexto del
         // usuario logueado, no el paciente. Y ahora pueden no coincidir: al atender
         // participantes de otra sede, la muestra es de quien la toma aunque el
@@ -168,6 +212,19 @@ public class MuestraApplicationService {
             muestra.setTuboMuestra(tubo);
         }
 
+        // La unidad la manda el tubo, no quien captura: si el tubo se configuró
+        // como 5 alícuotas de 50 mL, la extracción se registra en mL y punto.
+        // Así no hay discrepancia que conciliar ni conversiones que hacer —el
+        // sistema no tiene factores de conversión— y el descuento a la padre
+        // siempre resta la misma magnitud que reservó.
+        TuboMuestra tuboElegido = muestra.getTuboMuestra();
+        if (tuboElegido != null && tuboElegido.getUnidadVolumen() != null
+                && !tuboElegido.getUnidadVolumen().isBlank()) {
+            muestra.setUnidad(tuboElegido.getUnidadVolumen());
+        }
+
+        muestra.setValorComprometido(0.0);
+
         // Auto-generar etiqueta: {prefijoCodigo}/{folio}/F4
         muestra.setEtiqueta(generarEtiquetaPadre(muestra));
 
@@ -177,21 +234,55 @@ public class MuestraApplicationService {
             marcarPosicionCajaOcupada(saved.getPosicionCaja().getId(), true);
         }
 
-        // Auto-generar alícuotas si el tubo lo requiere
-        if (saved.getTuboMuestra() != null) {
-            int numAlicuotas = saved.getTuboMuestra().getNumeroAlicuotas() != null
-                    ? saved.getTuboMuestra().getNumeroAlicuotas() : 0;
-            if (numAlicuotas > 0) {
-                generarAlicuotas(saved, numAlicuotas);
+        // Generar el lote si procede. El tubo solo fija el valor por omisión:
+        // no toda muestra se alicuota en la unidad que la tomó —muchas se
+        // guardan y se alicuotan en otra, o nunca—, así que quien registra puede
+        // activarlo o saltárselo, y siempre puede generarlo después desde la
+        // lista de muestras.
+        List<Muestra> alicuotas = List.of();
+        TuboMuestra tubo = saved.getTuboMuestra();
+        if (tubo != null && tubo.getNumeroAlicuotas() != null && tubo.getNumeroAlicuotas() > 0) {
+            boolean generar = generarAlicuotas != null ? generarAlicuotas : tubo.esGeneracionAutomatica();
+            if (generar) {
+                alicuotas = generarLote(saved, saved.getTipoMuestra(), tubo, planVolumenes);
             }
         }
 
-        return saved;
+        return new ResultadoRegistroMuestra(saved, alicuotas);
+    }
+
+    /**
+     * Lo que dejó un registro: la muestra y las alícuotas que realmente se
+     * crearon.
+     *
+     * <p>El conteo tiene que viajar aparte porque no se deduce de la muestra:
+     * el controlador respondía antes {@code tubo.numeroAlicuotas}, que ahora
+     * mentiría dos veces —en el número, que puede ser menor si el volumen no
+     * alcanzó, y en si se creó alguna—.</p>
+     */
+    public record ResultadoRegistroMuestra(Muestra muestra, List<Muestra> alicuotas) {
+        public int totalAlicuotas() {
+            return alicuotas == null ? 0 : alicuotas.size();
+        }
     }
 
     @Transactional
     public Muestra updateMuestra(Long id, MuestraRequestDTO dto) {
         Muestra anterior = muestraService.getById(id);
+
+        // No se puede corregir el volumen por debajo de lo ya prometido a
+        // alícuotas que aún no se ubican: esas alícuotas se quedarían sin
+        // respaldo y la materialización acabaría truncando el descuento.
+        double comprometido = anterior.getValorComprometido() != null ? anterior.getValorComprometido() : 0.0;
+        if (dto.getValor() != null && PlanificadorAlicuotas.mayorQue(comprometido, dto.getValor())) {
+            long pendientes = muestraRepository
+                    .countByMuestraPadre_IdAndFechaMaterializacionIsNull(id);
+            throw new ValidationException(
+                    "No se puede dejar la muestra en " + PlanificadorAlicuotas.fmt(dto.getValor())
+                    + " " + (anterior.getUnidad() != null ? anterior.getUnidad() : "")
+                    + ": tiene " + PlanificadorAlicuotas.fmt(comprometido) + " comprometidos en "
+                    + pendientes + " alícuota(s) pendientes de ubicar.");
+        }
 
         // Snapshot de valores anteriores para historial
         Double valorAnterior = anterior.getValor();
@@ -235,6 +326,15 @@ public class MuestraApplicationService {
                     idPosNueva != null ? "PosicionCaja#" + idPosNueva : null, null);
         }
 
+        // Asignar posición desde la edición cuenta igual que hacerlo desde el
+        // botón de ubicar: es el mismo hecho físico.
+        if (idPosNueva != null) {
+            materializacionService.materializar(actualizada, institucionContextService.getUsuarioActual(),
+                    descripcionPosicion(actualizada));
+        }
+        materializacionService.sellarAgotamientoSiProcede(actualizada,
+                institucionContextService.getUsuarioActual());
+
         return actualizada;
     }
 
@@ -265,7 +365,13 @@ public class MuestraApplicationService {
 
     @Transactional(readOnly = true)
     public Page<Muestra> getMuestrasEnBiobancoPage(Pageable pageable) {
-        return muestraService.getAllEnBiobancoPage(pageable);
+        return muestraService.getAllEnBiobancoPage(pageable, false);
+    }
+
+    /** @param incluirAgotadas lo que enciende el interruptor "mostrar agotadas" de la pantalla. */
+    @Transactional(readOnly = true)
+    public Page<Muestra> getMuestrasEnBiobancoPage(Pageable pageable, boolean incluirAgotadas) {
+        return muestraService.getAllEnBiobancoPage(pageable, incluirAgotadas);
     }
 
     /** Alícuotas de una muestra padre. */
@@ -292,7 +398,124 @@ public class MuestraApplicationService {
                 imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra.POSICION_ASIGNADA,
                 posAnterior, posNueva, motivo, null);
 
+        // Ubicar una alícuota es la prueba de que el vial se llenó de verdad:
+        // aquí es donde el volumen deja de estar reservado y se descuenta.
+        materializacionService.materializar(actualizada, institucionContextService.getUsuarioActual(),
+                descripcionPosicion(actualizada));
+
         return actualizada;
+    }
+
+    /**
+     * Ubica de una sola vez todas las alícuotas pendientes de un lote.
+     *
+     * <p>El cliente manda la lista ya resuelta —qué alícuota va a qué hueco—
+     * porque es quien tiene la rejilla de la caja pintada y quien conoce la
+     * regla de llenado, que además va a cambiar con el uso. El servidor la
+     * valida entera y la aplica en una sola transacción: si un hueco se ocupó
+     * mientras el usuario decidía, no queda medio lote ubicado.</p>
+     */
+    @Transactional
+    public List<Muestra> ubicarLote(Long idMuestraPadre, List<UbicacionAlicuotaDTO> asignaciones) {
+        if (asignaciones == null || asignaciones.isEmpty()) {
+            throw new ValidationException("No se indicó ninguna alícuota que ubicar.");
+        }
+
+        Muestra padre = muestraService.getByIdComoTenedor(idMuestraPadre);
+        java.util.Set<Long> idsPosicion = new java.util.HashSet<>();
+        List<Muestra> ubicadas = new java.util.ArrayList<>(asignaciones.size());
+        List<String> detalles = new java.util.ArrayList<>(asignaciones.size());
+
+        for (UbicacionAlicuotaDTO asignacion : asignaciones) {
+            if (asignacion.getIdAlicuota() == null || asignacion.getIdPosicionCaja() == null) {
+                throw new ValidationException("Cada alícuota del lote necesita una posición.");
+            }
+            if (!idsPosicion.add(asignacion.getIdPosicionCaja())) {
+                throw new ValidationException(
+                        "Se asignó la misma posición a más de una alícuota del lote.");
+            }
+
+            Muestra alicuota = muestraService.getByIdComoTenedor(asignacion.getIdAlicuota());
+            if (alicuota.getMuestraPadre() == null
+                    || !alicuota.getMuestraPadre().getId().equals(idMuestraPadre)) {
+                throw new ValidationException(
+                        "La muestra " + alicuota.getEtiqueta() + " no es alícuota de "
+                        + padre.getEtiqueta() + ".");
+            }
+
+            Muestra actualizada = muestraService.asignarPosicion(
+                    asignacion.getIdAlicuota(), asignacion.getIdPosicionCaja(), "Ubicación de lote");
+
+            historialService.registrarEvento(actualizada, institucionContextService.getUsuarioActual(),
+                    imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra.POSICION_ASIGNADA,
+                    null, "PosicionCaja#" + asignacion.getIdPosicionCaja(), "Ubicación de lote", null);
+
+            ubicadas.add(actualizada);
+            detalles.add(descripcionPosicion(actualizada));
+        }
+
+        // Un solo descuento acumulado sobre la padre, no uno por vial.
+        materializacionService.materializarLote(ubicadas, institucionContextService.getUsuarioActual(),
+                resumenUbicaciones(detalles));
+
+        return ubicadas;
+    }
+
+    /** Alícuotas de una padre que siguen sin ubicar: lo que el lote tiene pendiente. */
+    @Transactional(readOnly = true)
+    public List<Muestra> getAlicuotasPendientes(Long idMuestraPadre) {
+        muestraService.getByIdConAcceso(idMuestraPadre);
+        return muestraRepository
+                .findAllByMuestraPadre_IdAndFechaMaterializacionIsNullOrderByNumeroAlicuotaAsc(idMuestraPadre);
+    }
+
+    /** Par alícuota → hueco para la ubicación en bloque. */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class UbicacionAlicuotaDTO {
+        private Long idAlicuota;
+        private Long idPosicionCaja;
+    }
+
+    private String descripcionPosicion(Muestra muestra) {
+        PosicionCaja pos = muestra.getPosicionCaja();
+        if (pos == null) {
+            return null;
+        }
+        String caja = pos.getCaja() != null ? pos.getCaja().getCodigoCaja() : "caja";
+        return caja + " " + letraFila(pos.getFila()) + (pos.getColumna() != null ? pos.getColumna() : "");
+    }
+
+    private String resumenUbicaciones(List<String> detalles) {
+        List<String> limpios = detalles.stream().filter(d -> d != null && !d.isBlank()).toList();
+        if (limpios.isEmpty()) {
+            return null;
+        }
+        if (limpios.size() <= 4) {
+            return String.join(", ", limpios);
+        }
+        return limpios.get(0) + " … " + limpios.get(limpios.size() - 1);
+    }
+
+    /**
+     * Fila en letra, como viene rotulada la caja física: 1→A, 26→Z, 27→AA.
+     *
+     * <p>Se recorre en base 26 en vez de sumar al carácter 'A' porque ese atajo
+     * produce símbolos sueltos en cuanto una caja pasa de 26 filas.</p>
+     */
+    private static String letraFila(Integer fila) {
+        if (fila == null || fila < 1) {
+            return "";
+        }
+        int n = fila;
+        StringBuilder etiqueta = new StringBuilder();
+        while (n > 0) {
+            n--;
+            etiqueta.insert(0, (char) ('A' + (n % 26)));
+            n = n / 26;
+        }
+        return etiqueta.toString();
     }
 
     /**
@@ -321,20 +544,61 @@ public class MuestraApplicationService {
     }
 
     private String generarEtiquetaPadre(Muestra muestra) {
-        String prefijo = "M";
-        if (muestra.getTuboMuestra() != null && muestra.getTuboMuestra().getPrefijoCodigo() != null
-                && !muestra.getTuboMuestra().getPrefijoCodigo().isBlank()) {
-            prefijo = muestra.getTuboMuestra().getPrefijoCodigo();
-        }
+        String prefijo = EtiquetaMuestra.prefijo(
+                muestra.getTuboMuestra() != null ? muestra.getTuboMuestra().getPrefijoCodigo() : null);
         String folio = muestra.getPaciente().getFolio();
         int lote = muestraRepository.findMaxLoteByFolioAndTuboPrefix(folio, prefijo) + 1;
         muestra.setNumeroLote(lote);
-        Long idInst = muestra.getInstitucion().getId();
-        return prefijo + "/" + folio + "/I" + idInst + "F4-L" + lote;
+        return EtiquetaMuestra.padre(prefijo, folio, muestra.getInstitucion().getId(), lote);
     }
 
+    // ── Lotes de alícuotas ───────────────────────────────────────────────────
+
+    /**
+     * Previsualiza el lote que saldría de un tubo con un volumen dado, sin
+     * crear nada. Lo consume el formulario de registro mientras se teclea la
+     * cantidad extraída.
+     */
+    @Transactional(readOnly = true)
+    public PlanAlicuotas previsualizarPlan(Long idTuboMuestra, Double valor) {
+        TuboMuestra tubo = tipoMuestraService.getTuboById(idTuboMuestra);
+        return PlanificadorAlicuotas.planificar(recetaDe(tubo), valor);
+    }
+
+    /**
+     * Previsualiza el lote para una muestra padre que ya existe.
+     *
+     * <p>Planifica contra su volumen <em>disponible</em>, no contra su valor
+     * bruto: lo ya prometido a alícuotas sin ubicar no se puede prometer dos
+     * veces.</p>
+     */
+    @Transactional(readOnly = true)
+    public PlanAlicuotas previsualizarPlanDeMuestra(Long idMuestraPadre, Long idTuboMuestra) {
+        Muestra padre = muestraService.getByIdComoTenedor(idMuestraPadre);
+        TuboMuestra tubo = tipoMuestraService.getTuboById(idTuboMuestra);
+        PlanificadorAlicuotas.validarUnidad(tubo.getUnidadVolumen(), padre.getUnidad());
+
+        // Contra los huecos que le quedan al lote, no contra el tubo entero: si
+        // ya hay una alícuota hecha, pedir de nuevo el volumen del lote completo
+        // reclamaría volumen que ya se gastó.
+        int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
+        int ocupados = configuradas - slotsLibresDelLote(
+                idMuestraPadre, tubo, institucionContextService.getIdInstitucionActual()).size();
+
+        return PlanificadorAlicuotas.planificar(recetaDe(tubo), padre.getValorDisponible(), ocupados);
+    }
+
+    /**
+     * Genera un lote de alícuotas sobre una muestra padre ya registrada.
+     *
+     * <p>Cubre dos casos que antes eran uno solo mal nombrado: la unidad que
+     * recibe una muestra en préstamo y la alicuota con su propia configuración,
+     * y la unidad propietaria que no alicuotó al registrar —porque su tubo está
+     * en manual, o porque entonces no hacía falta— y lo hace ahora.</p>
+     */
     @Transactional
-    public List<Muestra> generarAlicuotasEnReceptora(Long idMuestraPadre, Long idTipoMuestra, Long idTuboMuestra) {
+    public List<Muestra> generarLoteAlicuotas(Long idMuestraPadre, Long idTipoMuestra,
+                                              Long idTuboMuestra, List<Double> planVolumenes) {
         Muestra padre = muestraService.getByIdComoTenedor(idMuestraPadre);
         Long idInst = institucionContextService.getIdInstitucionActual();
 
@@ -352,10 +616,10 @@ public class MuestraApplicationService {
         if (padre.getEstadoMuestra() == EstadoMuestra.BAJA) {
             throw new ObjConflictException("La muestra está dada de baja; no se pueden generar más alícuotas.");
         }
-
-        // Cuarentena: bloquear si el participante está inactivo
-        imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
-                .requirePacienteActivo(padre, "generar alícuotas");
+        if (padre.isAgotada()) {
+            throw new ObjConflictException(
+                    "La muestra está agotada: ya no tiene volumen del que tomar alícuotas.");
+        }
 
         TipoMuestra tipo = tipoMuestraService.getById(idTipoMuestra);
         TuboMuestra tubo = tipoMuestraService.getTuboById(idTuboMuestra);
@@ -363,56 +627,31 @@ public class MuestraApplicationService {
         if (!tubo.getTipoMuestra().getId().equals(tipo.getId())) {
             throw new ValidationException("El tubo seleccionado no pertenece al tipo de muestra indicado.");
         }
-        int numAlicuotas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
-        if (numAlicuotas <= 0) {
-            throw new ValidationException("El tubo seleccionado no genera alícuotas (tubo directo).");
-        }
 
         Institucion miInstitucion = institucionContextService.getInstitucionActual();
 
-        if (muestraRepository.existsByMuestraPadre_IdAndTipoMuestra_IdAndTuboMuestra_IdAndInstitucion_Id(
-                idMuestraPadre, idTipoMuestra, idTuboMuestra, miInstitucion.getId())) {
+        // Un lote no se cierra al crearse. Si la extracción salió corta se hacen
+        // las que alcanzan, y cuando aparece más volumen se completan las que
+        // faltan. Lo que no se puede es pasar del número de huecos que el tubo
+        // define, ni reutilizar uno ya ocupado.
+        int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
+        List<Integer> slotsLibres = slotsLibresDelLote(idMuestraPadre, tubo, miInstitucion.getId());
+        if (slotsLibres.isEmpty()) {
             throw new ObjConflictException(
-                    "Ya existen alícuotas de este tipo y tubo para esta muestra en su biobanco.");
+                    "El lote ya está completo: el tubo \"" + tubo.getNombre() + "\" define "
+                    + configuradas + " alícuota(s) y todas existen en su biobanco.");
         }
 
-        // Upsert tipo/tubo por institución
+        // Upsert tipo/tubo por institución: cada unidad puede alicuotar la misma
+        // muestra padre con su propia receta.
         muestraTipoInstitucionService.asignarTipoTubo(idMuestraPadre, idTipoMuestra, idTuboMuestra);
 
-        BeanUser usuario = institucionContextService.getUsuarioActual();
-
-        String unidad = (tubo.getUnidadVolumen() != null && !tubo.getUnidadVolumen().isBlank())
-                ? tubo.getUnidadVolumen() : padre.getUnidad();
-
-        String prefijo = (tubo.getPrefijoCodigo() != null && !tubo.getPrefijoCodigo().isBlank())
-                ? tubo.getPrefijoCodigo() : "M";
-        String folio = padre.getPaciente().getFolio();
-        int lote = padre.getNumeroLote();
-
-        String etiquetaBase = prefijo + "/" + folio + "/I" + miInstitucion.getId() + "F4-L" + lote;
-
-        java.util.List<Muestra> generadas = new java.util.ArrayList<>();
-
-        for (int i = 1; i <= numAlicuotas; i++) {
-            Muestra alicuota = new Muestra();
-            alicuota.setEtiqueta(etiquetaBase + "/" + i + "-" + numAlicuotas);
-            alicuota.setValor(tubo.getVolumenAlicuota());
-            alicuota.setUnidad(unidad);
-            alicuota.setFechaRecoleccion(padre.getFechaRecoleccion());
-            alicuota.setPaciente(padre.getPaciente());
-            alicuota.setUsuarioRecolecta(usuario);
-            alicuota.setTipoMuestra(tipo);
-            alicuota.setTuboMuestra(tubo);
-            alicuota.setMuestraPadre(padre);
-            alicuota.setNumeroAlicuota(i);
-            alicuota.setTotalAlicuotas(numAlicuotas);
-            alicuota.setNumeroLote(lote);
-            alicuota.setInstitucion(miInstitucion);
-            alicuota.setInstitucionActual(miInstitucion);
-            alicuota.setFechaRegistro(Timestamp.valueOf(LocalDateTime.now()));
-            generadas.add(muestraService.createAlicuota(alicuota));
+        List<Muestra> generadas = generarLote(padre, tipo, tubo, planVolumenes, slotsLibres);
+        if (generadas.isEmpty()) {
+            throw new ValidationException(PlanificadorAlicuotas
+                    .planificar(recetaDe(tubo), padre.getValorDisponible(), configuradas - slotsLibres.size())
+                    .mensaje());
         }
-
         return generadas;
     }
 
@@ -421,38 +660,172 @@ public class MuestraApplicationService {
         return muestraTipoInstitucionService.getByMuestraYMiInstitucion(idMuestra);
     }
 
-    private void generarAlicuotas(Muestra primaria, int cantidad) {
-        // Cuarentena: bloquear si el participante está inactivo (defensa en profundidad;
-        // createMuestra ya lo valida al resolver el participante, pero mantener el
-        // chequeo explícito aquí evita futuras regresiones si se agregan más llamadores).
-        imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
-                .requirePacienteActivo(primaria, "generar alícuotas");
+    /**
+     * Crea las alícuotas del lote y reserva su volumen en la muestra padre.
+     *
+     * <p>Las alícuotas nacen sin posición y sin descontar nada: su volumen queda
+     * <em>comprometido</em> en la padre hasta que cada una se ubique. Ver
+     * {@link MaterializacionAlicuotaService} para el porqué.</p>
+     *
+     * <p>Devuelve lista vacía —sin lanzar— cuando no se pidió un plan concreto y
+     * el volumen no da ni para una alícuota completa: el alta de la muestra no
+     * puede reventar porque la extracción saliera corta. Cuando el plan viene
+     * explícito, en cambio, se valida y se rechaza si no cabe.</p>
+     */
+    private List<Muestra> generarLote(Muestra padre, TipoMuestra tipo, TuboMuestra tubo,
+                                      List<Double> planVolumenes) {
+        return generarLote(padre, tipo, tubo, planVolumenes,
+                slotsLibresDelLote(padre.getId(), tubo, padre.getInstitucion().getId()));
+    }
 
-        TuboMuestra tubo = primaria.getTuboMuestra();
-        String unidad = (tubo.getUnidadVolumen() != null && !tubo.getUnidadVolumen().isBlank())
-                ? tubo.getUnidadVolumen() : primaria.getUnidad();
+    /**
+     * Numeros de alicuota que el lote todavia tiene libres, en orden.
+     *
+     * <p>Se calculan como los huecos del tubo que nadie ocupa, en lugar de
+     * tomar el siguiente al mayor: si una alicuota se elimina, su hueco vuelve
+     * a quedar disponible, y reutilizarlo mantiene la numeracion compacta sin
+     * chocar nunca con la restriccion de etiqueta unica por institucion.</p>
+     */
+    private List<Integer> slotsLibresDelLote(Long idMuestraPadre, TuboMuestra tubo, Long idInstitucion) {
+        int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
+        java.util.Set<Integer> ocupados = muestraRepository
+                .findAllByMuestraPadre_IdAndTuboMuestra_IdAndInstitucion_Id(
+                        idMuestraPadre, tubo.getId(), idInstitucion)
+                .stream()
+                .map(Muestra::getNumeroAlicuota)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
 
-        String etiquetaBase = primaria.getEtiqueta();
-
-        for (int i = 1; i <= cantidad; i++) {
-            Muestra alicuota = new Muestra();
-            alicuota.setEtiqueta(etiquetaBase + "/" + i + "-" + cantidad);
-            alicuota.setValor(tubo.getVolumenAlicuota());
-            alicuota.setUnidad(unidad);
-            alicuota.setFechaRecoleccion(primaria.getFechaRecoleccion());
-            alicuota.setPaciente(primaria.getPaciente());
-            alicuota.setUsuarioRecolecta(primaria.getUsuarioRecolecta());
-            alicuota.setTipoMuestra(primaria.getTipoMuestra());
-            alicuota.setTuboMuestra(tubo);
-            alicuota.setMuestraPadre(primaria);
-            alicuota.setNumeroAlicuota(i);
-            alicuota.setTotalAlicuotas(cantidad);
-            alicuota.setNumeroLote(primaria.getNumeroLote());
-            alicuota.setInstitucion(primaria.getInstitucion());
-            alicuota.setInstitucionActual(primaria.getInstitucionActual());
-            alicuota.setFechaRegistro(Timestamp.valueOf(LocalDateTime.now()));
-            muestraService.createAlicuota(alicuota);
+        List<Integer> libres = new java.util.ArrayList<>();
+        for (int i = 1; i <= configuradas; i++) {
+            if (!ocupados.contains(i)) {
+                libres.add(i);
+            }
         }
+        return libres;
+    }
+
+    private List<Muestra> generarLote(Muestra padre, TipoMuestra tipo, TuboMuestra tubo,
+                                      List<Double> planVolumenes, List<Integer> slotsLibres) {
+        // Cuarentena: bloquear si el participante está inactivo.
+        imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidator
+                .requirePacienteActivo(padre, "generar alícuotas");
+
+        RecetaTubo receta = recetaDe(tubo);
+        PlanificadorAlicuotas.validarUnidad(tubo.getUnidadVolumen(), padre.getUnidad());
+
+        int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
+        int ocupados = configuradas - slotsLibres.size();
+
+        List<Double> volumenes;
+        if (planVolumenes == null || planVolumenes.isEmpty()) {
+            volumenes = PlanificadorAlicuotas.planificar(receta, padre.getValorDisponible(), ocupados)
+                    .volumenesSugeridos();
+            if (volumenes.isEmpty()) {
+                return List.of();
+            }
+        } else {
+            volumenes = PlanificadorAlicuotas.validarPlan(
+                    planVolumenes, receta, padre.getValorDisponible(), ocupados);
+        }
+
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        Institucion miInstitucion = institucionContextService.getInstitucionActual();
+        String unidad = tubo.getUnidadVolumen() != null && !tubo.getUnidadVolumen().isBlank()
+                ? tubo.getUnidadVolumen() : padre.getUnidad();
+
+        String etiquetaBase = etiquetaBaseDelLote(padre, tubo, miInstitucion);
+        int total = volumenes.size();
+        int lote = padre.getNumeroLote() != null ? padre.getNumeroLote() : 1;
+
+        List<Muestra> generadas = new java.util.ArrayList<>(total);
+        for (int i = 1; i <= total; i++) {
+            int slot = slotsLibres.get(i - 1);
+            Muestra alicuota = new Muestra();
+            // El número de alícuotas de la etiqueta es el del lote real, no el
+            // que el tubo define: un "4-5" impreso sugeriría que existe un
+            // quinto vial extraviado.
+            alicuota.setEtiqueta(EtiquetaMuestra.alicuota(etiquetaBase, slot, configuradas));
+            alicuota.setValor(volumenes.get(i - 1));
+            alicuota.setUnidad(unidad);
+            alicuota.setFechaRecoleccion(padre.getFechaRecoleccion());
+            alicuota.setPaciente(padre.getPaciente());
+            alicuota.setUsuarioRecolecta(usuario != null ? usuario : padre.getUsuarioRecolecta());
+            alicuota.setTipoMuestra(tipo);
+            alicuota.setTuboMuestra(tubo);
+            alicuota.setMuestraPadre(padre);
+            alicuota.setNumeroAlicuota(slot);
+            alicuota.setTotalAlicuotas(configuradas);
+            alicuota.setNumeroLote(lote);
+            alicuota.setValorComprometido(0.0);
+            alicuota.setInstitucion(miInstitucion);
+            alicuota.setInstitucionActual(miInstitucion);
+            alicuota.setFechaRegistro(Timestamp.valueOf(LocalDateTime.now()));
+            generadas.add(muestraService.createAlicuota(alicuota));
+        }
+
+        double suma = PlanificadorAlicuotas.sumar(volumenes);
+        materializacionService.reservar(padre, suma, usuario,
+                detalleDelLote(tubo, total, suma, unidad, receta, ocupados));
+
+        return generadas;
+    }
+
+    /**
+     * Base de la etiqueta de las alícuotas.
+     *
+     * <p>Si las genera la propia dueña, cuelgan de la etiqueta de la padre. Si
+     * las genera otra unidad, la base se reconstruye con el identificador de
+     * <em>esa</em> unidad: la alícuota le pertenece a quien la creó, aunque la
+     * padre sea de otra.</p>
+     */
+    private String etiquetaBaseDelLote(Muestra padre, TuboMuestra tubo, Institucion miInstitucion) {
+        if (padre.getInstitucion() != null && miInstitucion.getId().equals(padre.getInstitucion().getId())) {
+            return padre.getEtiqueta();
+        }
+        int lote = padre.getNumeroLote() != null ? padre.getNumeroLote() : 1;
+        return EtiquetaMuestra.padre(tubo.getPrefijoCodigo(), padre.getPaciente().getFolio(),
+                miInstitucion.getId(), lote);
+    }
+
+    /**
+     * Motivo del renglon de historial al reservar un lote.
+     *
+     * <p>Se redacta corto a proposito: `historial_cambio_muestra.motivo` es un
+     * VARCHAR(200) y un texto mas largo hacia fallar el alta entera de la
+     * muestra. {@code HistorialCambioMuestraService} recorta como red de
+     * seguridad, pero un motivo que llega recortado ya perdio informacion, asi
+     * que conviene que quepa de origen.</p>
+     */
+    private String detalleDelLote(TuboMuestra tubo, int total, double suma, String unidad,
+                                  RecetaTubo receta, int ocupados) {
+        int configuradas = receta.numeroAlicuotas() == null ? 0 : receta.numeroAlicuotas();
+        int faltan = configuradas - ocupados - total;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(ocupados > 0 ? "Lote completado con " : "Lote de ")
+          .append(total).append(" alícuota").append(total == 1 ? "" : "s")
+          .append(" (").append(PlanificadorAlicuotas.fmt(suma))
+          .append(unidad == null || unidad.isBlank() ? "" : " " + unidad)
+          .append(") del tubo «").append(tubo.getNombre()).append("»");
+
+        if (faltan > 0) {
+            sb.append(". Faltan ").append(faltan).append(" de ").append(configuradas)
+              .append(": el volumen no alcanzaba");
+        } else if (ocupados > 0) {
+            sb.append(". Completo en ").append(configuradas);
+        }
+        sb.append(". Se descuenta al ubicar cada una.");
+        return sb.toString();
+    }
+
+    private static RecetaTubo recetaDe(TuboMuestra tubo) {
+        return new RecetaTubo(
+                tubo.getNombre(),
+                tubo.getNumeroAlicuotas(),
+                tubo.getVolumenAlicuota(),
+                tubo.getUnidadVolumen(),
+                tubo.admiteAlicuotaParcial());
     }
 
     // ── Impresión ZPL ────────────────────────────────────────────────────────

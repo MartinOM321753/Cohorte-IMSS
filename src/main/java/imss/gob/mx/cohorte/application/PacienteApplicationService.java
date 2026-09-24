@@ -147,6 +147,11 @@ public class PacienteApplicationService {
     }
 
     @Transactional
+    public Paciente findByNoConsecutivo(Long noConsecutivo) {
+        return pacienteService.getByNoConsecutivo(noConsecutivo, institucionContextService.getIdInstitucionActual());
+    }
+
+    @Transactional
     public Paciente saveUser(Paciente paciente) {
         return saveUser(paciente, null);
     }

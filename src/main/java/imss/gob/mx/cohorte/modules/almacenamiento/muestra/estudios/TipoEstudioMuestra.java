@@ -43,6 +43,6 @@ public class TipoEstudioMuestra {
     private Institucion institucion;
 
     @OneToMany(mappedBy = "tipoEstudioMuestra", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @OrderBy("nombre ASC")
+    @OrderBy("orden ASC, id ASC")
     private List<ParametroEstudioMuestra> parametros = new ArrayList<>();
 }

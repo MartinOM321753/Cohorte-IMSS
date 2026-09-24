@@ -45,6 +45,20 @@ public final class ConversorValor {
     private static final List<String> AUSENCIAS = List.of(
             "N/A", "NA", "N.A.", "ND", "N.D.", "-", "--", "---", "SIN DATO", "NULL", "NONE", "#N/A");
 
+    /**
+     * Si la celda es una forma de escribir «aquí no hay dato».
+     *
+     * <p>En un estudio eso es un error, porque todos los parametros son
+     * obligatorios. En otras cargas no: el volumen de una muestra puede
+     * heredarse de la configuracion del tubo, y entonces «N/A» significa lo
+     * mismo que dejarla vacia. Quien llama decide que hacer; la lista de formas
+     * de decirlo vive aqui una sola vez para que no acabe habiendo dos.</p>
+     */
+    public static boolean esAusencia(String crudo) {
+        if (crudo == null) return false;
+        return AUSENCIAS.contains(crudo.trim().toUpperCase(Locale.ROOT));
+    }
+
     private static final List<String> AFIRMATIVOS = List.of(
             "SI", "S", "TRUE", "T", "VERDADERO", "V", "1", "X", "YES", "Y", "POSITIVO");
 
