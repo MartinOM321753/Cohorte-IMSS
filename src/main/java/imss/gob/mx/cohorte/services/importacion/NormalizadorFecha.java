@@ -101,6 +101,44 @@ public final class NormalizadorFecha {
         return new Interpretacion(Orden.DIA_MES, true);
     }
 
+    /**
+     * Si en este archivo la eleccion dia/mes cambia algo.
+     *
+     * <p>{@link Interpretacion#ambiguo()} dice «no encontre desempate», que no es
+     * lo mismo que «hay algo que elegir». Un archivo con fechas ISO
+     * ({@code 2026-08-07}) o con el mes en letra no desempata nada, pero tampoco
+     * admite dos lecturas: {@link #parsear} las resuelve antes de mirar el orden.
+     * Decirle al usuario «sus fechas admiten dos lecturas» en ese caso es una
+     * falsa alarma, y las falsas alarmas ensenan a ignorar los avisos.</p>
+     *
+     * <p>Va aparte y no dentro de {@code inferirOrden} para no cambiar lo que ya
+     * responde a quien la usa hoy: quien quiera distinguir los dos casos combina
+     * las dos respuestas.</p>
+     *
+     * @return true solo si alguna fila es una fecha numerica con separadores en la
+     *         que el primer componente podria ser dia o mes
+     */
+    public static boolean admiteDosLecturas(List<String> valores) {
+        if (valores == null) return false;
+        for (String valor : valores) {
+            if (valor == null || valor.isBlank()) continue;
+            Matcher m = NUMERICA.matcher(valor);
+            if (!m.matches()) continue;
+
+            int primero = Integer.parseInt(m.group(1));
+            int segundo = Integer.parseInt(m.group(2));
+            int tercero = Integer.parseInt(m.group(3));
+
+            // Mismo descarte que la inferencia: con el ano delante no hay dilema.
+            if (String.valueOf(primero).length() == 4 || tercero < 32 && primero > 31) continue;
+            // Si alguno de los dos pasa de 12 ya esta desempatado, no es ambiguo.
+            if (primero > 12 || segundo > 12) continue;
+
+            return true;
+        }
+        return false;
+    }
+
     // ── Conversion ───────────────────────────────────────────────────────────
 
     /**
