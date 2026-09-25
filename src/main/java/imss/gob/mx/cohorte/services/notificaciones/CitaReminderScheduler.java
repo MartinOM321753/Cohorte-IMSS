@@ -15,10 +15,11 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Corre cada hora y envía recordatorios a pacientes con cita en las próximas ~24 horas.
+ * Se ejecuta a las 8:00 AM hora de la Ciudad de México y envía recordatorios
+ * a participantes con cita en las próximas 30 horas.
  *
- * Ventana de búsqueda: 23h – 25h desde ahora.
- * Si el scheduler se ejecuta cada hora, cada cita caerá en la ventana exactamente una vez.
+ * La ventana amplia (0–30h) asegura que se cubran todas las citas del día
+ * siguiente. La deduplicación evita envíos repetidos.
  */
 @Component
 @RequiredArgsConstructor
@@ -29,10 +30,10 @@ public class CitaReminderScheduler {
     private final NotificacionCitaRepository notificacionRepo;
     private final CitaNotificacionService notificacionService;
 
-    @Scheduled(cron = "0 0 * * * *")   // cada hora en punto
-    public void enviarRecordatorios24h() {
-        Instant desde = Instant.now().plusSeconds(23 * 3600L);
-        Instant hasta = Instant.now().plusSeconds(25 * 3600L);
+    @Scheduled(cron = "0 0 8 * * *", zone = "America/Mexico_City")
+    public void enviarRecordatorios() {
+        Instant desde = Instant.now();
+        Instant hasta = Instant.now().plusSeconds(30 * 3600L);
 
         List<Cita> candidatas = citaRepository.findByStartAtUtcBetween(desde, hasta)
                 .stream()
@@ -40,7 +41,7 @@ public class CitaReminderScheduler {
                 .filter(c -> !yaNotificadoExitosamente(c))
                 .toList();
 
-        log.info("Scheduler recordatorio 24h: {} cita(s) a notificar", candidatas.size());
+        log.info("Scheduler recordatorio 8AM: {} cita(s) a notificar", candidatas.size());
 
         for (Cita cita : candidatas) {
             try {
@@ -51,9 +52,6 @@ public class CitaReminderScheduler {
         }
     }
 
-    /**
-     * Considera "ya notificada" si el email fue enviado exitosamente.
-     */
     private boolean yaNotificadoExitosamente(Cita cita) {
         return notificacionRepo.existsByCitaAndTipoAndCanalAndExitoso(
                 cita, TipoNotificacion.RECORDATORIO_24H, CanalNotificacion.EMAIL, true);

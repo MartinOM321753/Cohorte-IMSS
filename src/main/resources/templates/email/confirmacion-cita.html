@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirmación de cita</title>
+  <title>Confirmaci&oacute;n de cita</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
 
@@ -11,12 +11,15 @@
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0"
-               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+               style="background:#ffffff;overflow:hidden;border:1px solid #d1d5db;">
 
           <!-- Cabecera -->
           <tr>
-            <td style="background:#1d4ed8;padding:28px 32px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">
+            <td style="border-bottom:3px solid #1e4e3a;padding:24px 32px;">
+              <p style="margin:0 0 4px;font-size:11px;letter-spacing:2px;color:#6b7280;text-transform:uppercase;">
+                Estudio de cohorte
+              </p>
+              <h1 style="margin:0 0 2px;font-size:20px;font-weight:600;color:#0e2a20;">
                 Cohorte de Trabajadores de la Salud
               </h1>
             </td>
@@ -24,56 +27,77 @@
 
           <!-- Cuerpo -->
           <tr>
-            <td style="padding:32px;">
-              <p style="margin:0 0 16px;font-size:16px;color:#374151;">
-                Hola, <strong th:text="${nombre}">Nombre Apellido</strong>
-              </p>
-              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
-                Tu cita ha sido <strong style="color:#16a34a;">confirmada</strong> exitosamente.
-                Aquí tienes los detalles:
+            <td style="padding:28px 32px;">
+              <p style="margin:0 0 16px;font-size:11px;letter-spacing:1.5px;color:#1e4e3a;text-transform:uppercase;font-weight:600;border-bottom:1px solid #d9e4dd;padding-bottom:8px;">
+                Confirmaci&oacute;n de cita
               </p>
 
-              <!-- Tarjeta de cita -->
+              <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+                Estimado/a <strong th:text="${nombre}">Nombre Apellido</strong>,
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.6;">
+                Le informamos que su cita ha sido registrada exitosamente.
+                A continuaci&oacute;n se detallan los datos de su pr&oacute;xima visita:
+              </p>
+
+              <!-- Datos de la cita -->
               <table width="100%" cellpadding="0" cellspacing="0"
-                     style="background:#f0f9ff;border-left:4px solid #1d4ed8;border-radius:4px;padding:0;">
+                     style="border-collapse:collapse;font-size:14px;margin-bottom:20px;">
+                <tr style="border-bottom:1px solid #d9e4dd;">
+                  <td style="padding:10px 12px;color:#6b7280;width:140px;">Fecha</td>
+                  <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${fecha}">lunes 26 de mayo de 2025</td>
+                </tr>
+                <tr style="border-bottom:1px solid #d9e4dd;">
+                  <td style="padding:10px 12px;color:#6b7280;">Hora</td>
+                  <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${hora + ' hrs'}">10:00 hrs</td>
+                </tr>
+                <tr style="border-bottom:1px solid #d9e4dd;">
+                  <td style="padding:10px 12px;color:#6b7280;">Duraci&oacute;n</td>
+                  <td style="padding:10px 12px;color:#0e2a20;" th:text="${duracion + ' minutos'}">60 minutos</td>
+                </tr>
+                <tr style="border-bottom:1px solid #d9e4dd;">
+                  <td style="padding:10px 12px;color:#6b7280;">Unidad</td>
+                  <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${institucion}">UMF No. 28</td>
+                </tr>
                 <tr>
-                  <td style="padding:20px 24px;">
-                    <p style="margin:0 0 10px;font-size:14px;color:#374151;">
-                      📅 <strong>Fecha</strong><br>
-                      <span style="font-size:16px;color:#1d4ed8;" th:text="${fecha}">lunes 26 de mayo de 2025</span>
-                    </p>
-                    <p style="margin:0 0 10px;font-size:14px;color:#374151;">
-                      ⏰ <strong>Hora</strong><br>
-                      <span style="font-size:16px;color:#1d4ed8;" th:text="${hora + ' hrs'}">10:00 hrs</span>
-                    </p>
-                    <p style="margin:0;font-size:14px;color:#374151;">
-                      🕒 <strong>Duración</strong><br>
-                      <span th:text="${duracion + ' minutos'}">60 minutos</span>
-                    </p>
+                  <td style="padding:10px 12px;color:#6b7280;vertical-align:top;">Direcci&oacute;n</td>
+                  <td style="padding:10px 12px;color:#0e2a20;">
+                    <span th:text="${direccionInstitucion}" style="white-space:pre-line;">Direcci&oacute;n de la unidad</span>
+                    <br th:if="${googleMapsUrl != null}">
+                    <a th:if="${googleMapsUrl != null}" th:href="${googleMapsUrl}"
+                       style="color:#1e4e3a;font-size:13px;" target="_blank">
+                      Ver en Google Maps
+                    </a>
                   </td>
                 </tr>
               </table>
 
-              <!-- Observaciones (solo si existen) -->
+              <!-- Observaciones -->
               <div th:if="${observaciones != null and !#strings.isEmpty(observaciones)}"
-                   style="margin-top:20px;padding:16px;background:#fefce8;border-radius:4px;font-size:14px;color:#713f12;">
-                <strong>Nota:</strong>
+                   style="background:#ecf2ee;border-left:3px solid #1e4e3a;padding:12px 16px;font-size:13px;color:#1c4938;margin-bottom:20px;">
+                <strong style="color:#0e2a20;">Observaciones:</strong>
                 <span th:text="${observaciones}">Observaciones de la cita</span>
               </div>
 
-              <p style="margin:28px 0 0;font-size:14px;color:#6b7280;">
-                Si necesitas cancelar o reagendar tu cita, comunícate con nosotros
-                <strong>con al menos 24 horas de anticipación</strong>.
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
+                Si necesita cancelar o reagendar, comun&iacute;quese con al menos
+                <strong>24 horas de anticipaci&oacute;n</strong>.
+              </p>
+              <p th:if="${telefonoInstitucion != null and !#strings.isEmpty(telefonoInstitucion)}"
+                 style="margin:0;font-size:13px;color:#6b7280;">
+                Tel&eacute;fono de la unidad:
+                <strong style="color:#374151;" th:text="${telefonoInstitucion}">(55) 5534-2100</strong>
               </p>
             </td>
           </tr>
 
           <!-- Pie -->
           <tr>
-            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">
-                Este es un mensaje automático. Por favor no respondas a este correo.<br>
-                Cohorte de Trabajadores de la Salud
+            <td style="border-top:1px solid #d9e4dd;padding:16px 32px;background:#ecf2ee;">
+              <p style="margin:0;font-size:11px;color:#7d8782;line-height:1.5;">
+                Este es un mensaje autom&aacute;tico generado por el sistema de la
+                Cohorte de Trabajadores de la Salud.<br>
+                Por favor no responda a este correo.
               </p>
             </td>
           </tr>
