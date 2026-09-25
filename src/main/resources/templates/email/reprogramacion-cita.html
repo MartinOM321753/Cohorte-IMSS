@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recordatorio de cita</title>
+  <title>Cita reprogramada</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
 
@@ -29,26 +29,40 @@
           <tr>
             <td style="padding:28px 32px;">
               <p style="margin:0 0 16px;font-size:11px;letter-spacing:1.5px;color:#1e4e3a;text-transform:uppercase;font-weight:600;border-bottom:1px solid #d9e4dd;padding-bottom:8px;">
-                Recordatorio de cita
+                Cita reprogramada
               </p>
 
               <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
                 Estimado/a <strong th:text="${nombre}">Nombre Apellido</strong>,
               </p>
               <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.6;">
-                Le recordamos que tiene una cita programada en la Cohorte:
+                Le informamos que su cita ha sido <strong style="color:#1e4e3a;">reprogramada</strong>.
+                A continuaci&oacute;n se muestran los nuevos datos:
               </p>
 
-              <!-- Datos de la cita -->
+              <!-- Fecha anterior (tachada) -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="border-collapse:collapse;font-size:14px;margin-bottom:12px;opacity:.6;">
+                <tr>
+                  <td style="padding:8px 12px;color:#6b7280;width:140px;">Fecha anterior</td>
+                  <td style="padding:8px 12px;color:#6b7280;text-decoration:line-through;" th:text="${fechaAnterior}">lunes 26 de mayo de 2025</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px;color:#6b7280;">Hora anterior</td>
+                  <td style="padding:8px 12px;color:#6b7280;text-decoration:line-through;" th:text="${horaAnterior + ' hrs'}">10:00 hrs</td>
+                </tr>
+              </table>
+
+              <!-- Nuevos datos -->
               <table width="100%" cellpadding="0" cellspacing="0"
                      style="border-collapse:collapse;font-size:14px;margin-bottom:20px;">
                 <tr style="border-bottom:1px solid #d9e4dd;">
-                  <td style="padding:10px 12px;color:#6b7280;width:140px;">Fecha</td>
+                  <td style="padding:10px 12px;color:#6b7280;width:140px;">Nueva fecha</td>
                   <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${fecha}">martes 27 de mayo de 2025</td>
                 </tr>
                 <tr style="border-bottom:1px solid #d9e4dd;">
-                  <td style="padding:10px 12px;color:#6b7280;">Hora</td>
-                  <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${hora + ' hrs'}">10:00 hrs</td>
+                  <td style="padding:10px 12px;color:#6b7280;">Nueva hora</td>
+                  <td style="padding:10px 12px;color:#0e2a20;font-weight:500;" th:text="${hora + ' hrs'}">14:00 hrs</td>
                 </tr>
                 <tr style="border-bottom:1px solid #d9e4dd;">
                   <td style="padding:10px 12px;color:#6b7280;">Duraci&oacute;n</td>
@@ -71,16 +85,17 @@
                 </tr>
               </table>
 
-              <!-- Recomendaciones -->
-              <div style="background:#ecf2ee;border-left:3px solid #1e4e3a;padding:12px 16px;font-size:13px;color:#1c4938;margin-bottom:20px;">
-                <strong style="color:#0e2a20;">Recomendaciones:</strong>
-                <ul style="margin:6px 0 0;padding-left:18px;line-height:1.6;">
-                  <li>Pres&eacute;ntese 10 minutos antes de su cita.</li>
-                  <li>Traiga identificaci&oacute;n oficial vigente.</li>
-                  <li>Si no puede asistir, cancele con anticipaci&oacute;n.</li>
-                </ul>
+              <!-- Observaciones -->
+              <div th:if="${observaciones != null and !#strings.isEmpty(observaciones)}"
+                   style="background:#ecf2ee;border-left:3px solid #1e4e3a;padding:12px 16px;font-size:13px;color:#1c4938;margin-bottom:20px;">
+                <strong style="color:#0e2a20;">Observaciones:</strong>
+                <span th:text="${observaciones}">Observaciones de la cita</span>
               </div>
 
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
+                Si necesita cancelar o reagendar, comun&iacute;quese con al menos
+                <strong>24 horas de anticipaci&oacute;n</strong>.
+              </p>
               <p th:if="${telefonoInstitucion != null and !#strings.isEmpty(telefonoInstitucion)}"
                  style="margin:0;font-size:13px;color:#6b7280;">
                 Tel&eacute;fono de la unidad:

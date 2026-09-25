@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.institucion.InstitucionRepository;
 import imss.gob.mx.cohorte.modules.notificaciones.events.CitaAgendadaEvent;
 import imss.gob.mx.cohorte.modules.notificaciones.events.CitaCanceladaEvent;
+import imss.gob.mx.cohorte.modules.notificaciones.events.CitaReprogramadaEvent;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
@@ -102,7 +103,17 @@ public class CitaApplicationService {
     public Cita patch(String uuid, CitaPatchDTO patchDto) {
         Cita existente = citaService.getByUuid(uuid);
         institucionContextService.verificarPertenece(existente.getInstitucion());
-        return citaService.patch(uuid, patchDto);
+
+        Instant fechaAnterior = existente.getStartAtUtc();
+        boolean cambiaHorario = patchDto.getStartAtLocal() != null;
+
+        Cita updated = citaService.patch(uuid, patchDto);
+
+        if (cambiaHorario && !updated.getStartAtUtc().equals(fechaAnterior)) {
+            eventPublisher.publishEvent(new CitaReprogramadaEvent(updated, fechaAnterior));
+        }
+
+        return updated;
     }
 
     @Transactional
