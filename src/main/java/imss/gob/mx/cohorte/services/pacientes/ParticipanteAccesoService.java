@@ -60,6 +60,23 @@ public class ParticipanteAccesoService {
     }
 
     /**
+     * Como {@link #resolver} pero SIN exigir que el participante esté activo. Se usa
+     * en los flujos que sí se permiten con el participante inactivo: agendarle una
+     * cita y editar su información. El aislamiento por institución (alcance) se
+     * mantiene igual; lo único que se relaja es el filtro de activo.
+     *
+     * <p>Sirve al "seguimiento": se le agenda cita y se le actualizan datos aunque
+     * esté inactivo, y solo se activa cuando confirma la cita. Todo lo demás
+     * (muestras, estudios, exámenes) sigue exigiendo que esté activo.</p>
+     */
+    @Transactional(readOnly = true)
+    public Paciente resolverIncluyendoInactivo(String uuidPaciente) {
+        return pacienteService.buscarPorUUID(uuidPaciente, institucionesAlcanzables())
+                .orElseThrow(() -> new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                        "No se encontró el participante"));
+    }
+
+    /**
      * Verifica que el participante indicado este al alcance del usuario actual.
      * Para modulos que ya tienen la entidad y solo necesitan la comprobacion.
      */

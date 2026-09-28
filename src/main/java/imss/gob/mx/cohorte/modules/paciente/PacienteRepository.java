@@ -175,4 +175,47 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
                                                  @Param("buscarNumero") Long buscarNumero,
                                                  @Param("soloActivos") Boolean soloActivos,
                                                  Pageable pageable);
+
+    // ── Seguimiento ────────────────────────────────────────────────────────────
+    // Participantes INACTIVOS que tienen al menos una cita SIN CONFIRMAR
+    // (EstadoCita.Programada). Es la lista de "en seguimiento": se les agendó cita
+    // pero aún no confirman, así que no cuentan en cobertura hasta activarlos.
+
+    @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id = :idInstitucion "
+         + "AND p.activo = false "
+         + "AND EXISTS (SELECT 1 FROM Cita c WHERE c.paciente = p AND c.estadoCita = imss.gob.mx.cohorte.modules.cita.EstadoCita.Programada) "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "(:buscarNumero IS NOT NULL AND p.noConsecutivo = :buscarNumero)) "
+         + "ORDER BY p.folio ASC")
+    Page<Paciente> buscarSeguimientoPaginado(@Param("idInstitucion") Long idInstitucion,
+                                             @Param("buscar") String buscar,
+                                             @Param("buscarNumero") Long buscarNumero,
+                                             Pageable pageable);
+
+    @Query("SELECT p FROM Paciente p JOIN p.persona per WHERE p.institucion.id IN :ids "
+         + "AND p.activo = false "
+         + "AND EXISTS (SELECT 1 FROM Cita c WHERE c.paciente = p AND c.estadoCita = imss.gob.mx.cohorte.modules.cita.EstadoCita.Programada) "
+         + "AND (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.curp) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(p.folio) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "(:buscarNumero IS NOT NULL AND p.noConsecutivo = :buscarNumero)) "
+         + "ORDER BY p.folio ASC")
+    Page<Paciente> buscarSeguimientoPaginadoEnInstituciones(@Param("ids") List<Long> ids,
+                                                            @Param("buscar") String buscar,
+                                                            @Param("buscarNumero") Long buscarNumero,
+                                                            Pageable pageable);
 }

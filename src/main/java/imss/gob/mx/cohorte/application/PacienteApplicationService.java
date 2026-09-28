@@ -105,6 +105,26 @@ public class PacienteApplicationService {
         return pacienteService.buscarPaginadoEnInstituciones(ids, buscar, soloActivos, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Page<Paciente> buscarSeguimientoPaginado(String buscar, Pageable pageable) {
+        return pacienteService.buscarSeguimientoPaginado(
+                institucionContextService.getIdInstitucionActual(), buscar, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Paciente> buscarSeguimientoConJerarquia(String buscar, Long idInstitucionFiltro, Pageable pageable) {
+        List<Long> ids = institucionJerarquiaService.getInstitucionesVisibles(
+                institucionContextService.getIdInstitucionActual());
+        if (idInstitucionFiltro != null) {
+            if (!ids.contains(idInstitucionFiltro)) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "La institución solicitada no es visible para tu institución actual");
+            }
+            return pacienteService.buscarSeguimientoPaginado(idInstitucionFiltro, buscar, pageable);
+        }
+        return pacienteService.buscarSeguimientoPaginadoEnInstituciones(ids, buscar, pageable);
+    }
+
     public Long getIdInstitucionActual() {
         return institucionContextService.getIdInstitucionActual();
     }
@@ -270,7 +290,8 @@ public class PacienteApplicationService {
     public Paciente updateUser(Paciente paciente) {
         List<Long> visibles = institucionJerarquiaService.getInstitucionesVisibles(
                 institucionContextService.getIdInstitucionActual());
-        Paciente existing = pacienteService.getPatient(paciente.getId(), visibles);
+        // Editar datos se permite aunque esté inactivo (flujo de seguimiento).
+        Paciente existing = pacienteService.getPatientIncluyendoInactivo(paciente.getId(), visibles);
         paciente.getPersona().setId(existing.getPersona().getId());
         Persona updatePersona = personaService.update(paciente.getPersona());
         paciente.setPersona(updatePersona);

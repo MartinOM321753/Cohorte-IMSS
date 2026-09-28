@@ -40,7 +40,7 @@ public class CitaMapper {
         }
 
         Instant startAtUtc = ZonedDateTime.of(ldt, zoneId).toInstant();
-        int duration = dto.getDurationMinutes() != null ? dto.getDurationMinutes() : 60;
+        int duration = dto.getDurationMinutes() != null ? dto.getDurationMinutes() : 150;
         Instant endAtUtc = startAtUtc.plusSeconds(duration * 60L);
 
         Cita cita = new Cita();
@@ -82,5 +82,33 @@ public class CitaMapper {
 
     public static List<CitaResponseDTO> toResponseDTOList(List<Cita> list) {
         return list.stream().map(CitaMapper::toResponseDTO).toList();
+    }
+
+    // ── Proyección mínima para el calendario ────────────────────────────────────
+
+    public static CitaCalendarDTO toCalendarDTO(Cita c) {
+        CitaCalendarDTO.Ref paciente = null;
+        if (c.getPaciente() != null) {
+            var r = PacienteMapper.toResumenDTO(c.getPaciente());
+            paciente = new CitaCalendarDTO.Ref(r.getUuid(), r.getNombreCompleto());
+        }
+        CitaCalendarDTO.Ref usuario = null;
+        if (c.getUsuarioAgenda() != null) {
+            var u = UserMapper.toResumenDTO(c.getUsuarioAgenda());
+            usuario = new CitaCalendarDTO.Ref(u.getUuid(), u.getNombreCompleto());
+        }
+        return new CitaCalendarDTO(
+                c.getUuid(),
+                c.getEstadoCita() != null ? c.getEstadoCita().name() : null,
+                c.getStartAtUtc(),
+                c.getDurationMinutes(),
+                c.getColorHex(),
+                c.getObservaciones(),
+                paciente,
+                usuario);
+    }
+
+    public static List<CitaCalendarDTO> toCalendarDTOList(List<Cita> list) {
+        return list.stream().map(CitaMapper::toCalendarDTO).toList();
     }
 }

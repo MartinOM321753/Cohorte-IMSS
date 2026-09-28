@@ -80,6 +80,7 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     @Query("SELECT e.paciente.Id, COUNT(DISTINCT e.tipoEstudio.Id) " +
            "FROM EstudioMedico e " +
            "WHERE e.paciente.activo = true AND e.paciente.institucion.id = :idInstitucion " +
+           "AND e.tipoEstudio.activo = true " +
            "GROUP BY e.paciente.Id")
     List<Object[]> countDistinctTipoByPacienteActivo(@Param("idInstitucion") Long idInstitucion);
 
@@ -96,6 +97,7 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
      */
     @Query("SELECT e.paciente.Id FROM EstudioMedico e " +
            "WHERE e.paciente.activo = true AND e.paciente.institucion.id = :idInstitucion " +
+           "AND e.tipoEstudio.activo = true " +
            "GROUP BY e.paciente.Id " +
            "HAVING COUNT(DISTINCT e.tipoEstudio.Id) = :k")
     List<Long> findPacientesConExactamenteKEstudios(@Param("k") long k, @Param("idInstitucion") Long idInstitucion);
@@ -103,8 +105,39 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     /**
      * Tipos de estudio cubiertos (ids) para un paciente.
      */
-    @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e WHERE e.paciente.Id = :pacienteId")
+    @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e " +
+           "WHERE e.paciente.Id = :pacienteId AND e.tipoEstudio.activo = true")
     List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
+
+    /**
+     * Por cada tipo de estudio activo cubierto por el paciente, el id del estudio
+     * más reciente (MAX del id). Lo usa la matriz de cobertura para que el clic en
+     * una celda abra ese estudio con una sola petición, sin traer toda la lista.
+     * Devuelve pares [tipoEstudioId, estudioId].
+     */
+    @Query("SELECT e.tipoEstudio.Id, MAX(e.Id) FROM EstudioMedico e " +
+           "WHERE e.paciente.Id = :pacienteId AND e.tipoEstudio.activo = true " +
+           "GROUP BY e.tipoEstudio.Id")
+    List<Object[]> findTipoEstudioConEstudioMasRecientePorPaciente(@Param("pacienteId") Long pacienteId);
+
+    // ── Detalle mínimo para el modal de la matriz de cobertura ──────────────────
+
+    /** Institución del participante dueño del estudio (para verificar alcance). */
+    @Query("SELECT e.paciente.institucion.id FROM EstudioMedico e WHERE e.Id = :id")
+    java.util.Optional<Long> findInstitucionPacienteByEstudioId(@Param("id") Long id);
+
+    /** Cabecera mínima: [id, fechaEstudio, observaciones]. */
+    @Query("SELECT e.Id, e.fechaEstudio, e.observaciones FROM EstudioMedico e WHERE e.Id = :id")
+    List<Object[]> findCabeceraEstudioById(@Param("id") Long id);
+
+    /** Líneas parámetro→valor de un estudio, sin cargar entidades completas. */
+    @Query("SELECT new imss.gob.mx.cohorte.controllers.dashboard.dto.ResultadoLineaDTO("
+         + "r.parametro.nombre, r.parametro.unidad, r.grupoEtiqueta, r.ordenResultado, "
+         + "r.valorNumerico, r.valorTexto, r.valorBooleano) "
+         + "FROM ResultadoEstudio r WHERE r.estudio.Id = :estudioId "
+         + "ORDER BY r.grupoCodigo ASC, r.ordenResultado ASC")
+    List<imss.gob.mx.cohorte.controllers.dashboard.dto.ResultadoLineaDTO> findLineasResultadoByEstudioId(
+            @Param("estudioId") Long estudioId);
 
     /**
      * Los estudios ya registrados de un tipo para un grupo de participantes.

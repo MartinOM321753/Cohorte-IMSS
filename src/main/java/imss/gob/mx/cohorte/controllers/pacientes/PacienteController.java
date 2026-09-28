@@ -87,12 +87,21 @@ public class PacienteController {
             Pageable pageable,
             @RequestParam(value = "buscar", required = false) String buscar,
             @RequestParam(value = "soloActivos", required = false) Boolean soloActivos,
+            @RequestParam(value = "seguimiento", defaultValue = "false") boolean seguimiento,
             @RequestParam(value = "incluirJerarquia", defaultValue = "false") boolean incluirJerarquia,
             @RequestParam(value = "idInstitucionFiltro", required = false) Long idInstitucionFiltro) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
-        Page<Paciente> pacientes = incluirJerarquia
-                ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, soloActivos, idInstitucionFiltro, pageable)
-                : pacienteApplicationService.buscarPaginado(buscar, soloActivos, pageable);
+        Page<Paciente> pacientes;
+        if (seguimiento) {
+            // Seguimiento = inactivos con cita sin confirmar. Ignora soloActivos.
+            pacientes = incluirJerarquia
+                    ? pacienteApplicationService.buscarSeguimientoConJerarquia(buscar, idInstitucionFiltro, pageable)
+                    : pacienteApplicationService.buscarSeguimientoPaginado(buscar, pageable);
+        } else {
+            pacientes = incluirJerarquia
+                    ? pacienteApplicationService.buscarPaginadoConJerarquia(buscar, soloActivos, idInstitucionFiltro, pageable)
+                    : pacienteApplicationService.buscarPaginado(buscar, soloActivos, pageable);
+        }
 
         List<Long> personaIds = pacientes.getContent().stream()
                 .filter(p -> p.getPersona() != null)
@@ -235,12 +244,17 @@ public class PacienteController {
     public ResponseEntity<APIResponse> buscarParaLookup(
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "incluirJerarquia", defaultValue = "true") boolean incluirJerarquia,
+            @RequestParam(value = "incluirInactivos", defaultValue = "false") boolean incluirInactivos,
             @RequestParam(value = "incluirSoloConsulta", defaultValue = "false") boolean incluirSoloConsulta) {
         Long idInstActual = pacienteApplicationService.getIdInstitucionActual();
         Pageable pageable = PageRequest.of(0, 20);
+        // Por defecto solo activos. El formulario de citas pide incluirInactivos=true
+        // porque a un inactivo sí se le puede agendar (flujo de seguimiento); el resto
+        // de módulos (estudios, exámenes) lo deja en false y siguen viendo solo activos.
+        Boolean soloActivos = incluirInactivos ? null : true;
         Page<Paciente> page = incluirJerarquia
-                ? pacienteApplicationService.buscarPaginadoConJerarquia(q, true, null, pageable)
-                : pacienteApplicationService.buscarPaginado(q, true, pageable);
+                ? pacienteApplicationService.buscarPaginadoConJerarquia(q, soloActivos, null, pageable)
+                : pacienteApplicationService.buscarPaginado(q, soloActivos, pageable);
 
         List<Paciente> resultados = new java.util.ArrayList<>(page.getContent());
 
