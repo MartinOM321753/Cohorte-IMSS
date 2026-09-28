@@ -106,6 +106,7 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     @Query("SELECT r.paciente.Id, COUNT(DISTINCT r.examen.Id) " +
            "FROM ResultadoExamen r " +
            "WHERE r.paciente.activo = true AND r.paciente.institucion.id = :idInstitucion " +
+           "AND r.examen.activo = true " +
            "GROUP BY r.paciente.Id")
     List<Object[]> countDistinctExamenByPacienteActivo(@Param("idInstitucion") Long idInstitucion);
 
@@ -124,6 +125,7 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
      */
     @Query("SELECT r.paciente.Id FROM ResultadoExamen r " +
            "WHERE r.paciente.activo = true AND r.paciente.institucion.id = :idInstitucion " +
+           "AND r.examen.activo = true " +
            "GROUP BY r.paciente.Id " +
            "HAVING COUNT(DISTINCT r.examen.Id) = :k")
     List<Long> findPacientesConExactamenteKExamenes(@Param("k") long k, @Param("idInstitucion") Long idInstitucion);
@@ -131,14 +133,26 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     /**
      * Para un paciente, cuenta exámenes distintos cubiertos.
      */
-    @Query("SELECT COUNT(DISTINCT r.examen.Id) FROM ResultadoExamen r WHERE r.paciente.Id = :pacienteId")
+    @Query("SELECT COUNT(DISTINCT r.examen.Id) FROM ResultadoExamen r " +
+           "WHERE r.paciente.Id = :pacienteId AND r.examen.activo = true")
     long countDistinctExamenByPacienteId(@Param("pacienteId") Long pacienteId);
 
     /**
      * Exámenes cubiertos (ids) para un paciente.
      */
-    @Query("SELECT DISTINCT r.examen.Id FROM ResultadoExamen r WHERE r.paciente.Id = :pacienteId")
+    @Query("SELECT DISTINCT r.examen.Id FROM ResultadoExamen r " +
+           "WHERE r.paciente.Id = :pacienteId AND r.examen.activo = true")
     List<Long> findExamenesCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
+
+    /**
+     * Por cada examen activo cubierto por el paciente, el id del resultado más
+     * reciente (MAX del id). Lo usa la matriz de cobertura para abrir ese resultado
+     * con una sola petición. Devuelve pares [examenId, resultadoId].
+     */
+    @Query("SELECT r.examen.Id, MAX(r.Id) FROM ResultadoExamen r " +
+           "WHERE r.paciente.Id = :pacienteId AND r.examen.activo = true " +
+           "GROUP BY r.examen.Id")
+    List<Object[]> findExamenConResultadoMasRecientePorPaciente(@Param("pacienteId") Long pacienteId);
 
     boolean existsByExamen_Id(Long id);
 }

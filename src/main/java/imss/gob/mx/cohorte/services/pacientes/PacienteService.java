@@ -194,6 +194,18 @@ public class PacienteService {
                 idInstitucion, buscar, numeroDeBusqueda(buscar), soloActivos, pageable);
     }
 
+    /** Participantes en seguimiento (inactivos con cita sin confirmar) de una institución. */
+    public Page<Paciente> buscarSeguimientoPaginado(Long idInstitucion, String buscar, Pageable pageable) {
+        return pacienteRepository.buscarSeguimientoPaginado(
+                idInstitucion, buscar, numeroDeBusqueda(buscar), pageable);
+    }
+
+    /** Igual, sobre el conjunto de instituciones visibles (jerarquía). */
+    public Page<Paciente> buscarSeguimientoPaginadoEnInstituciones(List<Long> ids, String buscar, Pageable pageable) {
+        return pacienteRepository.buscarSeguimientoPaginadoEnInstituciones(
+                ids, buscar, numeroDeBusqueda(buscar), pageable);
+    }
+
     /**
      * El número consecutivo que se está buscando, o null si lo que se escribió no
      * es uno.
@@ -260,6 +272,16 @@ public class PacienteService {
             throw new ObjNotFoundException("El participante no se encuentra activo");
         }
         return findPatient;
+    }
+
+    /**
+     * Como {@link #getPatient(Long, List)} pero SIN exigir que esté activo. Solo
+     * para editar la información de un participante inactivo (flujo de seguimiento).
+     * El aislamiento por institución se conserva.
+     */
+    public Paciente getPatientIncluyendoInactivo(Long idPaciente, List<Long> idsInstituciones) {
+        return pacienteRepository.findByIdAndInstitucion_IdIn(idPaciente, idsInstituciones)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontro el paciente"));
     }
 
     /**

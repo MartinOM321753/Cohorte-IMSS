@@ -47,7 +47,7 @@ public class Cita {
     private Instant endAtUtc;
 
     @Column(name = "duracion_minutos")
-    private Integer durationMinutes = 60;
+    private Integer durationMinutes = 150;
 
     @Column(name = "timezone", length = 50)
     private String timezone;

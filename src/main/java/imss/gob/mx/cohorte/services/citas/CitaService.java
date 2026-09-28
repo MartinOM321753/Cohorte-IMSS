@@ -38,7 +38,9 @@ public class CitaService {
     }
 
     public List<Cita> getByRange(Instant start, Instant end) {
-        return citaRepository.findByStartAtUtcBetweenAndInstitucion_Id(start, end, institucionContextService.getIdInstitucionActual());
+        // Fetch eager de paciente/usuario+persona: evita el N+1 al mapear cada cita.
+        return citaRepository.findByRangeConParticipanteYUsuario(
+                start, end, institucionContextService.getIdInstitucionActual());
     }
 
     public Cita getByUuid(String uuid) {

@@ -48,7 +48,8 @@ public class CitaController {
         } else {
             citas = citaApplicationService.getAll();
         }
-        return ResponseEntity.ok(new APIResponse("Citas encontradas", CitaMapper.toResponseDTOList(citas), false, HttpStatus.OK));
+        // Proyección mínima: el calendario solo pinta nombre, horario, estado y color.
+        return ResponseEntity.ok(new APIResponse("Citas encontradas", CitaMapper.toCalendarDTOList(citas), false, HttpStatus.OK));
     }
 
     @GetMapping("/paciente/{uuid}/resumen")

@@ -27,6 +27,21 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     List<Cita> findByStartAtUtcBetweenAndInstitucion_Id(Instant start, Instant end, Long idInstitucion);
 
+    /**
+     * Citas del rango con paciente+persona y usuario+persona en fetch eager, para
+     * que pintar el calendario no dispare N+1 (una consulta por cita para cada
+     * nombre). Es la que usa la lista del calendario.
+     */
+    @Query("SELECT c FROM Cita c " +
+           "LEFT JOIN FETCH c.paciente pac LEFT JOIN FETCH pac.persona " +
+           "LEFT JOIN FETCH c.usuarioAgenda ua LEFT JOIN FETCH ua.persona " +
+           "WHERE c.startAtUtc >= :start AND c.startAtUtc <= :end " +
+           "AND c.institucion.id = :idInstitucion " +
+           "ORDER BY c.startAtUtc ASC")
+    List<Cita> findByRangeConParticipanteYUsuario(@Param("start") Instant start,
+                                                  @Param("end") Instant end,
+                                                  @Param("idInstitucion") Long idInstitucion);
+
     List<Cita> findAllByPaciente_UuidAndInstitucion_IdOrderByStartAtUtcDesc(String pacienteUuid, Long idInstitucion);
 
     /** Variante por conjunto de instituciones (atencion entre sedes del grupo). */

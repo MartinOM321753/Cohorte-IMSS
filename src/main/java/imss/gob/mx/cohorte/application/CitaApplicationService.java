@@ -81,7 +81,10 @@ public class CitaApplicationService {
 
     @Transactional
     public Cita save(Cita cita){
-        Paciente paciente = participanteAccesoService.resolver(cita.getPaciente().getUuid());
+        // Se permite agendar aunque el participante esté inactivo: así entra en
+        // "seguimiento" (inactivo + cita sin confirmar) y solo se activa cuando
+        // confirme. El resto de flujos clínicos siguen exigiendo que esté activo.
+        Paciente paciente = participanteAccesoService.resolverIncluyendoInactivo(cita.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(cita.getUsuarioAgenda().getUUID());
         if (cita.getInstitucion() == null || cita.getInstitucion().getId() == null) {
             throw new ObjNotFoundException("Falta informacion de institucion responsable de la cita");

@@ -282,17 +282,30 @@ public class CoberturaController {
 
         List<CoberturaPacienteDTO> result = new ArrayList<>();
         for (Paciente p : pacientesActivos) {
-            // IDs de tipos cubiertos por este paciente
-            Set<Long> cubiertos;
-            if (esExamen) {
-                cubiertos = new HashSet<>(resultadoExamenRepository.findExamenesCubiertosIdsForPaciente(p.getId()));
-            } else {
-                cubiertos = new HashSet<>(estudioMedicoRepository.findTiposEstudioCubiertosIdsForPaciente(p.getId()));
+            // tipoId → id del estudio/resultado más reciente de ese tipo. Las claves
+            // son además el conjunto de tipos cubiertos. Traer el id aquí evita que el
+            // clic en la matriz tenga que pedir primero la lista del participante.
+            List<Object[]> refRows = esExamen
+                    ? resultadoExamenRepository.findExamenConResultadoMasRecientePorPaciente(p.getId())
+                    : estudioMedicoRepository.findTipoEstudioConEstudioMasRecientePorPaciente(p.getId());
+            Map<Long, Long> refPorTipo = new HashMap<>();
+            for (Object[] r : refRows) {
+                refPorTipo.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
             }
+            Set<Long> cubiertos = refPorTipo.keySet();
 
             List<CeldaCoberturaDTO> celdas = tipoIds.stream()
-                    .map(tid -> new CeldaCoberturaDTO(tid, cubiertos.contains(tid) ? "HECHO" : "FALTA"))
+                    .map(tid -> cubiertos.contains(tid)
+                            ? new CeldaCoberturaDTO(tid, "HECHO", refPorTipo.get(tid))
+                            : new CeldaCoberturaDTO(tid, "FALTA", null))
                     .collect(Collectors.toList());
+
+            // El total se cuenta contra el catálogo activo que se muestra (tipoIds),
+            // no contra cubiertos.size(): un estudio de un tipo dado de baja inflaría
+            // el total y no coincidiría ni con las celdas ni con el histograma.
+            int cubiertosActivos = (int) celdas.stream()
+                    .filter(c -> "HECHO".equals(c.estado()))
+                    .count();
 
             Persona persona = p.getPersona();
             String nombre = persona != null
@@ -304,15 +317,49 @@ public class CoberturaController {
 
             result.add(new CoberturaPacienteDTO(
                     p.getFolio(),
+                    p.getUuid(),
                     nombre,
                     sexo,
-                    cubiertos.size(),
+                    cubiertosActivos,
                     totalTipos,
                     celdas
             ));
         }
 
         return ResponseEntity.ok(new APIResponse("Matriz de cobertura", result, false, HttpStatus.OK));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/cobertura/estudio/{id}
+    //  Detalle mínimo para el modal de la matriz (solo lo que se pinta).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/estudio/{id}")
+    @Operation(summary = "Detalle mínimo de un estudio",
+               description = "Solo fecha, observaciones y líneas parámetro→valor. Para el modal de la matriz.")
+    public ResponseEntity<APIResponse> getEstudioResumen(@PathVariable Long id) {
+        // Alcance: el estudio debe pertenecer a un participante que el usuario alcance.
+        Long instId = estudioMedicoRepository.findInstitucionPacienteByEstudioId(id)
+                .orElseThrow(() -> new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                        "No se encontró el estudio"));
+        long propia = institucionContextService.getIdInstitucionActual();
+        if (!institucionJerarquiaService.getInstitucionesVisibles(propia).contains(instId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "El estudio pertenece a otra institución");
+        }
+
+        List<Object[]> cab = estudioMedicoRepository.findCabeceraEstudioById(id);
+        if (cab.isEmpty()) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                    "No se encontró el estudio");
+        }
+        Object[] c = cab.get(0);
+        EstudioResumenDTO dto = new EstudioResumenDTO(
+                ((Number) c[0]).longValue(),
+                (java.time.LocalDateTime) c[1],
+                (String) c[2],
+                estudioMedicoRepository.findLineasResultadoByEstudioId(id));
+
+        return ResponseEntity.ok(new APIResponse("Detalle de estudio", dto, false, HttpStatus.OK));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -339,7 +386,7 @@ public class CoberturaController {
                             ? persona.getSexo().name()
                             : "";
 
-                    return new PacientePendienteDTO(p.getFolio(), nombre, sexo, (int) cob, totalTipos);
+                    return new PacientePendienteDTO(p.getFolio(), p.getUuid(), nombre, sexo, (int) cob, totalTipos);
                 })
                 .sorted(Comparator.comparingInt(PacientePendienteDTO::coberturaTotal))
                 .collect(Collectors.toList());
