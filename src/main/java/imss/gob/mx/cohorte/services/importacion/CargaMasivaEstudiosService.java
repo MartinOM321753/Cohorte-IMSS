@@ -122,6 +122,53 @@ public class CargaMasivaEstudiosService {
         }
     }
 
+    /**
+     * Lo que la plantilla necesita de un tipo de estudio: cómo titularla y qué
+     * columnas lleva.
+     *
+     * @param titulo   el nombre del tipo, para la cabecera y el nombre del archivo
+     * @param columnas un destino por cada parámetro EN USO, en el orden configurado
+     */
+    public record DatosPlantilla(String titulo, List<PlantillaCargaResultados.Columna> columnas) {}
+
+    /**
+     * Arma los datos de la plantilla de un tipo de estudio.
+     *
+     * <p>Aplica exactamente los mismos filtros que la lectura: los grupos no se
+     * contemplan y los parámetros retirados no entran, de modo que la plantilla
+     * trae ni más ni menos columnas de las que el importador va a exigir. Si
+     * difirieran, el archivo bajado no volvería a subir.</p>
+     */
+    @Transactional(readOnly = true)
+    public DatosPlantilla datosPlantilla(Long idTipoEstudio) {
+        TipoEstudio tipo = tipoService.getOneParaLectura(idTipoEstudio);
+
+        if ("GRUPOS".equalsIgnoreCase(tipo.getTipoCapturaDefecto())) {
+            throw new ArchivoInvalidoException(
+                    "\"" + tipo.getNombre() + "\" se captura por grupos y la carga masiva todavia no "
+                            + "contempla ese modo, asi que no tiene plantilla.");
+        }
+
+        List<PlantillaCargaResultados.Columna> columnas = tipo.getParametros() == null
+                ? List.of()
+                : tipo.getParametros().stream()
+                        .filter(pa -> Boolean.TRUE.equals(pa.getActivo()))
+                        .map(pa -> new PlantillaCargaResultados.Columna(
+                                pa.getNombre(),
+                                pa.getAlias() == null ? List.of()
+                                        : pa.getAlias().stream()
+                                                .map(imss.gob.mx.cohorte.modules.estudios.parametros
+                                                        .AliasParametroEstudio::getAlias)
+                                                .toList()))
+                        .toList();
+
+        if (columnas.isEmpty()) {
+            throw new ArchivoInvalidoException(
+                    "\"" + tipo.getNombre() + "\" no tiene parametros en uso, asi que no hay plantilla que armar.");
+        }
+        return new DatosPlantilla(tipo.getNombre(), columnas);
+    }
+
     private PrevisualizacionCarga analizar(TablaLeida tabla, TipoEstudio tipo) {
 
         // La captura por grupos repite el mismo cuadro de parametros varias veces

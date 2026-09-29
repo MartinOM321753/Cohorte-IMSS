@@ -74,6 +74,47 @@ public class CargaMasivaExamenesService {
         return analizar(tabla);
     }
 
+    /**
+     * Los datos de la plantilla de exámenes: una columna por cada examen EN USO de
+     * la institución, con sus alias en el orden configurado.
+     *
+     * <p>A diferencia de los estudios no hay tipo que elegir: el archivo de
+     * laboratorio trae varios exámenes a la vez, así que la plantilla los ofrece
+     * todos. Cada columna se titula por el mismo criterio con que luego se lee: su
+     * nombre si no tiene alias, o uno de sus alias si los tiene.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<PlantillaCargaResultados.Columna> columnasPlantilla() {
+        Long idInstitucion = institucionContextService.getIdInstitucionActual();
+        List<Examen> examenes = examenRepository.findAllByActivoAndInstitucion_Id(true, idInstitucion);
+        if (examenes.isEmpty()) {
+            throw new ArchivoInvalidoException(
+                    "No hay examenes configurados en el catalogo, asi que no hay plantilla que armar.");
+        }
+
+        // Los alias de todos los examenes de golpe: uno por examen serian tantas
+        // consultas como examenes tenga el catalogo.
+        Map<Long, List<AliasExamen>> aliasPorExamen = new HashMap<>();
+        for (AliasExamen a : aliasExamenRepository.findAllByIdInstitucion(idInstitucion)) {
+            aliasPorExamen.computeIfAbsent(a.getExamen().getId(), k -> new ArrayList<>()).add(a);
+        }
+
+        List<PlantillaCargaResultados.Columna> columnas = new ArrayList<>();
+        for (Examen e : examenes) {
+            List<AliasExamen> alias = aliasPorExamen.getOrDefault(e.getId(), List.of());
+            columnas.add(new PlantillaCargaResultados.Columna(
+                    e.getParametro(),
+                    // Por posición: la versión k usa el alias k, así que hay que
+                    // respetar el orden configurado. findAllByIdInstitucion no lo
+                    // garantiza, de ahí el sorted.
+                    alias.stream()
+                            .sorted(java.util.Comparator.comparingInt(
+                                    a -> a.getOrden() == null ? 0 : a.getOrden()))
+                            .map(AliasExamen::getAlias).toList()));
+        }
+        return columnas;
+    }
+
     // ── Analisis ─────────────────────────────────────────────────────────────
 
     private PrevisualizacionCargaExamenes analizar(TablaLeida tabla) {

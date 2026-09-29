@@ -1,15 +1,22 @@
 package imss.gob.mx.cohorte.controllers.estudios;
 
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaEstudiosService;
+import imss.gob.mx.cohorte.services.importacion.PlantillaCargaResultados;
 import imss.gob.mx.cohorte.services.importacion.PrevisualizacionCarga;
 import imss.gob.mx.cohorte.services.importacion.ResultadoCarga;
 import imss.gob.mx.cohorte.services.importacion.TablaLeida;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 
 /**
  * Carga masiva de resultados de estudios desde un archivo de instrumento.
@@ -26,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class CargaMasivaEstudiosController {
 
     private final CargaMasivaEstudiosService cargaMasivaService;
+    private final PlantillaCargaResultados plantillaService;
 
 
     /**
@@ -117,5 +125,74 @@ public class CargaMasivaEstudiosController {
                         ? "El archivo se leyo correctamente y esta listo para confirmarse"
                         : "El archivo se leyo, pero hay que corregir algunos datos antes de guardar",
                 HttpStatus.OK, false));
+    }
+
+    /** Cuántas versiones de plantilla hay para un tipo, para que la pantalla ofrezca elegir. */
+    public record VersionesPlantilla(int versiones) {}
+
+    /**
+     * Cuántas versiones tiene la plantilla de un tipo de estudio.
+     *
+     * <p>Es una por cada juego de alias: si algún parámetro tiene el aparato
+     * titulando su columna de dos formas distintas, hay dos versiones. Con una
+     * sola la pantalla no ofrece elegir.</p>
+     */
+    @GetMapping("/plantilla/versiones")
+    public ResponseEntity<APIResponse> versionesPlantilla(@RequestParam("idTipoEstudio") Long idTipoEstudio) {
+        var datos = cargaMasivaService.datosPlantilla(idTipoEstudio);
+        int versiones = plantillaService.numeroDeVersiones(datos.columnas());
+        return ResponseEntity.ok(new APIResponse(
+                new VersionesPlantilla(versiones), "OK", HttpStatus.OK, false));
+    }
+
+    /**
+     * La plantilla vacía de un tipo de estudio, con folio, fecha y una columna por
+     * parámetro en uso.
+     *
+     * <p>Se arma en cada descarga en vez de guardarse como archivo: un .xlsx es un
+     * ZIP y no sobrevive a que Git o el filtrado de recursos lo traten como texto.
+     * El {@code no-store} evita que un proxy sirva una copia vieja después de
+     * cambiar los alias.</p>
+     *
+     * @param version qué juego de alias usar en los encabezados (base 1)
+     */
+    @GetMapping("/plantilla")
+    public ResponseEntity<byte[]> plantilla(
+            @RequestParam("idTipoEstudio") Long idTipoEstudio,
+            @RequestParam(value = "version", defaultValue = "1") int version) {
+
+        var datos = cargaMasivaService.datosPlantilla(idTipoEstudio);
+        byte[] libro = plantillaService.generar(datos.titulo(), datos.columnas(), version);
+        String nombre = nombreArchivo("plantilla-estudio-" + datos.titulo(),
+                plantillaService.numeroDeVersiones(datos.columnas()) > 1 ? version : null);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposicion(nombre))
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentLength(libro.length)
+                .body(libro);
+    }
+
+    /** Un nombre de archivo legible: sin acentos, con guiones y con la versión si hay varias. */
+    private static String nombreArchivo(String base, Integer version) {
+        String slug = Normalizer.normalize(base, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^A-Za-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "")
+                .toLowerCase();
+        if (slug.isEmpty()) slug = "plantilla";
+        return version != null ? slug + "-v" + version + ".xlsx" : slug + ".xlsx";
+    }
+
+    /**
+     * La cabecera Content-Disposition con el nombre en ASCII y también en UTF-8:
+     * el ASCII es el respaldo para clientes viejos y el {@code filename*} es el que
+     * conserva cualquier carácter especial.
+     */
+    private static String disposicion(String nombre) {
+        String utf8 = URLEncoder.encode(nombre, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"" + nombre + "\"; filename*=UTF-8''" + utf8;
     }
 }
