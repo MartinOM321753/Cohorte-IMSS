@@ -1,15 +1,20 @@
 package imss.gob.mx.cohorte.controllers.examenes;
 
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaExamenesService;
+import imss.gob.mx.cohorte.services.importacion.PlantillaCargaResultados;
 import imss.gob.mx.cohorte.services.importacion.PrevisualizacionCargaExamenes;
 import imss.gob.mx.cohorte.services.importacion.ResultadoCarga;
 import imss.gob.mx.cohorte.services.importacion.TablaLeida;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
  * Carga masiva de resultados de laboratorio.
@@ -24,6 +29,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class CargaMasivaExamenesController {
 
     private final CargaMasivaExamenesService cargaMasivaService;
+    private final PlantillaCargaResultados plantillaService;
+
+    /** Nombre del archivo; los exámenes no tienen tipo, así que es fijo salvo la versión. */
+    private static final String NOMBRE_BASE = "plantilla-examenes";
 
     /** Interpreta el archivo contra el catalogo de examenes. No escribe nada. */
     @PostMapping("/previsualizar")
@@ -54,6 +63,51 @@ public class CargaMasivaExamenesController {
 
         ResultadoCarga r = cargaMasivaService.confirmar(peticion.tabla(), politica);
         return ResponseEntity.ok(new APIResponse(r, resumen(r), HttpStatus.OK, false));
+    }
+
+    /** Cuántas versiones de plantilla hay, para que la pantalla ofrezca elegir. */
+    public record VersionesPlantilla(int versiones) {}
+
+    /**
+     * Cuántas versiones tiene la plantilla de exámenes: una por cada juego de
+     * alias. Con una sola, la pantalla no ofrece elegir.
+     */
+    @GetMapping("/plantilla/versiones")
+    public ResponseEntity<APIResponse> versionesPlantilla() {
+        List<PlantillaCargaResultados.Columna> columnas = cargaMasivaService.columnasPlantilla();
+        int versiones = plantillaService.numeroDeVersiones(columnas);
+        return ResponseEntity.ok(new APIResponse(
+                new VersionesPlantilla(versiones), "OK", HttpStatus.OK, false));
+    }
+
+    /**
+     * La plantilla vacía de exámenes, con folio, fecha y una columna por examen en
+     * uso de la institución.
+     *
+     * <p>Se arma en cada descarga en vez de guardarse como archivo: un .xlsx es un
+     * ZIP y no sobrevive a que Git o el filtrado de recursos lo traten como texto.
+     * El {@code no-store} evita que un proxy sirva una copia vieja tras cambiar
+     * los alias.</p>
+     *
+     * @param version qué juego de alias usar en los encabezados (base 1)
+     */
+    @GetMapping("/plantilla")
+    public ResponseEntity<byte[]> plantilla(
+            @RequestParam(value = "version", defaultValue = "1") int version) {
+
+        List<PlantillaCargaResultados.Columna> columnas = cargaMasivaService.columnasPlantilla();
+        byte[] libro = plantillaService.generar("Exámenes de laboratorio", columnas, version);
+        String nombre = plantillaService.numeroDeVersiones(columnas) > 1
+                ? NOMBRE_BASE + "-v" + version + ".xlsx"
+                : NOMBRE_BASE + ".xlsx";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombre + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentLength(libro.length)
+                .body(libro);
     }
 
     private static String mensaje(PrevisualizacionCargaExamenes p) {
