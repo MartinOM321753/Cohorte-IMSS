@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,6 +23,17 @@ public class TuboMuestraRequestDTO {
     private Integer numeroAlicuotas = 0;
 
     private Double volumenAlicuota;
+
+    /**
+     * Volumen individual de cada alícuota, en orden.
+     *
+     * <p>{@code null} = «no lo menciono», y la actualización conserva la
+     * configuración por slot que ya tuviera el tubo —igual que
+     * {@link #generacionAutomatica}—. Una lista presente reemplaza la anterior;
+     * los huecos que falten o no sean válidos se rellenan con
+     * {@link #volumenAlicuota}. En un tubo directo se ignora.</p>
+     */
+    private List<Double> volumenesAlicuota;
 
     @Size(max = 20, message = "Unidad de volumen máximo 20 caracteres")
     private String unidadVolumen;

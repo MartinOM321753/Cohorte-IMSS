@@ -39,6 +39,8 @@ public class PlanAlicuotasResponseDTO {
     private Integer slotsOcupados;
     /** Huecos del tubo que quedan por llenar. */
     private Integer slotsLibres;
+    /** Capacidad de cada hueco libre, en orden: el tope y el default de cada vial. */
+    private List<Double> capacidadesSlots;
     /** Explicación redactada para mostrar tal cual. */
     private String mensaje;
     /** Repartos posibles; el primero es el sugerido por omisión. */

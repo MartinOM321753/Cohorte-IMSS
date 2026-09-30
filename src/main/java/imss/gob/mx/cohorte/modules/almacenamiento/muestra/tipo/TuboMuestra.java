@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "Tubo_Muestra")
 @Getter
@@ -37,10 +40,41 @@ public class TuboMuestra {
     private Integer numeroAlicuotas = 0;
 
     /**
-     * Volumen por alícuota (mL, mg, g). Nullable: puede no estar definido aún.
+     * Volumen <b>general</b> por alícuota (mL, mg, g). Nullable: puede no estar
+     * definido aún.
+     *
+     * <p>Sigue siendo la capacidad del tubo cuando todas sus alícuotas miden lo
+     * mismo, y además cumple dos papeles cuando no: es la semilla con la que se
+     * rellena {@link #volumenesAlicuota} al configurar, y el respaldo al que cae
+     * cualquier slot que no tenga su propio volumen —de modo que un tubo
+     * heredado, sin lista por slot, se comporta exactamente como antes—.</p>
      */
     @Column(name = "volumen_alicuota")
     private Double volumenAlicuota;
+
+    /**
+     * Volumen configurado de cada alícuota, en orden (el índice {@code i} es el
+     * slot {@code i+1}). Cuando está vacía, el tubo es uniforme y cada slot vale
+     * {@link #volumenAlicuota}.
+     *
+     * <p>Es la capacidad <em>y</em> el valor por omisión de cada vial: al generar
+     * el lote cada alícuota nace con el volumen de su slot, y una parcial puede
+     * bajar de ahí pero nunca pasarse. Se guarda como colección indexada
+     * (no un {@code @OneToMany} con entidad propia) porque no tiene identidad ni
+     * ciclo de vida fuera del tubo: son N números ordenados que se reemplazan en
+     * bloque cada vez que se reconfigura.</p>
+     *
+     * <p>EAGER a propósito: el mapper a DTO y el planificador de lotes la leen
+     * fuera de la transacción que cargó el tubo, y con LAZY reventaría con
+     * {@code LazyInitializationException}. Es una lista corta (tantos números
+     * como alícuotas), así que el coste es despreciable.</p>
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "Tubo_Muestra_Volumen_Alicuota",
+            joinColumns = @JoinColumn(name = "id_tubo_muestra"))
+    @OrderColumn(name = "posicion")
+    @Column(name = "volumen", nullable = false)
+    private List<Double> volumenesAlicuota = new ArrayList<>();
 
     /**
      * Unidad del volumen: "mL", "mg", "g", "µL".

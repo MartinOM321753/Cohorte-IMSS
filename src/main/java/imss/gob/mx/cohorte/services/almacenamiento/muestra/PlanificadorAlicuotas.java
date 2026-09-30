@@ -58,50 +58,88 @@ public final class PlanificadorAlicuotas {
      * corta —se hacen las que alcanzan— y más tarde se completa. Por eso el tope
      * no es lo que el tubo define, sino lo que le queda libre.</p>
      *
+     * <p>Esta sobrecarga solo conoce <em>cuántos</em> huecos hay ocupados, no
+     * cuáles. Da por libres los últimos —el orden natural en que se llenan— y es
+     * la vía correcta mientras el lote crece en secuencia. Cuando un hueco
+     * intermedio se reabre (se elimina una alícuota) y las capacidades por slot
+     * difieren, hay que pasar los slots reales con
+     * {@link #planificar(RecetaTubo, Double, List)}.</p>
+     *
      * @param slotsOcupados alícuotas del lote que ya existen
      */
     public static PlanAlicuotas planificar(RecetaTubo receta, Double valorDisponible, int slotsOcupados) {
         int configuradas = exigirNumeroAlicuotas(receta);
-        BigDecimal capacidad = exigirVolumenAlicuota(receta);
+        int ocupados = Math.max(0, Math.min(slotsOcupados, configuradas));
+        return planificar(receta, valorDisponible, slotsPorDefecto(configuradas, ocupados));
+    }
+
+    /**
+     * Calcula el plan para unos huecos libres concretos, con su capacidad
+     * individual.
+     *
+     * <p>Es la vía completa: cada hueco puede tener su propio volumen y el plan
+     * llena los que quepan <em>en orden</em>, no por división entera contra una
+     * capacidad única. Un tubo uniforme resuelve todos los huecos al mismo número
+     * y el resultado coincide, número a número, con el cálculo de antes.</p>
+     *
+     * @param slotsLibres números de alícuota (1-based) que el lote tiene libres
+     */
+    public static PlanAlicuotas planificar(RecetaTubo receta, Double valorDisponible, List<Integer> slotsLibres) {
+        int configuradas = exigirNumeroAlicuotas(receta);
+        BigDecimal nominal = exigirVolumenAlicuota(receta);
         BigDecimal disponible = normalizar(valorDisponible);
 
-        int ocupados = Math.max(0, Math.min(slotsOcupados, configuradas));
-        int slotsLibres = configuradas - ocupados;
+        List<Integer> libres = slotsLibres == null ? List.of() : slotsLibres;
+        int nLibres = libres.size();
+        int ocupados = Math.max(0, configuradas - nLibres);
+
+        List<BigDecimal> capacidades = capacidadesLibres(receta, libres);
 
         // Lo que haría falta para llenar lo que queda, no para el tubo entero:
         // en una continuación, el total del tubo ya no es el número accionable.
-        BigDecimal totalRequerido = capacidad.multiply(BigDecimal.valueOf(slotsLibres))
-                .setScale(ESCALA, RoundingMode.HALF_UP);
+        BigDecimal totalRequerido = BigDecimal.ZERO;
+        for (BigDecimal c : capacidades) {
+            totalRequerido = totalRequerido.add(c);
+        }
+        totalRequerido = totalRequerido.setScale(ESCALA, RoundingMode.HALF_UP);
 
-        // Cuántas salen llenas, con el tope de huecos libres por encima de lo que
-        // el volumen daría: con 300 mL en un tubo de 5 × 50 se generan 5, no 6.
-        int completas = disponible.signum() <= 0 || slotsLibres <= 0
-                ? 0
-                : disponible.divideToIntegralValue(capacidad)
-                        .min(BigDecimal.valueOf(slotsLibres))
-                        .intValue();
+        // Se llenan los huecos en orden mientras el disponible alcance para el
+        // volumen de cada uno. El primero que no cabe entero marca la frontera de
+        // la parcial. Con capacidades iguales esto es exactamente la división
+        // entera de antes: 200 mL en un tubo de 5 × 50 llena 4 y se detiene.
+        List<Double> sugeridos = new ArrayList<>();
+        BigDecimal consumido = BigDecimal.ZERO;
+        for (BigDecimal capacidad : capacidades) {
+            BigDecimal restante = disponible.subtract(consumido);
+            if (restante.subtract(capacidad).compareTo(EPSILON.negate()) >= 0) {
+                consumido = consumido.add(capacidad);
+                sugeridos.add(capacidad.doubleValue());
+            } else {
+                break;
+            }
+        }
+        int completas = sugeridos.size();
 
-        BigDecimal consumidoPorCompletas = capacidad.multiply(BigDecimal.valueOf(completas));
-        BigDecimal remanente = disponible.subtract(consumidoPorCompletas).setScale(ESCALA, RoundingMode.HALF_UP);
+        BigDecimal remanente = disponible.subtract(consumido).setScale(ESCALA, RoundingMode.HALF_UP);
         if (remanente.signum() < 0) {
             remanente = BigDecimal.ZERO.setScale(ESCALA);
         }
 
-        int lugaresRestantes = slotsLibres - completas;
+        int lugaresRestantes = nLibres - completas;
         boolean puedeAlojarParcial = receta.permiteParcial()
                 && lugaresRestantes > 0
                 && remanente.compareTo(EPSILON) > 0;
 
-        List<Double> sugeridos = new ArrayList<>(completas);
-        for (int i = 0; i < completas; i++) {
-            sugeridos.add(capacidad.doubleValue());
-        }
+        boolean alcanzaCompleto = nLibres > 0 && completas == nLibres;
 
-        boolean alcanzaCompleto = slotsLibres > 0 && completas == slotsLibres;
+        List<Double> capsLibres = new ArrayList<>(capacidades.size());
+        for (BigDecimal c : capacidades) {
+            capsLibres.add(c.doubleValue());
+        }
 
         return new PlanAlicuotas(
                 configuradas,
-                capacidad.doubleValue(),
+                nominal.doubleValue(),
                 receta.unidad(),
                 totalRequerido.doubleValue(),
                 disponible.doubleValue(),
@@ -112,9 +150,10 @@ public final class PlanificadorAlicuotas {
                 puedeAlojarParcial,
                 alcanzaCompleto,
                 ocupados,
-                slotsLibres,
-                redactarMensaje(receta, capacidad, disponible, totalRequerido, completas,
-                        remanente, alcanzaCompleto, ocupados, slotsLibres, configuradas)
+                nLibres,
+                List.copyOf(capsLibres),
+                redactarMensaje(receta, nominal, disponible, totalRequerido, completas,
+                        remanente, alcanzaCompleto, ocupados, nLibres, configuradas)
         );
     }
 
@@ -173,24 +212,42 @@ public final class PlanificadorAlicuotas {
     public static List<Double> validarPlan(List<Double> volumenes, RecetaTubo receta,
                                            Double valorDisponible, int slotsOcupados) {
         int configuradas = exigirNumeroAlicuotas(receta);
-        BigDecimal capacidad = exigirVolumenAlicuota(receta);
+        int ocupados = Math.max(0, Math.min(slotsOcupados, configuradas));
+        return validarPlan(volumenes, receta, valorDisponible, slotsPorDefecto(configuradas, ocupados));
+    }
+
+    /**
+     * Comprueba el plan contra los huecos concretos que va a llenar.
+     *
+     * <p>El {@code i}-ésimo volumen propuesto va al {@code i}-ésimo hueco libre,
+     * así que cada uno se mide contra la capacidad <em>de su slot</em>, no contra
+     * una capacidad única del tubo. Un tubo uniforme resuelve todos los slots al
+     * mismo número y la comprobación es la misma de siempre.</p>
+     *
+     * @param slotsLibres números de alícuota (1-based) que el lote tiene libres
+     */
+    public static List<Double> validarPlan(List<Double> volumenes, RecetaTubo receta,
+                                           Double valorDisponible, List<Integer> slotsLibres) {
+        int configuradas = exigirNumeroAlicuotas(receta);
+        exigirVolumenAlicuota(receta);
         BigDecimal disponible = normalizar(valorDisponible);
 
-        int ocupados = Math.max(0, Math.min(slotsOcupados, configuradas));
-        int slotsLibres = configuradas - ocupados;
+        List<Integer> libres = slotsLibres == null ? List.of() : slotsLibres;
+        int nLibres = libres.size();
+        int ocupados = Math.max(0, configuradas - nLibres);
 
         if (volumenes == null || volumenes.isEmpty()) {
             throw new ValidationException("El plan de alícuotas no puede venir vacío.");
         }
-        if (slotsLibres <= 0) {
+        if (nLibres <= 0) {
             throw new ValidationException(
                     "El lote ya está completo: el tubo define " + configuradas
                     + " alícuota(s) y todas existen.");
         }
-        if (volumenes.size() > slotsLibres) {
+        if (volumenes.size() > nLibres) {
             throw new ValidationException(
                     ocupados > 0
-                        ? "Al lote le quedan " + slotsLibres + " hueco(s) de los " + configuradas
+                        ? "Al lote le quedan " + nLibres + " hueco(s) de los " + configuradas
                           + " que define el tubo; no se pueden generar " + volumenes.size() + "."
                         : "El tubo seleccionado define " + configuradas
                           + " alícuota(s); no se pueden generar " + volumenes.size() + " en un mismo lote.");
@@ -206,16 +263,17 @@ public final class PlanificadorAlicuotas {
                 throw new ValidationException("El volumen de la alícuota " + (i + 1) + " no es un número válido.");
             }
             BigDecimal v = BigDecimal.valueOf(crudo).setScale(ESCALA, RoundingMode.HALF_UP);
+            BigDecimal capacidad = capacidadDeSlot(receta, libres.get(i));
 
             if (v.compareTo(EPSILON) <= 0) {
                 throw new ValidationException("El volumen de la alícuota " + (i + 1) + " debe ser mayor a 0.");
             }
-            // El vial es de 50 mL: que quepa menos es una decisión del usuario,
-            // que quepa más es físicamente imposible.
+            // Que el vial lleve menos que su volumen configurado es una decisión
+            // del usuario; que lleve más es físicamente imposible.
             if (v.subtract(capacidad).compareTo(EPSILON) > 0) {
                 throw new ValidationException(
                         "La alícuota " + (i + 1) + " (" + fmt(v) + unidadSufijo(receta)
-                        + ") excede la capacidad configurada para el tubo ("
+                        + ") excede la capacidad configurada para ese vial ("
                         + fmt(capacidad) + unidadSufijo(receta) + ").");
             }
             if (capacidad.subtract(v).compareTo(EPSILON) > 0) {
@@ -228,8 +286,8 @@ public final class PlanificadorAlicuotas {
 
         if (hayParcial && !receta.permiteParcial()) {
             throw new ValidationException(
-                    "El tubo seleccionado no admite alícuotas incompletas. Todas deben ser de "
-                    + fmt(capacidad) + unidadSufijo(receta) + ".");
+                    "El tubo seleccionado no admite alícuotas incompletas: cada alícuota debe "
+                    + "llenarse a su volumen configurado.");
         }
 
         if (suma.subtract(disponible).compareTo(EPSILON) > 0) {
@@ -366,6 +424,38 @@ public final class PlanificadorAlicuotas {
             return BigDecimal.ZERO.setScale(ESCALA);
         }
         return BigDecimal.valueOf(valor).setScale(ESCALA, RoundingMode.HALF_UP);
+    }
+
+    /** Los últimos huecos del tubo: el orden natural en que un lote se llena. */
+    private static List<Integer> slotsPorDefecto(int configuradas, int ocupados) {
+        List<Integer> libres = new ArrayList<>(Math.max(0, configuradas - ocupados));
+        for (int slot = ocupados + 1; slot <= configuradas; slot++) {
+            libres.add(slot);
+        }
+        return libres;
+    }
+
+    /** Capacidades, en orden, de los huecos libres; cada una exigida mayor a 0. */
+    private static List<BigDecimal> capacidadesLibres(RecetaTubo receta, List<Integer> slotsLibres) {
+        List<BigDecimal> caps = new ArrayList<>(slotsLibres.size());
+        for (Integer slot : slotsLibres) {
+            caps.add(capacidadDeSlot(receta, slot));
+        }
+        return caps;
+    }
+
+    /** Capacidad del slot como {@link BigDecimal}, cayendo al volumen general. */
+    private static BigDecimal capacidadDeSlot(RecetaTubo receta, int slot) {
+        Double capacidad = receta.capacidadDeSlot(slot);
+        if (capacidad == null || capacidad.isNaN() || capacidad.isInfinite() || capacidad <= 0) {
+            // El respaldo es el volumen general, que ya se exige configurado; que
+            // un slot concreto quede sin capacidad válida solo puede ser un dato
+            // corrupto, y alicuotar contra él inventaría o perdería volumen.
+            throw new ValidationException(
+                    "La alícuota " + slot + " del tubo seleccionado no tiene un volumen válido configurado. "
+                    + "Revíselo en Tipos de muestra antes de generar alícuotas.");
+        }
+        return BigDecimal.valueOf(capacidad).setScale(ESCALA, RoundingMode.HALF_UP);
     }
 
     private static int exigirNumeroAlicuotas(RecetaTubo receta) {

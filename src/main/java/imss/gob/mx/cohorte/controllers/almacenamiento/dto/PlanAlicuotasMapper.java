@@ -40,6 +40,7 @@ public class PlanAlicuotasMapper {
                 .puedeAlojarParcial(plan.puedeAlojarParcial())
                 .slotsOcupados(plan.slotsOcupados())
                 .slotsLibres(plan.slotsLibres())
+                .capacidadesSlots(plan.capacidadesSlots())
                 .mensaje(plan.mensaje())
                 .opciones(construirOpciones(plan))
                 .build();
@@ -76,6 +77,13 @@ public class PlanAlicuotasMapper {
             List<Double> volumenes = PlanificadorAlicuotas.distribuirRemanente(plan, n);
             List<Double> extras = volumenes.subList(plan.alicuotasCompletas(), volumenes.size());
 
+            // Con volúmenes distintos por slot, un reparto en partes iguales puede
+            // superar el tope de algún vial pequeño. No se ofrece un reparto que
+            // la validación rechazaría después: el usuario tiene «personalizar».
+            if (!extrasCabenEnSusSlots(extras, plan)) {
+                continue;
+            }
+
             opciones.add(PlanAlicuotasResponseDTO.OpcionDistribucionDTO.builder()
                     .clave("PARCIALES_" + n)
                     .descripcion(describirReparto(n, extras, u))
@@ -85,6 +93,22 @@ public class PlanAlicuotasMapper {
                     .build());
         }
         return opciones;
+    }
+
+    /** Si cada parcial del reparto cabe en el hueco que le tocaría, en orden. */
+    private static boolean extrasCabenEnSusSlots(List<Double> extras, PlanAlicuotas plan) {
+        List<Double> caps = plan.capacidadesSlots();
+        if (caps == null || caps.isEmpty()) {
+            return true; // tubo uniforme sin capacidades por slot: nada que topar
+        }
+        int desde = plan.alicuotasCompletas();
+        for (int j = 0; j < extras.size(); j++) {
+            int idx = desde + j;
+            if (idx < caps.size() && extras.get(j) - caps.get(idx) > 1e-6) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String describirReparto(int cuantas, List<Double> extras, String unidad) {
