@@ -580,12 +580,12 @@ public class MuestraApplicationService {
 
         // Contra los huecos que le quedan al lote, no contra el tubo entero: si
         // ya hay una alícuota hecha, pedir de nuevo el volumen del lote completo
-        // reclamaría volumen que ya se gastó.
-        int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
-        int ocupados = configuradas - slotsLibresDelLote(
-                idMuestraPadre, tubo, institucionContextService.getIdInstitucionActual()).size();
+        // reclamaría volumen que ya se gastó. Se pasan los huecos concretos —no
+        // solo cuántos son— para que cada uno aporte su volumen configurado.
+        List<Integer> slotsLibres = slotsLibresDelLote(
+                idMuestraPadre, tubo, institucionContextService.getIdInstitucionActual());
 
-        return PlanificadorAlicuotas.planificar(recetaDe(tubo), padre.getValorDisponible(), ocupados);
+        return PlanificadorAlicuotas.planificar(recetaDe(tubo), padre.getValorDisponible(), slotsLibres);
     }
 
     /**
@@ -649,7 +649,7 @@ public class MuestraApplicationService {
         List<Muestra> generadas = generarLote(padre, tipo, tubo, planVolumenes, slotsLibres);
         if (generadas.isEmpty()) {
             throw new ValidationException(PlanificadorAlicuotas
-                    .planificar(recetaDe(tubo), padre.getValorDisponible(), configuradas - slotsLibres.size())
+                    .planificar(recetaDe(tubo), padre.getValorDisponible(), slotsLibres)
                     .mensaje());
         }
         return generadas;
@@ -717,16 +717,18 @@ public class MuestraApplicationService {
         int configuradas = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
         int ocupados = configuradas - slotsLibres.size();
 
+        // Contra los huecos concretos que se van a llenar: la alícuota i-ésima
+        // toma el volumen del slot slotsLibres[i], no el de una capacidad única.
         List<Double> volumenes;
         if (planVolumenes == null || planVolumenes.isEmpty()) {
-            volumenes = PlanificadorAlicuotas.planificar(receta, padre.getValorDisponible(), ocupados)
+            volumenes = PlanificadorAlicuotas.planificar(receta, padre.getValorDisponible(), slotsLibres)
                     .volumenesSugeridos();
             if (volumenes.isEmpty()) {
                 return List.of();
             }
         } else {
             volumenes = PlanificadorAlicuotas.validarPlan(
-                    planVolumenes, receta, padre.getValorDisponible(), ocupados);
+                    planVolumenes, receta, padre.getValorDisponible(), slotsLibres);
         }
 
         BeanUser usuario = institucionContextService.getUsuarioActual();
@@ -825,7 +827,8 @@ public class MuestraApplicationService {
                 tubo.getNumeroAlicuotas(),
                 tubo.getVolumenAlicuota(),
                 tubo.getUnidadVolumen(),
-                tubo.admiteAlicuotaParcial());
+                tubo.admiteAlicuotaParcial(),
+                tubo.getVolumenesAlicuota());
     }
 
     // ── Impresión ZPL ────────────────────────────────────────────────────────

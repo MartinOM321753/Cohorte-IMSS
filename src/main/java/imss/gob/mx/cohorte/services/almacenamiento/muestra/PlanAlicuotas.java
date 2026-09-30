@@ -23,6 +23,7 @@ import java.util.List;
  * @param alcanzaLoteCompleto         si el volumen da para todas las que faltan
  * @param slotsOcupados               alícuotas del lote que ya existen
  * @param slotsLibres                 huecos del tubo que quedan por llenar
+ * @param capacidadesSlots            capacidad de cada hueco libre, en orden
  * @param mensaje                     explicación redactada para el usuario
  */
 public record PlanAlicuotas(
@@ -39,6 +40,7 @@ public record PlanAlicuotas(
         boolean alcanzaLoteCompleto,
         int slotsOcupados,
         int slotsLibres,
+        List<Double> capacidadesSlots,
         String mensaje
 ) {
     /** Si el lote ya venía empezado y esto es una continuación. */

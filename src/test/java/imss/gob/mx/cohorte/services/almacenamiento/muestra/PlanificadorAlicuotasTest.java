@@ -335,6 +335,72 @@ class PlanificadorAlicuotasTest {
                 () -> PlanificadorAlicuotas.validarPlan(List.of(12.0), tubo, 100.0, 3));
     }
 
+    // ── Volumen individual por alícuota ──────────────────────────────────────
+
+    /** Tubo de 3 alícuotas con volúmenes distintos: 10, 20 y 30 mL. */
+    private static RecetaTubo multi(boolean permiteParcial) {
+        return new RecetaTubo("Multi", 3, 30.0, "mL", permiteParcial, List.of(10.0, 20.0, 30.0));
+    }
+
+    @Test
+    void cadaAlicuotaNaceConSuVolumenConfigurado() {
+        // 60 mL llenan los tres huecos con su propio tamaño, no con uno común.
+        PlanAlicuotas plan = PlanificadorAlicuotas.planificar(multi(true), 60.0);
+
+        assertEquals(3, plan.alicuotasCompletas());
+        assertEquals(0.0, plan.remanente());
+        assertTrue(plan.alcanzaLoteCompleto());
+        assertEquals(List.of(10.0, 20.0, 30.0), plan.volumenesSugeridos());
+        assertEquals(60.0, plan.totalRequerido());
+        assertEquals(List.of(10.0, 20.0, 30.0), plan.capacidadesSlots());
+    }
+
+    @Test
+    void elLlenadoSeDetieneEnElPrimerHuecoQueNoCabe() {
+        // 25 mL: el primero (10) cabe, el segundo (20) no —quedan 15—.
+        PlanAlicuotas plan = PlanificadorAlicuotas.planificar(multi(true), 25.0);
+
+        assertEquals(1, plan.alicuotasCompletas());
+        assertEquals(15.0, plan.remanente());
+        assertEquals(List.of(10.0), plan.volumenesSugeridos());
+        assertTrue(plan.puedeAlojarParcial());
+    }
+
+    @Test
+    void cadaVolumenSeValidaContraElTopeDeSuPropioSlot() {
+        // El plan exacto por slot se acepta.
+        assertDoesNotThrow(() -> PlanificadorAlicuotas.validarPlan(
+                List.of(10.0, 20.0, 30.0), multi(true), 60.0));
+        // Una parcial por debajo del tope de su slot también.
+        assertDoesNotThrow(() -> PlanificadorAlicuotas.validarPlan(
+                List.of(10.0, 15.0), multi(true), 60.0));
+        // Pero pasarse del tope del segundo slot (20) se rechaza, aunque otro
+        // slot sí admitiría 25.
+        ValidationException e = assertThrows(ValidationException.class,
+                () -> PlanificadorAlicuotas.validarPlan(List.of(10.0, 25.0), multi(true), 60.0));
+        assertTrue(e.getMessage().contains("excede la capacidad"), e.getMessage());
+    }
+
+    @Test
+    void unHuecoConcretoUsaLaCapacidadDeEseSlotNoLaDelPrimero() {
+        // Si ya existe la alícuota 1, el hueco libre es el 2: su tope es 20.
+        PlanAlicuotas plan = PlanificadorAlicuotas.planificar(multi(true), 100.0, List.of(2, 3));
+
+        assertEquals(List.of(20.0, 30.0), plan.capacidadesSlots());
+        assertEquals(List.of(20.0, 30.0), plan.volumenesSugeridos());
+        assertEquals(50.0, plan.totalRequerido());
+    }
+
+    @Test
+    void unTuboUniformeSeComportaComoAntesAunqueNoTraigaListaPorSlot() {
+        // La receta uniforme deja la lista por slot vacía; el plan resuelve todo
+        // contra el volumen general y coincide con el cálculo histórico.
+        PlanAlicuotas plan = PlanificadorAlicuotas.planificar(suero5x50(), 200.0);
+
+        assertEquals(List.of(50.0, 50.0, 50.0, 50.0, 50.0), plan.capacidadesSlots());
+        assertEquals(4, plan.alicuotasCompletas());
+    }
+
     // ── Mensajes ─────────────────────────────────────────────────────────────
 
     @Test

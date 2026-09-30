@@ -189,6 +189,9 @@ public class CatalogoCopyService {
                 tuboClon.setPrefijoCodigo(tuboOriginal.getPrefijoCodigo());
                 tuboClon.setNumeroAlicuotas(tuboOriginal.getNumeroAlicuotas());
                 tuboClon.setVolumenAlicuota(tuboOriginal.getVolumenAlicuota());
+                tuboClon.setVolumenesAlicuota(tuboOriginal.getVolumenesAlicuota() == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(tuboOriginal.getVolumenesAlicuota()));
                 tuboClon.setUnidadVolumen(tuboOriginal.getUnidadVolumen());
                 tuboClon.setDestinoSugerido(tuboOriginal.getDestinoSugerido());
                 tuboClon.setOrden(tuboOriginal.getOrden());

@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -109,6 +110,7 @@ public class TipoMuestraService {
             tubo.setOrden(maxOrden + 1);
         }
         validarRecetaAlicuotado(tubo);
+        normalizarVolumenesAlicuota(tubo);
         return tuboMuestraRepository.save(tubo);
     }
 
@@ -119,6 +121,8 @@ public class TipoMuestraService {
         if (datos.getPrefijoCodigo() != null) tubo.setPrefijoCodigo(datos.getPrefijoCodigo());
         if (datos.getNumeroAlicuotas() != null) tubo.setNumeroAlicuotas(datos.getNumeroAlicuotas());
         if (datos.getVolumenAlicuota() != null) tubo.setVolumenAlicuota(datos.getVolumenAlicuota());
+        // null = no se toca la configuración por slot; presente, la reemplaza.
+        if (datos.getVolumenesAlicuota() != null) tubo.setVolumenesAlicuota(datos.getVolumenesAlicuota());
         if (datos.getUnidadVolumen() != null) tubo.setUnidadVolumen(datos.getUnidadVolumen());
         if (datos.getDestinoSugerido() != null) tubo.setDestinoSugerido(datos.getDestinoSugerido());
         if (datos.getOrden() != null) tubo.setOrden(datos.getOrden());
@@ -126,6 +130,7 @@ public class TipoMuestraService {
         if (datos.getGeneracionAutomatica() != null) tubo.setGeneracionAutomatica(datos.getGeneracionAutomatica());
         if (datos.getPermiteAlicuotaParcial() != null) tubo.setPermiteAlicuotaParcial(datos.getPermiteAlicuotaParcial());
         validarRecetaAlicuotado(tubo);
+        normalizarVolumenesAlicuota(tubo);
         return tuboMuestraRepository.save(tubo);
     }
 
@@ -154,6 +159,50 @@ public class TipoMuestraService {
                     + " alícuota(s): indique la unidad del volumen. La muestra padre se "
                     + "registrará en esa misma unidad.");
         }
+        // La configuración por slot es opcional (vacía = uniforme), pero si viene
+        // no puede traer un volumen inválido: cada vial tiene que decir de cuánto.
+        List<Double> porSlot = tubo.getVolumenesAlicuota();
+        if (porSlot != null) {
+            for (int i = 0; i < porSlot.size(); i++) {
+                Double v = porSlot.get(i);
+                if (v != null && (v.isNaN() || v.isInfinite() || v <= 0)) {
+                    throw new ValidationException(
+                            "El tubo \"" + tubo.getNombre() + "\": el volumen de la alícuota "
+                            + (i + 1) + " debe ser mayor a 0.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Deja la lista por slot con exactamente tantos volúmenes como alícuotas.
+     *
+     * <p>Recorta lo que sobra y rellena lo que falte —o venga sin valor— con el
+     * volumen general, de modo que el planificador no tenga que adivinar. Un tubo
+     * directo o uno uniforme (lista vacía) se dejan sin configuración por slot:
+     * cada slot cae al volumen general y el tubo se comporta como siempre.</p>
+     */
+    private void normalizarVolumenesAlicuota(TuboMuestra tubo) {
+        int n = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
+        List<Double> actuales = tubo.getVolumenesAlicuota();
+
+        if (n <= 0) {
+            if (actuales != null && !actuales.isEmpty()) {
+                tubo.setVolumenesAlicuota(new ArrayList<>());
+            }
+            return;
+        }
+        if (actuales == null || actuales.isEmpty()) {
+            return; // uniforme: sin lista por slot
+        }
+
+        Double general = tubo.getVolumenAlicuota();
+        List<Double> out = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            Double v = i < actuales.size() ? actuales.get(i) : null;
+            out.add(v != null && !v.isNaN() && !v.isInfinite() && v > 0 ? v : general);
+        }
+        tubo.setVolumenesAlicuota(out);
     }
 
     /**
