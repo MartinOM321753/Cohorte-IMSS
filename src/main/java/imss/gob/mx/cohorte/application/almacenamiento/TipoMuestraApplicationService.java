@@ -50,6 +50,11 @@ public class TipoMuestraApplicationService {
         return tipoMuestraService.toggleActivo(id);
     }
 
+    @Transactional
+    public void deleteTipo(Long id) {
+        tipoMuestraService.deleteTipo(id);
+    }
+
     // ── TuboMuestra ──────────────────────────────────────────────────────────
 
     @Transactional

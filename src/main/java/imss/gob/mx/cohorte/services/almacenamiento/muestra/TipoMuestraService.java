@@ -88,6 +88,27 @@ public class TipoMuestraService {
         return tipoMuestraRepository.save(tipo);
     }
 
+    /**
+     * Elimina un tipo de muestra, solo si no tiene tubos configurados.
+     *
+     * <p>«Sin tubos» basta como garantía: un tubo con muestras o alícuotas no se
+     * puede eliminar ({@link #deleteTubo}), así que un tipo sin tubos tampoco
+     * tiene muestras que lo referencien, y el borrado no choca con ninguna clave
+     * foránea. Para retirar un tipo que sí tiene tubos en uso está
+     * {@link #toggleActivo}: deja de ofrecerse sin perder el historial.</p>
+     */
+    @Transactional
+    public void deleteTipo(Long id) {
+        TipoMuestra tipo = getById(id);
+        int tubos = tipo.getTubos() != null ? tipo.getTubos().size() : 0;
+        if (tubos > 0) {
+            throw new ObjConflictException("No se puede eliminar el tipo de muestra '" + tipo.getNombre()
+                    + "': tiene " + tubos + " tubo(s) configurado(s). Elimine primero sus tubos, "
+                    + "o desactive el tipo para retirarlo conservando el historial.");
+        }
+        tipoMuestraRepository.delete(tipo);
+    }
+
     // ── TuboMuestra ──────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
