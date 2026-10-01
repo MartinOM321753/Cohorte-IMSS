@@ -101,6 +101,15 @@ public class TipoMuestraController {
                 TipoMuestraMapper.toResponseDTO(toggled), false, HttpStatus.OK));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar tipo de muestra",
+               description = "Solo si no tiene tubos configurados. Si los tiene, use desactivar.")
+    public ResponseEntity<APIResponse> delete(
+            @Parameter(description = "ID del tipo de muestra") @PathVariable Long id) {
+        tipoMuestraApplicationService.deleteTipo(id);
+        return ResponseEntity.ok(new APIResponse("Tipo de muestra eliminado", null, false, HttpStatus.OK));
+    }
+
     // ── TuboMuestra ──────────────────────────────────────────────────────────
 
     @PostMapping("/{idTipo}/tubos")
