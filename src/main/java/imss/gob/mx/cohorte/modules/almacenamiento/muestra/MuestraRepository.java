@@ -14,6 +14,38 @@ import java.util.Optional;
 public interface MuestraRepository extends JpaRepository<Muestra, Long>, MuestraCursorRepository {
     Optional<Muestra> findByEtiquetaIgnoreCase(String etiqueta);
     Optional<Muestra> findByEtiquetaIgnoreCaseAndInstitucion_Id(String etiqueta, Long idInstitucion);
+
+    // ── Lotes / procesamiento por protocolo ──────────────────────────────────
+    long countByLote_Id(Long idLote);
+
+    List<Muestra> findByLote_IdOrderByNumeroEnLoteAsc(Long idLote);
+
+    /** Máximo numeroEnLote ya usado en un lote (para continuar la numeración). */
+    @Query("SELECT COALESCE(MAX(m.numeroEnLote), 0) FROM Muestra m WHERE m.lote.id = :idLote")
+    int findMaxNumeroEnLote(@Param("idLote") Long idLote);
+
+    /** Muestras padre (tubos primarios) de un procesamiento (participante, protocolo). */
+    @Query("SELECT m FROM Muestra m WHERE m.muestraPadre IS NULL "
+            + "AND m.paciente.id = :idPaciente AND m.institucion.id = :idInstitucion "
+            + "AND m.tuboProtocolo.protocolo.id = :idProtocolo "
+            + "ORDER BY m.tuboProtocolo.orden ASC, m.id ASC")
+    List<Muestra> findPadresDeProcesamiento(@Param("idPaciente") Long idPaciente,
+                                            @Param("idInstitucion") Long idInstitucion,
+                                            @Param("idProtocolo") Long idProtocolo);
+
+    /** (participante, protocolo) distintos con procesamiento, para listar cards. */
+    @Query("SELECT DISTINCT m.paciente.id, m.tuboProtocolo.protocolo.id FROM Muestra m "
+            + "WHERE m.muestraPadre IS NULL AND m.institucion.id = :idInstitucion "
+            + "AND m.tuboProtocolo IS NOT NULL")
+    List<Object[]> findProcesamientos(@Param("idInstitucion") Long idInstitucion);
+
+    /** Todas las muestras del flujo de protocolo (padres y alícuotas) de una institución. */
+    @Query("SELECT m FROM Muestra m WHERE m.institucion.id = :idInstitucion "
+            + "AND m.tuboProtocolo IS NOT NULL")
+    List<Muestra> findProtocoloMuestras(@Param("idInstitucion") Long idInstitucion);
+
+    boolean existsByPaciente_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
+            Long idPaciente, Long idInstitucion, Long idProtocolo);
     List<Muestra> findAllByPaciente_Uuid(String uuid);
     List<Muestra> findAllByPaciente_Folio(String folio);
     List<Muestra> findAllByPosicionCajaIsNull();
@@ -94,6 +126,25 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long>, Muestra
          + "WHERE m.paciente.folio = :folio "
          + "AND m.tuboMuestra.prefijoCodigo = :prefijo")
     int findMaxLoteByFolioAndTuboPrefix(@Param("folio") String folio, @Param("prefijo") String prefijo);
+
+    /**
+     * Máximo número de lote de las muestras padre de un folio cuyo prefijo coincide,
+     * mirando tanto el tubo del flujo anterior ({@code tuboMuestra}) como el del
+     * procesamiento por protocolo ({@code tuboProtocolo}).
+     *
+     * <p>Con LEFT JOIN a propósito: una padre tiene uno u otro, nunca los dos, y un
+     * JOIN implícito (que es INNER) dejaría fuera a la mitad. El flujo de procesar
+     * crea varias padres con el mismo prefijo en una sola transacción, así que esta
+     * consulta es la semilla del consecutivo por prefijo —{@code tuboMuestra}-only
+     * devolvía siempre 0 para las padres de protocolo y las etiquetas chocaban—.</p>
+     */
+    @Query("SELECT COALESCE(MAX(m.numeroLote), 0) FROM Muestra m "
+         + "LEFT JOIN m.tuboMuestra tm "
+         + "LEFT JOIN m.tuboProtocolo tp "
+         + "WHERE m.paciente.folio = :folio "
+         + "AND m.muestraPadre IS NULL "
+         + "AND (tm.prefijoCodigo = :prefijo OR tp.prefijoCodigo = :prefijo)")
+    int findMaxLotePadreByFolioAndPrefijo(@Param("folio") String folio, @Param("prefijo") String prefijo);
 
     /**
      * Muestras alojadas en cualquier posición de una caja. La rejilla del

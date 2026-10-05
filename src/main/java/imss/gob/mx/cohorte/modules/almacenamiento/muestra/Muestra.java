@@ -132,6 +132,36 @@ public class Muestra {
     @Column(name = "numero_alicuota")
     private Integer numeroAlicuota;
 
+    // ── Procesamiento por protocolo (Fase Lotes; todos nullable para compat) ───
+
+    /**
+     * Lote al que pertenece esta alícuota: el conjunto por tipo resultante,
+     * numerado 1…N, que puede agrupar alícuotas de varios tubos primarios.
+     * Null en muestras primarias y en alícuotas del flujo anterior (por padre).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @JoinColumn(name = "id_lote")
+    private imss.gob.mx.cohorte.modules.almacenamiento.lote.Lote lote;
+
+    /**
+     * Número de esta alícuota dentro de su {@link #lote} (1…N continuo entre los
+     * tubos que lo alimentan). Distinto de {@link #numeroAlicuota}, que es el
+     * hueco dentro del tubo. Null si la alícuota no pertenece a un lote.
+     */
+    @Column(name = "numero_en_lote")
+    private Integer numeroEnLote;
+
+    /**
+     * Configuración del tubo primario del protocolo que originó esta muestra.
+     * En una padre indica qué tubo del protocolo es; en una alícuota, de qué tubo
+     * salió. Null en el flujo anterior (basado en TuboMuestra).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @JoinColumn(name = "id_tubo_protocolo")
+    private imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocolo tuboProtocolo;
+
     /** Total de alícuotas del tubo al que pertenece. Null si es muestra primaria. */
     @Column(name = "total_alicuotas")
     private Integer totalAlicuotas;

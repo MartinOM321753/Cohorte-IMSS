@@ -48,7 +48,8 @@ public class MainSecurity {
             "/reset-password",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/api/publico/**"
     };
 
     @Bean
@@ -304,6 +305,17 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/muestras/tipos/**").hasAuthority("TIPOS_MUESTRA_EDITAR")
                         .requestMatchers(HttpMethod.DELETE, "/api/muestras/tipos/**").hasAuthority("TIPOS_MUESTRA_ELIMINAR")
 
+                        // ── Lotes — carta de biobanco por participante (vista de lectura) ──
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/lotes/**")
+                                .hasAuthority("MUESTRAS_VER")
+
+                        // ── Protocolos de procesamiento — pantalla admin + lookup para procesar ──
+                        .requestMatchers(HttpMethod.GET, "/api/muestras/protocolos/**")
+                                .hasAnyAuthority("PROTOCOLOS_LOOKUP", "PROTOCOLOS_ACCEDER", "MUESTRAS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/muestras/protocolos/**").hasAuthority("PROTOCOLOS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/muestras/protocolos/**").hasAuthority("PROTOCOLOS_EDITAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/muestras/protocolos/**").hasAuthority("PROTOCOLOS_ELIMINAR")
+
                         // ── Estudios de muestra — pantalla admin + lookup para llenado desde MuestrasTab ──
                         .requestMatchers(HttpMethod.GET, "/api/muestras/estudios/tipos/**")
                                 .hasAnyAuthority("ESTUDIOS_MUESTRA_LOOKUP", "ESTUDIOS_MUESTRA_ACCEDER", "MUESTRAS_VER")
@@ -444,6 +456,9 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.POST, "/api/catalogos/unidades/**").hasAuthority("CATALOGOS_EDITAR")
                         .requestMatchers(HttpMethod.PUT, "/api/catalogos/unidades/**").hasAuthority("CATALOGOS_EDITAR")
                         .requestMatchers(HttpMethod.PATCH, "/api/catalogos/unidades/**").hasAuthority("CATALOGOS_EDITAR")
+
+                        // Documentos públicos (gestión admin)
+                        .requestMatchers("/api/documentos-publicos/**").hasAuthority("DOCUMENTOS_PUBLICOS_GESTIONAR")
 
                         // Dashboard: accesible para cualquier usuario autenticado
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/**").authenticated()

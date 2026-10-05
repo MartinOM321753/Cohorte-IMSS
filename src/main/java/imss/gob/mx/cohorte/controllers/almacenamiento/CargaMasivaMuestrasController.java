@@ -1,9 +1,11 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaMuestrasService;
+import imss.gob.mx.cohorte.services.importacion.CargaMasivaProtocoloService;
 import imss.gob.mx.cohorte.services.importacion.PlantillaCargaMuestras;
 import imss.gob.mx.cohorte.services.importacion.PrevisualizacionCargaMuestras;
 import imss.gob.mx.cohorte.services.importacion.ResultadoCargaMuestras;
+import imss.gob.mx.cohorte.services.importacion.ResultadoCargaProtocolo;
 import imss.gob.mx.cohorte.services.importacion.TablaLeida;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class CargaMasivaMuestrasController {
 
     private final CargaMasivaMuestrasService cargaMasivaService;
+    private final CargaMasivaProtocoloService cargaProtocoloService;
     private final PlantillaCargaMuestras plantillaService;
 
     /**
@@ -112,6 +115,40 @@ public class CargaMasivaMuestrasController {
      * máximo de contenido posible» y no aparece nada. Generarlo cuesta
      * milisegundos y quita el binario de en medio.</p>
      */
+    // ── Carga masiva por PROTOCOLO (flujo nuevo) ──────────────────────────────
+
+    @PostMapping("/protocolo/previsualizar")
+    @Operation(summary = "Previsualizar una carga por protocolo (no escribe)")
+    @PreAuthorize("hasAuthority('MUESTRAS_CARGA_MASIVA')")
+    public ResponseEntity<APIResponse> previsualizarProtocolo(
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam("idProtocolo") Long idProtocolo,
+            @RequestParam(value = "fechaPorOmision", required = false) String fechaPorOmision) {
+        ResultadoCargaProtocolo r = cargaProtocoloService.previsualizar(archivo, idProtocolo, fechaPorOmision);
+        return ResponseEntity.ok(new APIResponse(r, resumenProto(r), HttpStatus.OK, false));
+    }
+
+    @PostMapping("/protocolo/confirmar")
+    @Operation(summary = "Guardar una carga por protocolo",
+            description = "Crea los tubos primarios (T) y los lotes de alícuotas (L) del protocolo, ocupando huecos.")
+    @PreAuthorize("hasAuthority('MUESTRAS_CARGA_MASIVA')")
+    public ResponseEntity<APIResponse> confirmarProtocolo(
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam("idProtocolo") Long idProtocolo,
+            @RequestParam(value = "fechaPorOmision", required = false) String fechaPorOmision) {
+        ResultadoCargaProtocolo r = cargaProtocoloService.confirmar(archivo, idProtocolo, fechaPorOmision);
+        return ResponseEntity.ok(new APIResponse(r, resumenProto(r), HttpStatus.OK, false));
+    }
+
+    private static String resumenProto(ResultadoCargaProtocolo r) {
+        if (r.tieneErrores()) {
+            return "El archivo tiene " + r.errores().size() + " error(es) por corregir";
+        }
+        return r.alicuotas() + " alícuota(s) en " + r.lotes() + " lote(s), "
+                + r.padres() + " tubo(s) primario(s), " + r.procesamientos() + " procesamiento(s)"
+                + (r.ubicadas() > 0 ? ", " + r.ubicadas() + " con hueco" : "");
+    }
+
     @GetMapping("/plantilla")
     @Operation(summary = "Descargar la plantilla vacía")
     @PreAuthorize("hasAuthority('MUESTRAS_CARGA_MASIVA')")

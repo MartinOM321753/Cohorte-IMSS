@@ -140,6 +140,12 @@ public class PermisoInitializer {
             new String[]{"TIPOS_MUESTRA_EDITAR", "TIPOS_MUESTRA", "Editar tipos de muestra"},
             new String[]{"TIPOS_MUESTRA_ELIMINAR", "TIPOS_MUESTRA", "Eliminar tipos de muestra"},
 
+            new String[]{"PROTOCOLOS_ACCEDER", "PROTOCOLOS", "Acceder al tab admin de Protocolos de procesamiento"},
+            new String[]{"PROTOCOLOS_LOOKUP", "PROTOCOLOS", "Consultar protocolos desde la pantalla de procesar muestras"},
+            new String[]{"PROTOCOLOS_CREAR", "PROTOCOLOS", "Crear protocolos y sus tubos primarios"},
+            new String[]{"PROTOCOLOS_EDITAR", "PROTOCOLOS", "Editar protocolos y sus tubos primarios"},
+            new String[]{"PROTOCOLOS_ELIMINAR", "PROTOCOLOS", "Eliminar protocolos y sus tubos primarios"},
+
             new String[]{"ESTUDIOS_MUESTRA_ACCEDER", "ESTUDIOS_MUESTRA", "Acceder al tab admin de Estudios de muestra"},
             new String[]{"ESTUDIOS_MUESTRA_LOOKUP", "ESTUDIOS_MUESTRA", "Consultar tipos de estudio de muestra (dropdown en llenado)"},
             new String[]{"ESTUDIOS_MUESTRA_CREAR", "ESTUDIOS_MUESTRA", "Crear estudios de muestra"},
@@ -193,6 +199,8 @@ public class PermisoInitializer {
 
             new String[]{"CONFIGURACION_VER", "CONFIGURACION", "Ver configuracion"},
             new String[]{"CONFIGURACION_EDITAR", "CONFIGURACION", "Editar configuracion"},
+
+            new String[]{"DOCUMENTOS_PUBLICOS_GESTIONAR", "CONFIGURACION", "Gestionar documentos publicos (subir, editar, eliminar)"},
 
             new String[]{"BITACORA_ACCESOS_VER", "BITACORA", "Ver bitacora de accesos"},
             new String[]{"BITACORA_ACCIONES_VER", "BITACORA", "Ver bitacora de acciones"},
@@ -260,7 +268,9 @@ public class PermisoInitializer {
             "MUESTRAS_ESCANEAR", "MUESTRAS_IMPRIMIR", "MUESTRAS_VER", "PACIENTES_LOOKUP",
             "REFRIGERADORES_ACCEDER", "REFRIGERADORES_CREAR", "REFRIGERADORES_EDITAR",
             "REFRIGERADORES_LOOKUP", "TIPOS_MUESTRA_ACCEDER", "TIPOS_MUESTRA_CREAR",
-            "TIPOS_MUESTRA_EDITAR", "TIPOS_MUESTRA_LOOKUP", "TRASLADOS_ACCEDER",
+            "TIPOS_MUESTRA_EDITAR", "TIPOS_MUESTRA_LOOKUP",
+            "PROTOCOLOS_ACCEDER", "PROTOCOLOS_CREAR", "PROTOCOLOS_EDITAR",
+            "PROTOCOLOS_LOOKUP", "TRASLADOS_ACCEDER",
             "TRASLADOS_CANCELAR", "TRASLADOS_CONFIRMAR", "TRASLADOS_CREAR",
             "TRASLADOS_DEVOLVER", "TRASLADOS_LOOKUP", "UNIDADES_LOOKUP"
     );
@@ -278,6 +288,8 @@ public class PermisoInitializer {
             "REFRIGERADORES_CREAR", "REFRIGERADORES_EDITAR", "REFRIGERADORES_ELIMINAR",
             "REFRIGERADORES_LOOKUP", "TIPOS_MUESTRA_ACCEDER", "TIPOS_MUESTRA_CREAR",
             "TIPOS_MUESTRA_EDITAR", "TIPOS_MUESTRA_ELIMINAR", "TIPOS_MUESTRA_LOOKUP",
+            "PROTOCOLOS_ACCEDER", "PROTOCOLOS_CREAR", "PROTOCOLOS_EDITAR",
+            "PROTOCOLOS_ELIMINAR", "PROTOCOLOS_LOOKUP",
             "TRASLADOS_ACCEDER", "TRASLADOS_CANCELAR", "TRASLADOS_CONFIRMAR",
             "TRASLADOS_CREAR", "TRASLADOS_DEVOLVER", "TRASLADOS_LOOKUP",
             "UNIDADES_LOOKUP"

@@ -93,6 +93,7 @@ public class CargaMasivaMuestrasService {
     private final MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
     private final InstitucionContextService institucionContextService;
     private final HistorialCambioMuestraService historialService;
+    private final imss.gob.mx.cohorte.modules.almacenamiento.lote.LoteRepository loteRepository;
 
     private static final DateTimeFormatter SALIDA = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
@@ -732,6 +733,21 @@ public class CargaMasivaMuestrasService {
                                 + "sigue siendo el origen de sus alícuotas.", null);
             }
 
+            // Lote de la fase de procesamiento: aun en la carga masiva cada grupo
+            // (folio+tipo+tubo+dia) es un lote de alicuotas, para que estos viales
+            // aparezcan agrupados y numerados en la carta por folio igual que los
+            // que genera el procesamiento. tipoResultante = el tipo del propio
+            // grupo (el archivo ya trae el tipo final, p. ej. Suero).
+            imss.gob.mx.cohorte.modules.almacenamiento.lote.Lote loteEntidad =
+                    new imss.gob.mx.cohorte.modules.almacenamiento.lote.Lote();
+            loteEntidad.setInstitucion(miInstitucion);
+            loteEntidad.setPaciente(lote.paciente);
+            loteEntidad.setTipoResultante(lote.tipo);
+            loteEntidad.setNumeroLote(lote.numeroLote);
+            loteEntidad.setUsuarioProcesa(usuario);
+            loteEntidad.setFechaCreacion(ahora);
+            loteEntidad = loteRepository.save(loteEntidad);
+
             for (FilaResuelta f : lote.filas) {
                 Muestra alicuota = new Muestra();
                 alicuota.setEtiqueta(f.etiqueta);
@@ -742,6 +758,8 @@ public class CargaMasivaMuestrasService {
                 alicuota.setTipoMuestra(lote.tipo);
                 alicuota.setTuboMuestra(lote.tubo);
                 alicuota.setMuestraPadre(padre);
+                alicuota.setLote(loteEntidad);
+                alicuota.setNumeroEnLote(f.numeroAlicuota);
                 alicuota.setNumeroAlicuota(f.numeroAlicuota);
                 // El denominador de la etiqueta es el número CONFIGURADO del
                 // tubo, no el tamaño de esta tanda: el lote no se cierra al
