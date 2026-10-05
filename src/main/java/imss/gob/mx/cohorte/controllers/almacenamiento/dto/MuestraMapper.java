@@ -102,6 +102,18 @@ public class MuestraMapper {
             .idMuestraPadre(m.getMuestraPadre() != null ? m.getMuestraPadre().getId() : null)
             .numeroAlicuota(m.getNumeroAlicuota())
             .totalAlicuotas(m.getTotalAlicuotas())
+            .idLote(m.getLote() != null ? m.getLote().getId() : null)
+            .numeroLote(m.getLote() != null ? m.getLote().getNumeroLote() : null)
+            .tipoResultanteLote(m.getLote() != null && m.getLote().getTipoResultante() != null
+                ? m.getLote().getTipoResultante().getNombre() : null)
+            .numeroEnLote(m.getNumeroEnLote())
+            .idProtocolo(m.getTuboProtocolo() != null && m.getTuboProtocolo().getProtocolo() != null
+                ? m.getTuboProtocolo().getProtocolo().getId() : null)
+            .nombreProtocolo(m.getTuboProtocolo() != null && m.getTuboProtocolo().getProtocolo() != null
+                ? m.getTuboProtocolo().getProtocolo().getNombre() : null)
+            .ordenTubo(m.getTuboProtocolo() != null ? m.getTuboProtocolo().getOrden() : null)
+            .accionTubo(m.getTuboProtocolo() != null && m.getTuboProtocolo().getAccion() != null
+                ? m.getTuboProtocolo().getAccion().name() : null)
             .estadoMuestra(m.getEstadoMuestra())
             .idInstitucion(m.getInstitucion() != null ? m.getInstitucion().getId() : null)
             .nombreInstitucion(m.getInstitucion() != null ? m.getInstitucion().getNombre() : null)

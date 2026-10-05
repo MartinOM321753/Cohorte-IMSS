@@ -547,7 +547,7 @@ public class MuestraApplicationService {
         String prefijo = EtiquetaMuestra.prefijo(
                 muestra.getTuboMuestra() != null ? muestra.getTuboMuestra().getPrefijoCodigo() : null);
         String folio = muestra.getPaciente().getFolio();
-        int lote = muestraRepository.findMaxLoteByFolioAndTuboPrefix(folio, prefijo) + 1;
+        int lote = muestraRepository.findMaxLotePadreByFolioAndPrefijo(folio, prefijo) + 1;
         muestra.setNumeroLote(lote);
         return EtiquetaMuestra.padre(prefijo, folio, muestra.getInstitucion().getId(), lote);
     }

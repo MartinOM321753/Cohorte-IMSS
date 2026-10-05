@@ -33,6 +33,20 @@ public class MuestraResponseDTO {
     private Long idMuestraPadre;
     private Integer numeroAlicuota;
     private Integer totalAlicuotas;
+
+    // Lote de procesamiento (conjunto de alícuotas de un tipo resultante, 1…N,
+    // posiblemente de varios tubos). Null en muestras del flujo anterior.
+    private Long idLote;
+    private Integer numeroLote;
+    private String tipoResultanteLote;
+    private Integer numeroEnLote;
+
+    // Protocolo y tubo del flujo nuevo (para agrupar la vista en cards por
+    // participante × protocolo y mostrar T{orden}). Null en lo heredado.
+    private Long idProtocolo;
+    private String nombreProtocolo;
+    private Integer ordenTubo;
+    private String accionTubo;
     /**
      * Número de alícuotas generadas automáticamente al crear esta muestra primaria.
      * Solo se popula en la respuesta de creación; null en lecturas normales.
