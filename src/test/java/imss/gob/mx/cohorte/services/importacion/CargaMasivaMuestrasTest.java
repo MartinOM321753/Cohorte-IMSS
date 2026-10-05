@@ -62,6 +62,7 @@ class CargaMasivaMuestrasTest {
     private MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
     private InstitucionContextService contexto;
     private HistorialCambioMuestraService historial;
+    private imss.gob.mx.cohorte.modules.almacenamiento.lote.LoteRepository loteRepository;
     private CargaMasivaMuestrasService servicio;
 
     private TipoMuestra suero;
@@ -82,10 +83,12 @@ class CargaMasivaMuestrasTest {
         muestraTipoInstitucionRepository = mock(MuestraTipoInstitucionRepository.class);
         contexto = mock(InstitucionContextService.class);
         historial = mock(HistorialCambioMuestraService.class);
+        loteRepository = mock(imss.gob.mx.cohorte.modules.almacenamiento.lote.LoteRepository.class);
+        when(loteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         servicio = new CargaMasivaMuestrasService(lector, tipoMuestraService, pacienteRepository,
                 accesoService, muestraRepository, cajaRepository, posicionCajaRepository,
-                muestraTipoInstitucionRepository, contexto, historial);
+                muestraTipoInstitucionRepository, contexto, historial, loteRepository);
 
         siguienteId = 100L;
         huecos.clear();
