@@ -6,8 +6,10 @@ import imss.gob.mx.cohorte.controllers.documentos_publicos.dto.DocumentoPublicoR
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.documentos_publicos.CategoriaDocumentoPublico;
 import imss.gob.mx.cohorte.modules.documentos_publicos.DocumentoPublico;
+import imss.gob.mx.cohorte.modules.documentos_publicos.SeccionDocumentoPublico;
 import imss.gob.mx.cohorte.services.documentos_publicos.CategoriaDocumentoPublicoService;
 import imss.gob.mx.cohorte.services.documentos_publicos.DocumentoPublicoService;
+import imss.gob.mx.cohorte.services.documentos_publicos.SeccionDocumentoPublicoService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.MinioUnavailableException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -31,6 +33,7 @@ public class DocumentoPublicoController {
 
     private final DocumentoPublicoService documentoService;
     private final CategoriaDocumentoPublicoService categoriaService;
+    private final SeccionDocumentoPublicoService seccionService;
     private final MinioStorageService minioStorageService;
 
     // ─── Documentos ────────────────────────────────────────────────────────────
@@ -43,6 +46,7 @@ public class DocumentoPublicoController {
             @RequestParam(value = "fase", required = false) String fase,
             @RequestParam(value = "descripcion", required = false) String descripcion,
             @RequestParam(value = "categoriaId", required = false) Long categoriaId,
+            @RequestParam(value = "seccionId", required = false) Long seccionId,
             @RequestParam(value = "autor", required = false) String autor,
             @RequestParam("usuarioUUID") String usuarioUUID
     ) {
@@ -52,6 +56,7 @@ public class DocumentoPublicoController {
         dto.setFase(fase);
         dto.setDescripcion(descripcion);
         dto.setCategoriaId(categoriaId);
+        dto.setSeccionId(seccionId);
         dto.setAutor(autor);
 
         DocumentoPublicoResponseDTO result = documentoService.upload(file, dto, usuarioUUID);
@@ -145,5 +150,46 @@ public class DocumentoPublicoController {
         CategoriaDocumentoPublico cat = categoriaService.toggleActivo(id);
         String msg = cat.getActivo() ? "Categoría activada" : "Categoría desactivada";
         return ResponseEntity.ok(new APIResponse(msg, cat, false, HttpStatus.OK));
+    }
+
+    // ─── Secciones (Visitas) ────────────────────────────────────────────────
+
+    @GetMapping("/secciones")
+    public ResponseEntity<APIResponse> getAllSecciones() {
+        List<SeccionDocumentoPublico> secs = seccionService.getAll();
+        return ResponseEntity.ok(new APIResponse("Secciones", secs, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/secciones/activas")
+    public ResponseEntity<APIResponse> getSeccionesActivas() {
+        List<SeccionDocumentoPublico> secs = seccionService.getAllActivas();
+        return ResponseEntity.ok(new APIResponse("Secciones activas", secs, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/secciones")
+    public ResponseEntity<APIResponse> createSeccion(@RequestBody java.util.Map<String, Object> body) {
+        String nombre = (String) body.get("nombre");
+        Integer orden = body.get("orden") != null ? ((Number) body.get("orden")).intValue() : null;
+        SeccionDocumentoPublico sec = seccionService.create(nombre, orden);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new APIResponse("Sección creada", sec, false, HttpStatus.CREATED));
+    }
+
+    @PutMapping("/secciones/{id}")
+    public ResponseEntity<APIResponse> updateSeccion(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> body
+    ) {
+        String nombre = (String) body.get("nombre");
+        Integer orden = body.get("orden") != null ? ((Number) body.get("orden")).intValue() : null;
+        SeccionDocumentoPublico sec = seccionService.update(id, nombre, orden);
+        return ResponseEntity.ok(new APIResponse("Sección actualizada", sec, false, HttpStatus.OK));
+    }
+
+    @PatchMapping("/secciones/{id}/toggle")
+    public ResponseEntity<APIResponse> toggleSeccion(@PathVariable Long id) {
+        SeccionDocumentoPublico sec = seccionService.toggleActivo(id);
+        String msg = sec.getActivo() ? "Sección activada" : "Sección desactivada";
+        return ResponseEntity.ok(new APIResponse(msg, sec, false, HttpStatus.OK));
     }
 }

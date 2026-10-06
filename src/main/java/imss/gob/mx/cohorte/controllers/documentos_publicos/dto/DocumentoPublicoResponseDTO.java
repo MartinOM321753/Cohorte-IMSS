@@ -20,6 +20,8 @@ public class DocumentoPublicoResponseDTO {
     private String autor;
     private Long categoriaId;
     private String categoriaNombre;
+    private Long seccionId;
+    private String seccionNombre;
     private LocalDateTime fechaCreacion;
     private Boolean activo;
 }

@@ -7,6 +7,8 @@ import imss.gob.mx.cohorte.modules.documentos_publicos.CategoriaDocumentoPublico
 import imss.gob.mx.cohorte.modules.documentos_publicos.CategoriaDocumentoPublicoRepository;
 import imss.gob.mx.cohorte.modules.documentos_publicos.DocumentoPublico;
 import imss.gob.mx.cohorte.modules.documentos_publicos.DocumentoPublicoRepository;
+import imss.gob.mx.cohorte.modules.documentos_publicos.SeccionDocumentoPublico;
+import imss.gob.mx.cohorte.modules.documentos_publicos.SeccionDocumentoPublicoRepository;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class DocumentoPublicoService {
 
     private final DocumentoPublicoRepository repository;
     private final CategoriaDocumentoPublicoRepository categoriaRepository;
+    private final SeccionDocumentoPublicoRepository seccionRepository;
     private final MinioStorageService minioStorageService;
     private final InstitucionContextService institucionContextService;
 
@@ -73,6 +76,12 @@ public class DocumentoPublicoService {
             doc.setCategoria(cat);
         }
 
+        if (dto.getSeccionId() != null) {
+            SeccionDocumentoPublico sec = seccionRepository.findByIdAndInstitucion_Id(dto.getSeccionId(), idInst)
+                    .orElseThrow(() -> new ObjNotFoundException("Sección no encontrada: " + dto.getSeccionId()));
+            doc.setSeccion(sec);
+        }
+
         DocumentoPublico saved = repository.save(doc);
         return toDTO(saved);
     }
@@ -96,6 +105,14 @@ public class DocumentoPublicoService {
             doc.setCategoria(cat);
         } else {
             doc.setCategoria(null);
+        }
+
+        if (dto.getSeccionId() != null) {
+            SeccionDocumentoPublico sec = seccionRepository.findByIdAndInstitucion_Id(dto.getSeccionId(), idInst)
+                    .orElseThrow(() -> new ObjNotFoundException("Sección no encontrada: " + dto.getSeccionId()));
+            doc.setSeccion(sec);
+        } else {
+            doc.setSeccion(null);
         }
 
         return toDTO(repository.save(doc));
@@ -141,6 +158,8 @@ public class DocumentoPublicoService {
                 .autor(doc.getAutor())
                 .categoriaId(doc.getCategoria() != null ? doc.getCategoria().getId() : null)
                 .categoriaNombre(doc.getCategoria() != null ? doc.getCategoria().getNombre() : null)
+                .seccionId(doc.getSeccion() != null ? doc.getSeccion().getId() : null)
+                .seccionNombre(doc.getSeccion() != null ? doc.getSeccion().getNombre() : null)
                 .fechaCreacion(doc.getFechaCreacion())
                 .activo(doc.getActivo())
                 .build();
