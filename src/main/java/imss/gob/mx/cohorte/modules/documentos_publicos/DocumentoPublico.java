@@ -50,6 +50,10 @@ public class DocumentoPublico {
     @JoinColumn(name = "id_categoria")
     private CategoriaDocumentoPublico categoria;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_seccion")
+    private SeccionDocumentoPublico seccion;
+
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 

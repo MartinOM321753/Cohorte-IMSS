@@ -14,5 +14,6 @@ public class DocumentoPublicoRequestDTO {
     private String fase;
     private String descripcion;
     private Long categoriaId;
+    private Long seccionId;
     private String autor;
 }

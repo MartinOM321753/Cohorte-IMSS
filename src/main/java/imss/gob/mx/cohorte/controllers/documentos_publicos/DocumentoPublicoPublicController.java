@@ -4,8 +4,10 @@ import imss.gob.mx.cohorte.controllers.documentos_publicos.dto.DocumentoPublicoR
 import imss.gob.mx.cohorte.infrastructure.minio.MinioStorageService;
 import imss.gob.mx.cohorte.modules.documentos_publicos.CategoriaDocumentoPublico;
 import imss.gob.mx.cohorte.modules.documentos_publicos.DocumentoPublico;
+import imss.gob.mx.cohorte.modules.documentos_publicos.SeccionDocumentoPublico;
 import imss.gob.mx.cohorte.services.documentos_publicos.CategoriaDocumentoPublicoService;
 import imss.gob.mx.cohorte.services.documentos_publicos.DocumentoPublicoService;
+import imss.gob.mx.cohorte.services.documentos_publicos.SeccionDocumentoPublicoService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.MinioUnavailableException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -26,6 +28,7 @@ public class DocumentoPublicoPublicController {
 
     private final DocumentoPublicoService documentoService;
     private final CategoriaDocumentoPublicoService categoriaService;
+    private final SeccionDocumentoPublicoService seccionService;
     private final MinioStorageService minioStorageService;
 
     @GetMapping("/{idInstitucion}")
@@ -38,6 +41,12 @@ public class DocumentoPublicoPublicController {
     public ResponseEntity<APIResponse> getCategoriasPublicas(@PathVariable Long idInstitucion) {
         List<CategoriaDocumentoPublico> cats = categoriaService.getAllActivasByInstitucion(idInstitucion);
         return ResponseEntity.ok(new APIResponse("Categorías", cats, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/{idInstitucion}/secciones")
+    public ResponseEntity<APIResponse> getSeccionesPublicas(@PathVariable Long idInstitucion) {
+        List<SeccionDocumentoPublico> secs = seccionService.getAllActivasByInstitucion(idInstitucion);
+        return ResponseEntity.ok(new APIResponse("Secciones", secs, false, HttpStatus.OK));
     }
 
     @GetMapping("/descargar/{id}")
