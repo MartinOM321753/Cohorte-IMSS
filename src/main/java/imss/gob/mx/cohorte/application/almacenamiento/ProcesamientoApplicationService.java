@@ -39,7 +39,8 @@ public class ProcesamientoApplicationService {
                         t.getAccion(),
                         t.getVolumen(),
                         t.getUnidad(),
-                        t.getPlanVolumenes()));
+                        t.getPlanVolumenes(),
+                        t.getObservaciones()));
             }
         }
 

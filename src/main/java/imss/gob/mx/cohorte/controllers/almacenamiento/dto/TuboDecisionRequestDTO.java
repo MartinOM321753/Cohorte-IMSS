@@ -28,4 +28,7 @@ public class TuboDecisionRequestDTO {
 
     /** Reparto explícito de las alícuotas; vacío/null = automático. */
     private List<Double> planVolumenes;
+
+    /** Observaciones para la muestra padre que se genera de este tubo. */
+    private String observaciones;
 }

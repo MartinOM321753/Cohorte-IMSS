@@ -118,8 +118,10 @@ public class ProcesamientoService {
             procesoAlguno = true;
             AccionTubo accion = dec != null && dec.accion() != null ? dec.accion() : tubo.getAccion();
 
+            String obsTubo = dec != null && dec.observaciones() != null
+                    ? dec.observaciones() : observaciones;
             Muestra padre = crearPadre(tubo, accion, dec, protocolo, paciente, usuario, inst,
-                    fechaRecoleccion, observaciones);
+                    fechaRecoleccion, obsTubo);
             padres.add(padre);
 
             if (accion == AccionTubo.ALICUOTAR) {
@@ -186,7 +188,7 @@ public class ProcesamientoService {
         contador.put(clave, 0);
         int totalLote = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
         DecisionTubo dec = new DecisionTubo(tubo.getId(), true, AccionTubo.ALICUOTAR,
-                padre.getValor(), null, planVolumenes);
+                padre.getValor(), null, planVolumenes, null);
         List<Muestra> alic = generarAlicuotas(padre, tubo, dec, lote, contador, clave, totalLote,
                 usuario, inst, padre.getFechaRecoleccion());
         if (alic.isEmpty()) {
