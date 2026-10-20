@@ -10,6 +10,13 @@ public enum ModuloSistema {
     BIOBANCO,
     EXAMENES,
     ESTUDIOS_MEDICOS,
+    /**
+     * Instrumentos de la cohorte: catalogo de preguntas, llenado y carga de los
+     * volcados escaneados. Aparte de ESTUDIOS_MEDICOS porque son dos circuitos
+     * distintos: una sede puede aplicar cuestionarios sin tomar estudios, y al
+     * reves.
+     */
+    CUESTIONARIOS,
     CITAS,
     COBERTURA,
     SOMATOMETRIA,

@@ -77,6 +77,7 @@ public class PermisoInitializer {
             new String[]{"EXPEDIENTE_PRUEBA_ESCALON", "EXPEDIENTE", "Ver prueba de escalon"},
             new String[]{"EXPEDIENTE_CITAS", "EXPEDIENTE", "Ver citas del expediente"},
             new String[]{"EXPEDIENTE_ESTUDIOS", "EXPEDIENTE", "Ver estudios del expediente"},
+            new String[]{"EXPEDIENTE_CUESTIONARIOS", "EXPEDIENTE", "Ver cuestionarios del expediente"},
             new String[]{"EXPEDIENTE_EXAMENES", "EXPEDIENTE", "Ver examenes del expediente"},
             new String[]{"EXPEDIENTE_DOCUMENTOS", "EXPEDIENTE", "Ver documentos del expediente"},
 
@@ -90,6 +91,31 @@ public class PermisoInitializer {
             new String[]{"ESTUDIOS_TIPOS_CREAR", "ESTUDIOS", "Crear tipos de estudio en catalogo"},
             new String[]{"ESTUDIOS_TIPOS_EDITAR", "ESTUDIOS", "Editar tipos de estudio en catalogo"},
             new String[]{"ESTUDIOS_TIPOS_ELIMINAR", "ESTUDIOS", "Eliminar tipos de estudio en catalogo"},
+
+            // ── Cuestionarios ──────────────────────────────────────────────────
+            //
+            // El catalogo se separa del llenado igual que en estudios, y se le anade
+            // uno propio: CUESTIONARIOS_CATALOGO_CARGAR. Cargar el libro de los
+            // investigadores reescribe el significado de miles de respuestas de una
+            // sola vez, asi que no puede ir con el mismo permiso que corregir una
+            // pregunta a mano. VALIDAR tambien va aparte: es quien se hace responsable
+            // de lo que el escaner leyo, no quien captura.
+            new String[]{"CUESTIONARIOS_LLENADO_ACCEDER", "CUESTIONARIOS", "Acceder al tab Llenado de cuestionarios"},
+            new String[]{"CUESTIONARIOS_CATALOGO_ACCEDER", "CUESTIONARIOS", "Acceder al catalogo de cuestionarios y preguntas"},
+            new String[]{"CUESTIONARIOS_TIPOS_LOOKUP", "CUESTIONARIOS", "Consultar cuestionarios (dropdown en llenado y carga)"},
+            new String[]{"CUESTIONARIOS_CREAR", "CUESTIONARIOS", "Abrir y contestar cuestionarios"},
+            new String[]{"CUESTIONARIOS_EDITAR", "CUESTIONARIOS", "Modificar respuestas de un cuestionario"},
+            new String[]{"CUESTIONARIOS_ELIMINAR", "CUESTIONARIOS", "Anular cuestionarios"},
+            new String[]{"CUESTIONARIOS_VALIDAR", "CUESTIONARIOS", "Validar cuestionarios y adjudicar lecturas en desacuerdo"},
+            new String[]{"CUESTIONARIOS_CARGA_MASIVA", "CUESTIONARIOS", "Cargar el volcado de Remark"},
+            new String[]{"CUESTIONARIOS_TIPOS_CREAR", "CUESTIONARIOS", "Crear cuestionarios en el catalogo"},
+            new String[]{"CUESTIONARIOS_TIPOS_EDITAR", "CUESTIONARIOS", "Editar cuestionarios, bloques y preguntas"},
+            new String[]{"CUESTIONARIOS_TIPOS_ELIMINAR", "CUESTIONARIOS", "Eliminar cuestionarios, bloques y preguntas"},
+            new String[]{"CUESTIONARIOS_CATALOGO_CARGAR", "CUESTIONARIOS", "Cargar el catalogo completo desde el libro de los investigadores"},
+            // Lo usa el propio participante desde su cuenta, no el personal. Va aparte de
+            // CUESTIONARIOS_CREAR porque son dos cosas distintas: una abre cuestionarios
+            // de cualquier participante, esta solo permite contestar el propio.
+            new String[]{"CUESTIONARIOS_AUTOCONTESTAR", "CUESTIONARIOS", "Contestar sus propios cuestionarios desde su cuenta"},
 
             new String[]{"EXAMENES_LLENADO_ACCEDER", "EXAMENES", "Acceder al tab Llenado de examenes"},
             new String[]{"EXAMENES_CATALOGO_ACCEDER", "EXAMENES", "Acceder al tab Catalogo de examenes"},
@@ -234,7 +260,8 @@ public class PermisoInitializer {
             "DOCUMENTOS_VER_METADATA", "ESTUDIOS_LLENADO_ACCEDER", "ESTUDIOS_TIPOS_LOOKUP",
             "EXAMENES_LLENADO_ACCEDER", "EXAMENES_LOOKUP", "EXPEDIENTE_CITAS",
             "EXPEDIENTE_DATOS_PERSONALES", "EXPEDIENTE_DOCUMENTOS", "EXPEDIENTE_ESTUDIOS",
-            "EXPEDIENTE_EXAMENES", "EXPEDIENTE_SOMATOMETRIA", "EXPEDIENTE_VER",
+            "EXPEDIENTE_EXAMENES", "EXPEDIENTE_SOMATOMETRIA", "EXPEDIENTE_VER", "EXPEDIENTE_CUESTIONARIOS",
+            "CUESTIONARIOS_LLENADO_ACCEDER", "CUESTIONARIOS_TIPOS_LOOKUP",
             "INSTITUCIONES_LOOKUP", "PACIENTES_ACCEDER", "PACIENTES_CREAR_ACCESO",
             "PACIENTES_LOOKUP", "SOMATOMETRIA_CREAR", "SOMATOMETRIA_EDITAR",
             "SOMATOMETRIA_VER", "USUARIOS_LOOKUP_MEDICOS"
@@ -247,6 +274,8 @@ public class PermisoInitializer {
             "DOCUMENTOS_VER_METADATA", "ESTUDIOS_CREAR", "ESTUDIOS_EDITAR",
             "ESTUDIOS_LLENADO_ACCEDER", "ESTUDIOS_TIPOS_LOOKUP", "EXAMENES_CREAR",
             "EXAMENES_EDITAR", "EXAMENES_LLENADO_ACCEDER", "EXAMENES_LOOKUP",
+            "CUESTIONARIOS_LLENADO_ACCEDER", "CUESTIONARIOS_TIPOS_LOOKUP",
+            "CUESTIONARIOS_CREAR", "CUESTIONARIOS_EDITAR", "EXPEDIENTE_CUESTIONARIOS",
             "EXPEDIENTE_BIOBANCO", "EXPEDIENTE_CITAS", "EXPEDIENTE_DATOS_PERSONALES",
             "EXPEDIENTE_DOCUMENTOS", "EXPEDIENTE_ESTUDIOS", "EXPEDIENTE_EXAMENES",
             "EXPEDIENTE_PERFIL_LAB", "EXPEDIENTE_PRUEBA_ESCALON", "EXPEDIENTE_RESULTADOS_LAB",
@@ -298,7 +327,7 @@ public class PermisoInitializer {
     private static final Set<String> PERMISOS_PACIENTE = Set.of(
             "DOCUMENTOS_VER_METADATA", "EXPEDIENTE_CITAS", "EXPEDIENTE_DATOS_PERSONALES",
             "EXPEDIENTE_DOCUMENTOS", "EXPEDIENTE_ESTUDIOS", "EXPEDIENTE_EXAMENES",
-            "EXPEDIENTE_VER"
+            "EXPEDIENTE_CUESTIONARIOS", "EXPEDIENTE_VER", "CUESTIONARIOS_AUTOCONTESTAR"
     );
 
     private static final Map<String, Set<String>> ROL_PERMISOS_MAP = Map.of(

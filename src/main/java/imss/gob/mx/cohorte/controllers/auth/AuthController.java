@@ -50,6 +50,7 @@ public class AuthController {
     private final JWTUtils               jwtUtils;
     private final UserRepository         userRepository;
     private final imss.gob.mx.cohorte.services.permisos.PermisoEvaluationService permisoEvaluationService;
+    private final imss.gob.mx.cohorte.modules.paciente.PacienteRepository pacienteRepository;
 
     @Value("${app.cookie-secure:false}")
     private boolean cookieSecure;
@@ -107,12 +108,20 @@ public class AuthController {
 
         boolean isRoot = roles.contains("ROOT");
 
+        // Si la cuenta tiene expediente de participante. No es lo mismo que tener el
+        // permiso de autocontestar: ese lo tienen tambien ROOT y ADMINISTRADOR, y a
+        // ellos «Mis cuestionarios» no les lleva a ninguna parte porque no hay
+        // expediente del que sacar los suyos.
+        boolean esParticipante = user.getPersona() != null
+                && pacienteRepository.existsByPersona_Id(user.getPersona().getId());
+
         Map<String, Object> body = new HashMap<>();
         body.put("user", userDTO);
         body.put("mustChangePassword", mustChangePassword);
         body.put("roles", roles);
         body.put("permisos", permisos.stream().sorted().collect(Collectors.toList()));
         body.put("isRoot", isRoot);
+        body.put("esParticipante", esParticipante);
 
         return ResponseEntity.ok(new APIResponse("Sesión vigente", body, false, HttpStatus.OK));
     }
