@@ -11,4 +11,7 @@ import java.util.List;
 public class AlicuotarTuboRequestDTO {
     /** Reparto explícito de las alícuotas; vacío/null = automático. */
     private List<Double> planVolumenes;
+
+    /** TuboProtocolo de la institución actual; null = usa el del propio tubo. */
+    private Long idTuboProtocolo;
 }

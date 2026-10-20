@@ -86,6 +86,10 @@ public class TuboProtocolo {
     @Column(name = "volumen", nullable = false)
     private List<Double> volumenesAlicuota = new ArrayList<>();
 
+    /** Volumen esperado del tubo primario al momento de la recolección. */
+    @Column(name = "volumen_esperado")
+    private Double volumenEsperado;
+
     /** Unidad del volumen: "mL", "mg", "g", "µL". */
     @Column(name = "unidad_volumen", length = 20)
     private String unidadVolumen;
@@ -93,6 +97,15 @@ public class TuboProtocolo {
     /** Destino sugerido para las alícuotas de este tubo. Ej: "INMEGEN", "INSP". */
     @Column(name = "destino_sugerido", length = 100)
     private String destinoSugerido;
+
+    /** Institución destino cuando la acción es TRANSFERIR. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_institucion_destino")
+    private imss.gob.mx.cohorte.modules.institucion.Institucion institucionDestino;
+
+    /** Motivo por omisión para la transferencia automática; null = mensaje genérico. */
+    @Column(name = "motivo_transferencia", length = 200)
+    private String motivoTransferencia;
 
     /**
      * Si las alícuotas de este tubo se unen con las de otros tubos del mismo

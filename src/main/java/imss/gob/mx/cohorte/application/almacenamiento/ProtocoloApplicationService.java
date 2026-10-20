@@ -58,13 +58,13 @@ public class ProtocoloApplicationService {
     // ── TuboProtocolo ────────────────────────────────────────────────────────────
 
     @Transactional
-    public TuboProtocolo addTubo(Long idProtocolo, TuboProtocolo tubo, Long idTipoResultante) {
-        return protocoloService.addTubo(idProtocolo, tubo, idTipoResultante);
+    public TuboProtocolo addTubo(Long idProtocolo, TuboProtocolo tubo, Long idTipoResultante, Long idInstitucionDestino) {
+        return protocoloService.addTubo(idProtocolo, tubo, idTipoResultante, idInstitucionDestino);
     }
 
     @Transactional
-    public TuboProtocolo updateTubo(Long idTubo, TuboProtocolo datos, Long idTipoResultante) {
-        return protocoloService.updateTubo(idTubo, datos, idTipoResultante, true);
+    public TuboProtocolo updateTubo(Long idTubo, TuboProtocolo datos, Long idTipoResultante, Long idInstitucionDestino) {
+        return protocoloService.updateTubo(idTubo, datos, idTipoResultante, true, idInstitucionDestino);
     }
 
     @Transactional

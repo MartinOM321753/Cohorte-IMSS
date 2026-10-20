@@ -24,5 +24,6 @@ package imss.gob.mx.cohorte.modules.almacenamiento.protocolo;
 public enum AccionTubo {
     GUARDAR,
     ESTUDIO,
-    ALICUOTAR
+    ALICUOTAR,
+    TRANSFERIR
 }

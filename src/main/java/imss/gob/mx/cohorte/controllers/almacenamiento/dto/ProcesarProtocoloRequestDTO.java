@@ -19,6 +19,7 @@ public class ProcesarProtocoloRequestDTO {
     @NotNull(message = "El protocolo es obligatorio")
     private Long idProtocolo;
 
+    @NotNull(message = "La fecha de procesamiento es obligatoria")
     private LocalDateTime fechaRecoleccion;
 
     private String observaciones;

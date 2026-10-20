@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.controllers.almacenamiento;
 
 import imss.gob.mx.cohorte.application.almacenamiento.ProcesamientoApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.AlicuotarTuboRequestDTO;
+import imss.gob.mx.cohorte.controllers.almacenamiento.dto.PlanAlicuotasMapper;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ProcesarProtocoloRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ProcesarResultadoResponseDTO;
 import imss.gob.mx.cohorte.utils.APIResponse;
@@ -11,11 +12,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;;
 
 @RestController
 @RequestMapping("/api/almacenamiento/muestras")
@@ -42,8 +41,22 @@ public class ProcesamientoController {
             @org.springframework.web.bind.annotation.PathVariable Long id,
             @RequestBody(required = false) AlicuotarTuboRequestDTO dto) {
         ProcesarResultadoResponseDTO resultado = procesamientoApplicationService.alicuotarTubo(
-                id, dto != null ? dto.getPlanVolumenes() : null);
+                id,
+                dto != null ? dto.getIdTuboProtocolo() : null,
+                dto != null ? dto.getPlanVolumenes() : null);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Tubo alicuotado", resultado, false, HttpStatus.CREATED));
+    }
+
+    @GetMapping("/plan-alicuotas-protocolo")
+    @Operation(summary = "Previsualizar plan de alícuotas para un TuboProtocolo",
+               description = "Calcula cuántas alícuotas alcanzan con el volumen indicado. No crea nada.")
+    @PreAuthorize("hasAuthority('MUESTRAS_CREAR')")
+    public ResponseEntity<APIResponse> previsualizarPlanProtocolo(
+            @RequestParam Long idTuboProtocolo,
+            @RequestParam(required = false) Double valor) {
+        var plan = procesamientoApplicationService.previsualizarPlan(idTuboProtocolo, valor);
+        return ResponseEntity.ok(new APIResponse("Plan de alícuotas",
+                PlanAlicuotasMapper.toResponseDTO(plan), false, HttpStatus.OK));
     }
 }

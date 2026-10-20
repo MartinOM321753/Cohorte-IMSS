@@ -34,6 +34,7 @@ public class ProtocoloService {
     private final TuboProtocoloRepository tuboProtocoloRepository;
     private final TipoMuestraRepository tipoMuestraRepository;
     private final InstitucionContextService institucionContextService;
+    private final imss.gob.mx.cohorte.modules.institucion.InstitucionRepository institucionRepository;
 
     private Long myInstId() {
         return institucionContextService.getIdInstitucionActual();
@@ -116,7 +117,7 @@ public class ProtocoloService {
     }
 
     @Transactional
-    public TuboProtocolo addTubo(Long idProtocolo, TuboProtocolo tubo, Long idTipoResultante) {
+    public TuboProtocolo addTubo(Long idProtocolo, TuboProtocolo tubo, Long idTipoResultante, Long idInstitucionDestino) {
         Protocolo p = getById(idProtocolo);
         tubo.setProtocolo(p);
         if (tubo.getOrden() == null || tubo.getOrden() == 0) {
@@ -124,13 +125,14 @@ public class ProtocoloService {
             tubo.setOrden(maxOrden + 1);
         }
         aplicarTipoResultante(tubo, idTipoResultante);
+        aplicarInstitucionDestino(tubo, idInstitucionDestino);
         validarRecetaAlicuotado(tubo);
         normalizarVolumenesAlicuota(tubo);
         return tuboProtocoloRepository.save(tubo);
     }
 
     @Transactional
-    public TuboProtocolo updateTubo(Long idTubo, TuboProtocolo datos, Long idTipoResultante, boolean tipoResultantePresente) {
+    public TuboProtocolo updateTubo(Long idTubo, TuboProtocolo datos, Long idTipoResultante, boolean tipoResultantePresente, Long idInstitucionDestino) {
         TuboProtocolo tubo = getTuboById(idTubo);
         if (datos.getNombre() != null) tubo.setNombre(datos.getNombre());
         if (datos.getPrefijoCodigo() != null) tubo.setPrefijoCodigo(datos.getPrefijoCodigo());
@@ -138,8 +140,10 @@ public class ProtocoloService {
         if (datos.getNumeroAlicuotas() != null) tubo.setNumeroAlicuotas(datos.getNumeroAlicuotas());
         if (datos.getVolumenAlicuota() != null) tubo.setVolumenAlicuota(datos.getVolumenAlicuota());
         if (datos.getVolumenesAlicuota() != null) tubo.setVolumenesAlicuota(datos.getVolumenesAlicuota());
+        if (datos.getVolumenEsperado() != null) tubo.setVolumenEsperado(datos.getVolumenEsperado());
         if (datos.getUnidadVolumen() != null) tubo.setUnidadVolumen(datos.getUnidadVolumen());
         if (datos.getDestinoSugerido() != null) tubo.setDestinoSugerido(datos.getDestinoSugerido());
+        tubo.setMotivoTransferencia(datos.getMotivoTransferencia());
         if (datos.getOrden() != null) tubo.setOrden(datos.getOrden());
         if (datos.getActivo() != null) tubo.setActivo(datos.getActivo());
         if (datos.getAgruparEnLote() != null) tubo.setAgruparEnLote(datos.getAgruparEnLote());
@@ -147,6 +151,7 @@ public class ProtocoloService {
         if (datos.getPermiteAlicuotaParcial() != null) tubo.setPermiteAlicuotaParcial(datos.getPermiteAlicuotaParcial());
         // null = «no lo menciono»; presente (aunque sea null explícito) lo reemplaza.
         if (tipoResultantePresente) aplicarTipoResultante(tubo, idTipoResultante);
+        aplicarInstitucionDestino(tubo, idInstitucionDestino);
         validarRecetaAlicuotado(tubo);
         normalizarVolumenesAlicuota(tubo);
         return tuboProtocoloRepository.save(tubo);
@@ -174,6 +179,21 @@ public class ProtocoloService {
 
     private void aplicarTipoResultante(TuboProtocolo tubo, Long idTipoResultante) {
         tubo.setTipoResultante(idTipoResultante != null ? resolverTipo(idTipoResultante, "resultante") : null);
+    }
+
+    private void aplicarInstitucionDestino(TuboProtocolo tubo, Long idInstitucionDestino) {
+        if (tubo.getAccion() == AccionTubo.TRANSFERIR) {
+            if (idInstitucionDestino == null) {
+                throw new ValidationException("El tubo «" + tubo.getNombre()
+                        + "» tiene acción Transferir: indique la institución destino.");
+            }
+            tubo.setInstitucionDestino(institucionRepository.findById(idInstitucionDestino)
+                    .orElseThrow(() -> new ObjNotFoundException(
+                            "No se encontró la institución destino con id: " + idInstitucionDestino)));
+        } else {
+            tubo.setInstitucionDestino(idInstitucionDestino != null
+                    ? institucionRepository.findById(idInstitucionDestino).orElse(null) : null);
+        }
     }
 
     /**

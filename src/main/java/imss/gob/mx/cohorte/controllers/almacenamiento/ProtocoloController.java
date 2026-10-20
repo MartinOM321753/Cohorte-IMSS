@@ -102,7 +102,7 @@ public class ProtocoloController {
             @Parameter(description = "ID del protocolo") @PathVariable Long idProtocolo,
             @Validated @RequestBody TuboProtocoloRequestDTO dto) {
         TuboProtocolo tubo = ProtocoloMapper.tuboToEntity(dto);
-        TuboProtocolo saved = protocoloApplicationService.addTubo(idProtocolo, tubo, dto.getIdTipoResultante());
+        TuboProtocolo saved = protocoloApplicationService.addTubo(idProtocolo, tubo, dto.getIdTipoResultante(), dto.getIdInstitucionDestino());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse("Tubo agregado",
                         ProtocoloMapper.tuboToResponseDTO(saved), false, HttpStatus.CREATED));
@@ -114,7 +114,7 @@ public class ProtocoloController {
             @Parameter(description = "ID del tubo") @PathVariable Long idTubo,
             @Validated @RequestBody TuboProtocoloRequestDTO dto) {
         TuboProtocolo datos = ProtocoloMapper.tuboToEntity(dto);
-        TuboProtocolo updated = protocoloApplicationService.updateTubo(idTubo, datos, dto.getIdTipoResultante());
+        TuboProtocolo updated = protocoloApplicationService.updateTubo(idTubo, datos, dto.getIdTipoResultante(), dto.getIdInstitucionDestino());
         return ResponseEntity.ok(new APIResponse("Tubo actualizado",
                 ProtocoloMapper.tuboToResponseDTO(updated), false, HttpStatus.OK));
     }

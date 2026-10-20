@@ -28,8 +28,18 @@ public record DecisionTubo(
         Double volumen,
         String unidad,
         List<Double> planVolumenes,
-        String observaciones
+        String observaciones,
+        Boolean transferirAutorizado,
+        Long idInstitucionDestino,
+        String motivoTransferencia
 ) {
+    public DecisionTubo(Long idTuboProtocolo, boolean incluir, AccionTubo accion,
+                        Double volumen, String unidad, List<Double> planVolumenes,
+                        String observaciones) {
+        this(idTuboProtocolo, incluir, accion, volumen, unidad, planVolumenes,
+             observaciones, null, null, null);
+    }
+
     public DecisionTubo {
         planVolumenes = planVolumenes == null ? List.of() : List.copyOf(planVolumenes);
     }

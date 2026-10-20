@@ -29,6 +29,9 @@ public class ProcesarResultadoResponseDTO {
         private String nombreTubo;
         private Double valor;
         private String unidad;
+        private Double remanente;
+        private Boolean transferido;
+        private String institucionDestino;
     }
 
     @Data

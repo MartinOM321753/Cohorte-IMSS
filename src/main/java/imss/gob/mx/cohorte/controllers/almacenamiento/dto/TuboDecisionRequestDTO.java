@@ -31,4 +31,14 @@ public class TuboDecisionRequestDTO {
 
     /** Observaciones para la muestra padre que se genera de este tubo. */
     private String observaciones;
+
+    /** Si se autoriza la transferencia automática para este tubo (acción TRANSFERIR). */
+    private Boolean transferirAutorizado;
+
+    /** Institución destino para la transferencia (override del protocolo). */
+    private Long idInstitucionDestino;
+
+    /** Motivo de la transferencia (override del protocolo). */
+    @jakarta.validation.constraints.Size(max = 200)
+    private String motivoTransferencia;
 }
