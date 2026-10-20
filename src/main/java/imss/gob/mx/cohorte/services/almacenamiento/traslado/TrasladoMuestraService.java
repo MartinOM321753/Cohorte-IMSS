@@ -15,6 +15,7 @@ import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
 import imss.gob.mx.cohorte.modules.usuarios.user.UserRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.HistorialCambioMuestraService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
@@ -109,7 +110,8 @@ public class TrasladoMuestraService {
                                                   String uuidAutoriza,
                                                   String motivo,
                                                   String observaciones,
-                                                  LocalDateTime fechaLimite) {
+                                                  LocalDateTime fechaLimite,
+                                                  boolean notificar) {
         Institucion origen = institucionRepository.findById(idInstitucionOrigen)
                 .orElseThrow(() -> new ObjNotFoundException("Institución origen no encontrada: " + idInstitucionOrigen));
 
@@ -157,6 +159,11 @@ public class TrasladoMuestraService {
                 throw new ObjConflictException(
                         "La muestra '" + muestra.getEtiqueta() + "' está dada de baja.");
             }
+            if (PlanificadorAlicuotas.agotado(muestra.getValor())) {
+                throw new ValidationException(
+                        "La muestra '" + muestra.getEtiqueta()
+                        + "' no tiene volumen y no se puede trasladar.");
+            }
 
             // Guardar ID de la posición antes de liberarla, para poder restaurarla al cancelar
             Long idPosicionAnterior = null;
@@ -200,8 +207,8 @@ public class TrasladoMuestraService {
         }
 
         // Notificación por email al encargado de la institución destino
-        if (!resultado.isEmpty()) {
-            enviarEmailPrestamoEnviado(resultado.get(0), destino);
+        if (notificar && !resultado.isEmpty()) {
+            enviarEmailPrestamoEnviado(resultado, destino);
         }
 
         return resultado;
@@ -702,30 +709,44 @@ public class TrasladoMuestraService {
 
     // ── Emails ───────────────────────────────────────────────────────────────
 
-    private void enviarEmailPrestamoEnviado(TrasladoMuestra t, Institucion destino) {
+    /**
+     * Envía UN correo consolidado al encargado de la institución destino con
+     * todas las muestras del traslado. Público para que el servicio de
+     * procesamiento pueda agrupar varias llamadas a iniciarPrestamo y enviar
+     * un solo correo al final.
+     */
+    public void enviarEmailPrestamoEnviado(List<TrasladoMuestra> traslados, Institucion destino) {
+        if (traslados == null || traslados.isEmpty()) return;
         if (destino.getEncargado() == null) return;
         String email = destino.getEncargado().getPersona() != null
                 ? destino.getEncargado().getPersona().getEmail() : null;
         if (email == null || email.isBlank()) return;
 
         try {
+            TrasladoMuestra primero = traslados.get(0);
             String nombreEncargado = destino.getEncargado().getPersona().getNombre()
                     + " " + destino.getEncargado().getPersona().getApellidoPaterno();
-            String nombreAutoriza = t.getAutorizadoPor().getPersona().getNombre()
-                    + " " + t.getAutorizadoPor().getPersona().getApellidoPaterno();
+            String nombreAutoriza = primero.getAutorizadoPor().getPersona().getNombre()
+                    + " " + primero.getAutorizadoPor().getPersona().getApellidoPaterno();
+
+            List<String> etiquetas = traslados.stream()
+                    .map(t -> t.getMuestra().getEtiqueta()).toList();
 
             Context ctx = new Context();
             ctx.setVariable("nombreEncargado", nombreEncargado.trim());
-            ctx.setVariable("etiquetaMuestra",  t.getMuestra().getEtiqueta());
-            ctx.setVariable("nombreInstitucionOrigen",  t.getInstitucionOrigen().getNombre());
+            ctx.setVariable("etiquetas",       etiquetas);
+            ctx.setVariable("totalMuestras",   etiquetas.size());
+            ctx.setVariable("nombreInstitucionOrigen",  primero.getInstitucionOrigen().getNombre());
             ctx.setVariable("nombreInstitucionDestino", destino.getNombre());
             ctx.setVariable("nombreAutoriza",   nombreAutoriza.trim());
-            ctx.setVariable("fechaTraslado",    t.getFechaTraslado().format(FMT));
-            ctx.setVariable("motivo",           t.getMotivo());
+            ctx.setVariable("fechaTraslado",    primero.getFechaTraslado().format(FMT));
+            ctx.setVariable("motivo",           primero.getMotivo());
 
-            emailService.enviar(email,
-                    "Muestra " + t.getMuestra().getEtiqueta() + " enviada a tu institución",
-                    "email/traslado-enviado", ctx);
+            String asunto = etiquetas.size() == 1
+                    ? "Muestra " + etiquetas.get(0) + " enviada a tu institución"
+                    : etiquetas.size() + " muestras enviadas a tu institución";
+
+            emailService.enviar(email, asunto, "email/traslado-enviado", ctx);
         } catch (Exception e) {
             log.error("Error enviando email préstamo enviado: {}", e.getMessage());
         }
