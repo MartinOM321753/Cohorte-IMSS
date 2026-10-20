@@ -236,8 +236,10 @@ public class CatalogoCopyService {
                 paramClon.setNombre(paramOriginal.getNombre());
                 paramClon.setUnidad(paramOriginal.getUnidad());
                 paramClon.setTipo(paramOriginal.getTipo());
-                paramClon.setValorMinimo(paramOriginal.getValorMinimo());
-                paramClon.setValorMaximo(paramOriginal.getValorMaximo());
+                paramClon.setValorMinMujeres(paramOriginal.getValorMinMujeres());
+                paramClon.setValorMaxMujeres(paramOriginal.getValorMaxMujeres());
+                paramClon.setValorMinHombres(paramOriginal.getValorMinHombres());
+                paramClon.setValorMaxHombres(paramOriginal.getValorMaxHombres());
                 paramClon.setOrden(paramOriginal.getOrden());
 
                 List<OpcionParametroEstudioMuestra> opcionesClonadas = new ArrayList<>();

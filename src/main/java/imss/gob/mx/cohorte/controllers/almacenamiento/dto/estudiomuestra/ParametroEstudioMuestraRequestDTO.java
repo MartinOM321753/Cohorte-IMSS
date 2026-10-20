@@ -24,8 +24,10 @@ public class ParametroEstudioMuestraRequestDTO {
     @NotNull(message = "El tipo de parámetro es requerido")
     private TipoParametro tipo;
 
-    private Double valorMinimo;
-    private Double valorMaximo;
+    private Double valorMinMujeres;
+    private Double valorMaxMujeres;
+    private Double valorMinHombres;
+    private Double valorMaxHombres;
 
     /** Solo aplica cuando tipo = TEXTO_OPCIONES */
     private List<String> opciones;

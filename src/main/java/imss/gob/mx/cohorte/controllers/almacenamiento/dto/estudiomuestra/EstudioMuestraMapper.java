@@ -150,8 +150,10 @@ public class EstudioMuestraMapper {
                 .nombre(p.getNombre())
                 .unidad(p.getUnidad())
                 .tipo(p.getTipo())
-                .valorMinimo(p.getValorMinimo())
-                .valorMaximo(p.getValorMaximo())
+                .valorMinMujeres(p.getValorMinMujeres())
+                .valorMaxMujeres(p.getValorMaxMujeres())
+                .valorMinHombres(p.getValorMinHombres())
+                .valorMaxHombres(p.getValorMaxHombres())
                 .orden(p.getOrden())
                 .opciones(opciones)
                 .build();
