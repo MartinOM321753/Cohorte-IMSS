@@ -22,6 +22,7 @@ public class Ubicacion3DCajaDTO {
     private String tipoCaja;
     private String color;
     private String observaciones;
+    private String ordenLlenado;
 
     private Integer capacidad;
     private Integer ocupadas;

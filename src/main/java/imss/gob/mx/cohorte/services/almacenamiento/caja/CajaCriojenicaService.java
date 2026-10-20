@@ -112,6 +112,9 @@ public class CajaCriojenicaService {
         cajaBD.setTipoCaja(caja.getTipoCaja());
         cajaBD.setColor(caja.getColor());
         cajaBD.setObservaciones(caja.getObservaciones());
+        if (caja.getOrdenLlenado() != null) {
+            cajaBD.setOrdenLlenado(caja.getOrdenLlenado());
+        }
         // Aplicar siempre: null = quitar posición, non-null = asignar/mantener
         if (caja.getPosicionPiso() != null && caja.getPosicionPiso().getId() != null) {
             PosicionPiso posicion = posicionPisoRepository.findById(caja.getPosicionPiso().getId())

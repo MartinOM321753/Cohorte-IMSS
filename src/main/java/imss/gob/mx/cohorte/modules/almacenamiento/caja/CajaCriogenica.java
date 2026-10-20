@@ -49,6 +49,10 @@ public class CajaCriogenica {
     @JsonIgnore
     private Institucion institucion;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "orden_llenado", nullable = false, length = 20)
+    private OrdenLlenado ordenLlenado = OrdenLlenado.FRENTE_ATRAS;
+
     @OneToOne
     @JoinColumn(name = "id_posicion_piso", unique = true)
     @JsonIgnore

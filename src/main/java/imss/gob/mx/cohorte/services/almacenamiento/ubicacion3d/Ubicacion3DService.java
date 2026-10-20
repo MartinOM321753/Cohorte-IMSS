@@ -383,6 +383,7 @@ public class Ubicacion3DService {
                 .tipoCaja(caja.getTipoCaja())
                 .color(caja.getColor())
                 .observaciones(caja.getObservaciones())
+                .ordenLlenado(caja.getOrdenLlenado().name())
                 .capacidad(capacidad)
                 .ocupadas(ocupadas)
                 .libres(Math.max(capacidad - ocupadas, 0))

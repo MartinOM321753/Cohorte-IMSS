@@ -33,4 +33,6 @@ public class CajaRequestDTO {
     private String observaciones;
 
     private Long idPosicionPiso;
+
+    private String ordenLlenado;
 }
