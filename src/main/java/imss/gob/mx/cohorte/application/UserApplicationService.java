@@ -296,6 +296,7 @@ public class UserApplicationService {
     }
 
     private void verificarAlcanceSobreUsuario(BeanUser objetivo, BeanUser actual) {
+        if (institucionContextService.esRootActual()) return;
         Long idInstitucionObjetivo = objetivo.getInstitucion() != null ? objetivo.getInstitucion().getId() : null;
         Long idInstitucionActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;
         if (idInstitucionObjetivo == null || idInstitucionActual == null) {
@@ -310,6 +311,7 @@ public class UserApplicationService {
 
     /** El mismo alcance, cuando lo que se valida es la institucion y no la cuenta. */
     private void verificarAlcanceSobreInstitucion(Long idInstitucionObjetivo) {
+        if (institucionContextService.esRootActual()) return;
         BeanUser actual = institucionContextService.getUsuarioActual();
         Long idInstitucionActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;
         if (idInstitucionObjetivo == null || idInstitucionActual == null) {

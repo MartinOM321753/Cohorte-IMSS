@@ -66,7 +66,9 @@ public class InstitucionModuloService {
         Institucion otorgante = getInstitucion(idOtorgante);
         BeanUser usuarioActual = institucionContextService.getUsuarioActual();
 
-        if (idInstitucion.equals(idOtorgante)) {
+        if (institucionContextService.esRootActual()) {
+            // ROOT administra los módulos de cualquier institución, sin importar la jerarquía.
+        } else if (idInstitucion.equals(idOtorgante)) {
             // Auto-gestión: el encargado de una institución puede administrar sus propios módulos
             // (tanto instituciones raíz como instituciones hijas dentro de la jerarquía).
             // Si la institución aún no tiene encargado asignado se permite el acceso para

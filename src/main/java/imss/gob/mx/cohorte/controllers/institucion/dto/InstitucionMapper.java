@@ -22,6 +22,8 @@ public class InstitucionMapper {
         i.setTelefono(dto.getTelefono());
         i.setTieneBiobanco(dto.getTieneBiobanco() != null ? dto.getTieneBiobanco() : false);
         i.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
+        i.setFolioInicio(dto.getFolioInicio());
+        i.setFolioFin(dto.getFolioFin());
         return i;
     }
 
@@ -42,6 +44,8 @@ public class InstitucionMapper {
                 .encargado(mapEncargado(i.getEncargado()))
                 .tieneBiobanco(i.getTieneBiobanco())
                 .activo(i.getActivo())
+                .folioInicio(i.getFolioInicio())
+                .folioFin(i.getFolioFin())
                 .build();
     }
 

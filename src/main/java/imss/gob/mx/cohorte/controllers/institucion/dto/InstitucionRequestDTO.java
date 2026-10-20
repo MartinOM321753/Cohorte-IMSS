@@ -53,4 +53,10 @@ public class InstitucionRequestDTO {
     private Boolean tieneBiobanco = false;
 
     private Boolean activo = true;
+
+    /** Inicio del rango de folios asignado (inclusive). Null = sin rango. */
+    private Integer folioInicio;
+
+    /** Fin del rango de folios asignado (inclusive). */
+    private Integer folioFin;
 }

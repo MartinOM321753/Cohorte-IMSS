@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reasignación por rango completada</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+          <tr>
+            <td style="background:#1e4e3a;padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">Cohorte de Trabajadores de la Salud</h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;">Reasignación de institución por rango de folios</p>
+            </td>
+          </tr>
+          <tr><td style="background:#4ade80;height:3px;"></td></tr>
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8782;">Proceso finalizado</p>
+              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">La reasignación por rango terminó</h2>
+
+              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+                Hola, <strong th:text="${nombre}">Usuario</strong>. Los participantes con folio del
+                <strong th:text="${folioDesde}">000001</strong> al
+                <strong th:text="${folioHasta}">010000</strong> que estaban a tu alcance se revisaron para
+                pasarlos a <strong th:text="${destinoNombre}">Institución</strong>.
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;width:220px;">Participantes en el rango:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${encontrados}">0</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Movidos con éxito:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#15803d;" th:text="${movidos}">0</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Ya estaban en la institución destino:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${yaEnDestino}">0</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">No se pudieron mover:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#b3261e;" th:text="${noMovidos}">0</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <div th:if="${noMovidos > 0}">
+                <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0d1411;">Motivos por los que no se movieron</p>
+                <table width="100%" cellpadding="0" cellspacing="0"
+                       style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;font-size:13px;">
+                  <tr style="background:#f9fafb;">
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Motivo</th>
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Cantidad</th>
+                    <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Ejemplos (folios)</th>
+                  </tr>
+                  <tr th:each="g : ${grupos}">
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b3261e;" th:text="${g.motivo}">Motivo</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;" th:text="${g.cantidad}">0</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;font-family:monospace;" th:text="${g.ejemplos}">000001</td>
+                  </tr>
+                </table>
+
+                <div th:if="${!detalle.isEmpty()}">
+                  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0d1411;">Detalle por folio</p>
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:12px;font-size:13px;">
+                    <tr style="background:#f9fafb;">
+                      <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Folio</th>
+                      <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Motivo</th>
+                    </tr>
+                    <tr th:each="f : ${detalle}">
+                      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#374151;font-family:monospace;" th:text="${f.folio}">000001</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b3261e;" th:text="${f.motivo}">Motivo</td>
+                    </tr>
+                  </table>
+                  <p th:if="${detalleTruncado}" style="margin:0 0 20px;font-size:12px;color:#6b7280;">
+                    Se muestran los primeros registros. El resto de los motivos aparece agrupado arriba.
+                  </p>
+                </div>
+              </div>
+
+              <p style="margin:24px 0 0;font-size:14px;color:#6b7280;line-height:1.6;">
+                Los participantes con estudios, muestras, somatometrías, exámenes, citas o documentos no se mueven
+                automáticamente. Para cambiarlos, primero hay que revisar esos registros.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="border-top:1px solid #f0f0f0;padding:20px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
+                ACCESO RESTRINGIDO · Todas las acciones se registran en bitácora institucional
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

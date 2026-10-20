@@ -458,6 +458,21 @@ public class PacienteController {
         return ResponseEntity.ok(new APIResponse(msg, resumen, false, HttpStatus.OK));
     }
 
+    @PostMapping("/reasignar-institucion/rango")
+    @PreAuthorize("hasAuthority('PACIENTES_EDITAR')")
+    @Operation(summary = "Reasignar la institución de los participantes de un rango de folios (segundo plano)",
+               description = "Mueve a la institución destino a todos los participantes al alcance del usuario cuyo folio "
+                       + "esté entre folioDesde y folioHasta. Responde de inmediato; al terminar se envía un correo con el "
+                       + "resumen: cuántos se movieron y, de los que no, el motivo. Un participante con registros no "
+                       + "bloquea a los demás.")
+    public ResponseEntity<APIResponse> reasignarInstitucionPorRango(
+            @Validated @RequestBody CambioInstitucionDTO.ReasignacionRangoRequest body) {
+        pacienteApplicationService.reasignarInstitucionPorRangoAsync(
+                body.getFolioDesde(), body.getFolioHasta(), body.getIdInstitucion());
+        String msg = "Reasignación iniciada. Se procesa en segundo plano; recibirá un correo con el resumen.";
+        return ResponseEntity.accepted().body(new APIResponse(msg, false, HttpStatus.ACCEPTED));
+    }
+
     @PatchMapping("/uuid/{uuid}/toggle-activo")
     @Operation(summary = "Activar / desactivar paciente",
                description = "Alterna el campo activo del paciente (activo → inactivo o viceversa) sin eliminar el registro.")

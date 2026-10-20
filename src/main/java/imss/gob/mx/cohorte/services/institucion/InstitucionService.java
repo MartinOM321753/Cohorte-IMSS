@@ -146,6 +146,8 @@ public class InstitucionService {
         bd.setTelefono(institucion.getTelefono());
         if (institucion.getTieneBiobanco() != null) bd.setTieneBiobanco(institucion.getTieneBiobanco());
         if (institucion.getActivo() != null) bd.setActivo(institucion.getActivo());
+        bd.setFolioInicio(institucion.getFolioInicio());
+        bd.setFolioFin(institucion.getFolioFin());
 
         if (idTipoInstitucion != null) {
             bd.setTipoInstitucion(resolverTipo(idTipoInstitucion));
@@ -196,8 +198,12 @@ public class InstitucionService {
      */
     @Transactional(readOnly = true)
     public Set<Long> getIdsGestionables() {
-        BeanUser usuario = institucionContextService.getUsuarioActual();
         Set<Long> resultado = new HashSet<>();
+        if (institucionContextService.esRootActual()) {
+            institucionRepository.findAll().forEach(i -> resultado.add(i.getId()));
+            return resultado;
+        }
+        BeanUser usuario = institucionContextService.getUsuarioActual();
 
         // Instituciones sin encargado: cualquier ADMINISTRADOR puede configurarlas
         institucionRepository.findAllByEncargadoIsNull().forEach(i -> resultado.add(i.getId()));
@@ -213,8 +219,12 @@ public class InstitucionService {
 
     @Transactional(readOnly = true)
     public Set<Long> getIdsConEstadoGestionable() {
-        BeanUser usuario = institucionContextService.getUsuarioActual();
         Set<Long> resultado = new HashSet<>();
+        if (institucionContextService.esRootActual()) {
+            institucionRepository.findAll().forEach(i -> resultado.add(i.getId()));
+            return resultado;
+        }
+        BeanUser usuario = institucionContextService.getUsuarioActual();
 
         List<Institucion> encargadoDe = institucionRepository.findAllByEncargado_UUID(usuario.getUUID());
         for (Institucion institucion : encargadoDe) {
@@ -268,6 +278,9 @@ public class InstitucionService {
      * Si la institución no tiene encargado se permite el acceso (bootstrap).
      */
     private void verificarAutoridad(Institucion destino, BeanUser usuario) {
+        if (institucionContextService.esRootActual()) {
+            return; // ROOT edita cualquier institución
+        }
         if (destino.getEncargado() == null) {
             return; // Bootstrap: sin encargado, cualquier ADMINISTRADOR puede configurarla
         }
@@ -289,6 +302,9 @@ public class InstitucionService {
 
     /** Agrega la institución y todos sus descendientes al conjunto de IDs. */
     private void verificarAutoridadParaCambiarEstado(Institucion destino, BeanUser usuario) {
+        if (institucionContextService.esRootActual()) {
+            return; // ROOT activa y desactiva cualquier institución
+        }
         if (destino.getEncargado() == null) {
             throw new AccessDeniedException("No se puede cambiar el estado de una institucion sin encargado asignado.");
         }
