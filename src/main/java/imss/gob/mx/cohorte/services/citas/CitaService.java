@@ -78,7 +78,9 @@ public class CitaService {
         validateFutureDate(cita.getStartAtUtc());
         validateNoCollision(cita);
         cita.setEstadoCita(EstadoCita.Programada);
-        cita.setInstitucion(institucionContextService.getInstitucionActual());
+        if (cita.getInstitucion() == null) {
+            cita.setInstitucion(institucionContextService.getInstitucionActual());
+        }
         return citaRepository.save(cita);
     }
 

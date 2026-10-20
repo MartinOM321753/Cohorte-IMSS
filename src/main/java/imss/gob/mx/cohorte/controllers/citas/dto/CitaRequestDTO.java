@@ -32,4 +32,7 @@ public class CitaRequestDTO {
     private String colorHex;
 
     private String observaciones;
+
+    /** UUID de la institución destino. Si es null, se usa la del usuario autenticado. */
+    private String institucionDestinoUUID;
 }

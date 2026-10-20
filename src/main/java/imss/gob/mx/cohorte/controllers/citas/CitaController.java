@@ -76,8 +76,7 @@ public class CitaController {
     @PreAuthorize("hasAuthority('CITAS_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody CitaRequestDTO dto) {
         Cita cita = CitaMapper.toEntity(dto);
-        cita.setInstitucion(institucionContextService.getInstitucionActual());
-        Cita saved = citaApplicationService.save(cita);
+        Cita saved = citaApplicationService.save(cita, dto.getInstitucionDestinoUUID());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Cita registrada exitosamente", CitaMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
