@@ -20,6 +20,7 @@ public record ResultadoCargaProtocolo(
         int alicuotas,
         int lotes,
         int ubicadas,
+        int transferencias,
         List<String> errores,
         List<String> avisos
 ) {
