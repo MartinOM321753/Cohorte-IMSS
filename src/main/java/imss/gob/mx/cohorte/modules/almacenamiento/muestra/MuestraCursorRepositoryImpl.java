@@ -144,6 +144,20 @@ public class MuestraCursorRepositoryImpl implements MuestraCursorRepository {
              .append(" AND pac.folio >= :folioDesde AND pac.folio <= :folioHasta");
         }
 
+        if (c.hayPaciente()) {
+            w.append(" AND pac.uuid = :uuidPaciente");
+        }
+        if (c.hayToma()) {
+            w.append(" AND m.toma.id = :idToma");
+        } else if (c.hayProtocolo()) {
+            if (c.sinProtocolo()) {
+                w.append(" AND m.tuboProtocolo IS NULL");
+            } else {
+                w.append(" AND m.tuboProtocolo IS NOT NULL")
+                 .append(" AND m.tuboProtocolo.protocolo.id = :idProtocolo");
+            }
+        }
+
         return w;
     }
 
@@ -188,6 +202,14 @@ public class MuestraCursorRepositoryImpl implements MuestraCursorRepository {
         if (c.folioDesde() != null) {
             q.setParameter("folioDesde", c.folioDesde());
             q.setParameter("folioHasta", c.folioHasta());
+        }
+        if (c.hayPaciente()) {
+            q.setParameter("uuidPaciente", c.uuidPaciente());
+        }
+        if (c.hayToma()) {
+            q.setParameter("idToma", c.idToma());
+        } else if (c.hayProtocolo() && !c.sinProtocolo()) {
+            q.setParameter("idProtocolo", c.idProtocolo());
         }
     }
 
@@ -238,6 +260,81 @@ public class MuestraCursorRepositoryImpl implements MuestraCursorRepository {
                 + " ORDER BY a.muestraPadre.id ASC, a.numeroAlicuota ASC, a.id ASC";
     }
 
+    private static final String UNIONES_RESUMEN = """
+             FROM Muestra m
+             JOIN m.paciente pac
+             JOIN pac.persona per
+             JOIN m.institucion inst
+             JOIN m.institucionActual instAct
+             LEFT JOIN m.tipoMuestra tip
+             LEFT JOIN m.tuboMuestra tub
+             LEFT JOIN m.tuboProtocolo tp
+             LEFT JOIN tp.protocolo proto
+             LEFT JOIN m.toma t
+             LEFT JOIN t.tipoMuestra tomaT
+            """;
+
+    private static final String BAJA   = "imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra.BAJA";
+    private static final String PRESTADA = "imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra.PRESTADA";
+    private static final String ENVIADA = "imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.ENVIADA";
+    private static final String EN_DEVOLUCION = "imss.gob.mx.cohorte.modules.almacenamiento.traslado.EstadoTraslado.EN_DEVOLUCION";
+
+    static String jpqlResumen(CriteriosMuestra criterios) {
+        String nombreTipo = "CASE WHEN t.id IS NOT NULL THEN tomaT.nombre ELSE proto.nombre END";
+
+        StringBuilder w = new StringBuilder(" WHERE ").append(visible("m", criterios.incluirHistorico()));
+
+        if (criterios.hayBusqueda()) {
+            w.append(" AND ").append(pajar("m", "pac", "per", "tip", "tub")).append(" LIKE :busqueda");
+        }
+
+        if (criterios.desde() != null) {
+            w.append(" AND m.fechaRecoleccion >= :desde");
+        }
+        if (criterios.hasta() != null) {
+            w.append(" AND m.fechaRecoleccion <= :hasta");
+        }
+        if (criterios.hayTipos()) {
+            w.append(" AND LOWER(").append(nombreTipo).append(") IN :tipos");
+        }
+
+        if (criterios.sexo() != null) {
+            w.append(" AND per.sexo = :sexo");
+        }
+        if (criterios.folioDesde() != null) {
+            w.append(" AND LENGTH(pac.folio) = ").append(CriteriosMuestra.ANCHO_FOLIO)
+             .append(" AND pac.folio >= :folioDesde AND pac.folio <= :folioHasta");
+        }
+
+        String sinTrasladoActivo = "NOT EXISTS (SELECT 1 FROM " + TRASLADO + " tr "
+                + "WHERE tr.muestra.id = m.id AND (tr.estado = " + ENVIADA
+                + " OR tr.estado = " + EN_DEVOLUCION + "))";
+
+        return "SELECT pac.uuid, pac.folio, "
+                + "CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', "
+                + "per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, '')), "
+                + "pac.activo, "
+                + "t.id, "
+                + nombreTipo + ", "
+                + "CASE WHEN t.id IS NULL THEN proto.id ELSE NULL END, "
+                + "SUM(CASE WHEN m.muestraPadre IS NULL THEN 1 ELSE 0 END), "
+                + "SUM(CASE WHEN m.muestraPadre IS NOT NULL THEN 1 ELSE 0 END), "
+                + "SUM(CASE WHEN m.posicionCaja IS NOT NULL"
+                + " AND m.estadoMuestra <> " + PRESTADA
+                + " AND " + sinTrasladoActivo + " THEN 1 ELSE 0 END), "
+                + "SUM(CASE WHEN m.posicionCaja IS NULL"
+                + " AND m.estadoMuestra <> " + BAJA
+                + " AND m.estadoMuestra <> " + PRESTADA
+                + " AND m.fechaAgotamiento IS NULL"
+                + " AND " + sinTrasladoActivo + " THEN 1 ELSE 0 END)"
+                + UNIONES_RESUMEN + w
+                + " GROUP BY pac.uuid, pac.folio, per.nombre, per.segundoNombre, "
+                + "per.apellidoPaterno, per.apellidoMaterno, pac.activo, "
+                + "t.id, " + nombreTipo + ", "
+                + "CASE WHEN t.id IS NULL THEN proto.id ELSE NULL END"
+                + " ORDER BY pac.folio ASC, " + nombreTipo + " ASC";
+    }
+
     /**
      * Los mismos criterios con el ocultamiento apagado.
      *
@@ -249,7 +346,8 @@ public class MuestraCursorRepositoryImpl implements MuestraCursorRepository {
         return new CriteriosMuestra(
                 c.idInstitucion(), c.incluirHistorico(), false,
                 c.busqueda(), c.desde(), c.hasta(), c.tipos(), c.sexo(),
-                c.folioDesde(), c.folioHasta());
+                c.folioDesde(), c.folioHasta(),
+                c.uuidPaciente(), c.idProtocolo(), c.sinProtocolo(), c.idToma());
     }
 
     @Override
@@ -299,6 +397,14 @@ public class MuestraCursorRepositoryImpl implements MuestraCursorRepository {
         TypedQuery<Muestra> q = em.createQuery(jpqlAlicuotas(criterios), Muestra.class);
         q.setParameter("idsPadre", idsPadre);
         q.setParameter("idInst", criterios.idInstitucion());
+        return q.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Object[]> buscarResumen(CriteriosMuestra criterios) {
+        Query q = em.createQuery(jpqlResumen(criterios));
+        enlazar(q, criterios);
         return q.getResultList();
     }
 }

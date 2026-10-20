@@ -114,6 +114,38 @@ public class MuestraApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public PaginaMuestras buscarPaginaMuestras(
+            String cursor, boolean haciaAtras, int tamano,
+            boolean incluirHistorico, boolean ocultarDevueltasHuerfanas,
+            String busqueda, LocalDate fechaDesde, LocalDate fechaHasta,
+            List<String> tipos, String sexo, String folioDesde, String folioHasta,
+            String uuidPaciente, Long idProtocolo, boolean sinProtocolo,
+            Long idToma) {
+
+        CriteriosMuestra criterios = CriteriosMuestra.de(
+                institucionContextService.getIdInstitucionActual(),
+                incluirHistorico, ocultarDevueltasHuerfanas,
+                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta,
+                uuidPaciente, idProtocolo, sinProtocolo, idToma);
+
+        return muestraService.buscarPagina(criterios, cursor, haciaAtras, tamano);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Object[]> buscarResumen(
+            boolean incluirHistorico,
+            String busqueda, LocalDate fechaDesde, LocalDate fechaHasta,
+            List<String> tipos, String sexo, String folioDesde, String folioHasta) {
+
+        CriteriosMuestra criterios = CriteriosMuestra.de(
+                institucionContextService.getIdInstitucionActual(),
+                incluirHistorico, false,
+                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta);
+
+        return muestraService.buscarResumen(criterios);
+    }
+
+    @Transactional(readOnly = true)
     public Muestra getMuestra(Long id) {
         return muestraService.getById(id);
     }

@@ -46,6 +46,9 @@ public interface MuestraRepository extends JpaRepository<Muestra, Long>, Muestra
 
     boolean existsByPaciente_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
             Long idPaciente, Long idInstitucion, Long idProtocolo);
+
+    boolean existsByToma_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
+            Long idToma, Long idInstitucion, Long idProtocolo);
     List<Muestra> findAllByPaciente_Uuid(String uuid);
     List<Muestra> findAllByPaciente_Folio(String folio);
     List<Muestra> findAllByPosicionCajaIsNull();
