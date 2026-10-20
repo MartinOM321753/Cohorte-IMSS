@@ -32,4 +32,19 @@ public class MuestraEscaneadaDTO {
      * propietaria ni la tiene en su poder, solo participó en un traslado pasado.
      */
     private boolean requiereHistorico;
+
+    // ── Datos para navegar al card del resumen ──────────────────────────────
+
+    /** Toma a la que pertenece (directa o vía la padre). */
+    private Long idToma;
+
+    /** Protocolo al que pertenece (directo o vía la padre). */
+    private Long idProtocolo;
+
+    /** Nombre del protocolo/tipo para mostrar en la tarjeta. */
+    private String nombreTipo;
+
+    private String uuidPaciente;
+    private String folioPaciente;
+    private String nombrePaciente;
 }

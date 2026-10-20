@@ -36,7 +36,7 @@ import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 
 @Slf4j
-@Service
+@Service    
 @AllArgsConstructor
 @RequireModulo(ModuloSistema.ESTUDIOS_MEDICOS)
 public class EstudiosApplicationService {

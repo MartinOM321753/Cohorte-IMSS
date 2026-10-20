@@ -99,7 +99,7 @@ public class PacienteService {
         String folio;
 
         if (folioCapturado == null || folioCapturado.isBlank()) {
-            folio = folioGeneratorService.generarFolio();
+            folio = folioGeneratorService.generarFolio(paciente.getInstitucion());
         } else {
             folio = folioGeneratorService.normalizar(folioCapturado);
             if (pacienteRepository.existsByFolio(folio)) {
@@ -291,7 +291,7 @@ public class PacienteService {
      */
     public Paciente toggleActivo(String uuid, Long idInstitucion) {
         Paciente paciente = pacienteRepository.findByUuidAndInstitucion_Id(uuid, idInstitucion)
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró el participante con uuid: " + uuid));
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el participante"));
         boolean nuevoEstado = !Boolean.TRUE.equals(paciente.getActivo());
         paciente.setActivo(nuevoEstado);
         paciente.setFechaActualizacion(LocalDateTime.now());

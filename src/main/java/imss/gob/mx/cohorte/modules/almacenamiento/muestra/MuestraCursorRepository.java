@@ -50,4 +50,13 @@ public interface MuestraCursorRepository {
      * detrás.</p>
      */
     long contarHuerfanasDevueltas(CriteriosMuestra criterios);
+
+    /**
+     * Resumen agrupado por participante × protocolo.
+     *
+     * <p>Devuelve una fila por cada combinación (paciente, protocolo) con los
+     * conteos de tubos, alícuotas, almacenadas y pendientes. Aplica los mismos
+     * filtros de visibilidad que el listado de detalle.</p>
+     */
+    List<Object[]> buscarResumen(CriteriosMuestra criterios);
 }

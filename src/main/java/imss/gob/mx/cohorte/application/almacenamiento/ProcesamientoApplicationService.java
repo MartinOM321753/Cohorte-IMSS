@@ -7,11 +7,16 @@ import imss.gob.mx.cohorte.modules.almacenamiento.lote.Lote;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.AccionTubo;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocolo;
+import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocoloRepository;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanAlicuotas;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
+import imss.gob.mx.cohorte.services.almacenamiento.muestra.RecetaTubo;
 import imss.gob.mx.cohorte.services.almacenamiento.procesamiento.DecisionTubo;
 import imss.gob.mx.cohorte.services.almacenamiento.procesamiento.ProcesamientoService;
 import imss.gob.mx.cohorte.services.almacenamiento.procesamiento.ResultadoProcesamiento;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +32,7 @@ import java.util.Map;
 public class ProcesamientoApplicationService {
 
     private final ProcesamientoService procesamientoService;
+    private final TuboProtocoloRepository tuboProtocoloRepository;
 
     @Transactional
     public ProcesarResultadoResponseDTO procesar(ProcesarProtocoloRequestDTO dto) {
@@ -39,7 +45,11 @@ public class ProcesamientoApplicationService {
                         t.getAccion(),
                         t.getVolumen(),
                         t.getUnidad(),
-                        t.getPlanVolumenes()));
+                        t.getPlanVolumenes(),
+                        t.getObservaciones(),
+                        t.getTransferirAutorizado(),
+                        t.getIdInstitucionDestino(),
+                        t.getMotivoTransferencia()));
             }
         }
 
@@ -51,8 +61,19 @@ public class ProcesamientoApplicationService {
     }
 
     @Transactional
-    public ProcesarResultadoResponseDTO alicuotarTubo(Long idPadre, java.util.List<Double> planVolumenes) {
-        return mapear(procesamientoService.alicuotarTubo(idPadre, planVolumenes));
+    public ProcesarResultadoResponseDTO alicuotarTubo(Long idPadre, Long idTuboProtocolo,
+                                                       java.util.List<Double> planVolumenes) {
+        return mapear(procesamientoService.alicuotarTubo(idPadre, idTuboProtocolo, planVolumenes));
+    }
+
+    @Transactional(readOnly = true)
+    public PlanAlicuotas previsualizarPlan(Long idTuboProtocolo, Double valor) {
+        TuboProtocolo tubo = tuboProtocoloRepository.findById(idTuboProtocolo)
+                .orElseThrow(() -> new ObjNotFoundException("No se encontró el tubo del protocolo."));
+        RecetaTubo receta = new RecetaTubo(
+                tubo.getNombre(), tubo.getNumeroAlicuotas(), tubo.getVolumenAlicuota(),
+                tubo.getUnidadVolumen(), tubo.admiteAlicuotaParcial(), tubo.getVolumenesAlicuota());
+        return PlanificadorAlicuotas.planificar(receta, valor);
     }
 
     private ProcesarResultadoResponseDTO mapear(ResultadoProcesamiento r) {
@@ -64,6 +85,7 @@ public class ProcesamientoApplicationService {
         for (Muestra p : r.padres()) {
             TuboProtocolo tubo = p.getTuboProtocolo();
             AccionTubo accion = tubo != null ? tubo.getAccion() : null;
+            boolean transferido = p.getEstadoMuestra() == imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra.PRESTADA;
             padres.add(ProcesarResultadoResponseDTO.PadreBreveDTO.builder()
                     .id(p.getId())
                     .etiqueta(p.getEtiqueta())
@@ -71,6 +93,10 @@ public class ProcesamientoApplicationService {
                     .nombreTubo(tubo != null ? tubo.getNombre() : null)
                     .valor(p.getValor())
                     .unidad(p.getUnidad())
+                    .remanente(p.getValorDisponible())
+                    .transferido(transferido)
+                    .institucionDestino(transferido && p.getInstitucionActual() != null
+                            ? p.getInstitucionActual().getNombre() : null)
                     .build());
         }
 

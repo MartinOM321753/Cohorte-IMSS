@@ -57,6 +57,11 @@ public class Lote {
     @JoinColumn(name = "id_protocolo")
     private Protocolo protocolo;
 
+    /** Toma de la que proviene este lote. Null en registros anteriores al rediseño. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_toma")
+    private imss.gob.mx.cohorte.modules.almacenamiento.toma.Toma toma;
+
     /** Número del lote dentro del participante (para rotularlo «Lote 1», «Lote 2»…). */
     @Column(name = "numero_lote", nullable = false)
     private Integer numeroLote;

@@ -435,6 +435,7 @@ public class PermisoAdminApplicationService {
      * alguien de otra institucion.
      */
     private void verificarAlcanceSobreUsuario(BeanUser objetivo) {
+        if (institucionCtx.esRootActual()) return;
         BeanUser actual = institucionCtx.getUsuarioActual();
         Long idObjetivo = objetivo.getInstitucion() != null ? objetivo.getInstitucion().getId() : null;
         Long idActual = actual.getInstitucion() != null ? actual.getInstitucion().getId() : null;

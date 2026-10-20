@@ -20,4 +20,5 @@ public class CajaResponseDTO {
     private Boolean activo;
     private Long idPosicionPiso;
     private String ubicacionPiso;
+    private String ordenLlenado;
 }

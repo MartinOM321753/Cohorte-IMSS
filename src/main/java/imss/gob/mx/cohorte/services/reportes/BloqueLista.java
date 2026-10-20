@@ -147,7 +147,15 @@ public class BloqueLista {
         // table-layout:fixed y un <colgroup> con los anchos: sin ellos el motor
         // reparte a su criterio y la última columna se sale del papel — se imprimía
         // el documento con la columna de estado fuera del borde.
-        sb.append("<table style=\"border-collapse:collapse;width:100%;table-layout:fixed;font-size:")
+        boolean conEspaciado = estilo.espaciadoColumnaMm() > 0 || estilo.espaciadoFilaMm() > 0;
+        if (conEspaciado) {
+            sb.append("<table style=\"border-collapse:separate;border-spacing:")
+              .append(estilo.espaciadoColumnaMm()).append("mm ")
+              .append(estilo.espaciadoFilaMm()).append("mm;");
+        } else {
+            sb.append("<table style=\"border-collapse:collapse;");
+        }
+        sb.append("width:100%;table-layout:fixed;font-size:")
           .append(estilo.tamanoPt()).append("pt;color:").append(estilo.colorTexto()).append(";\">");
         sb.append("<colgroup>");
         for (String col : cols) {
@@ -201,7 +209,8 @@ public class BloqueLista {
                     + Html.escapar(f.nombre()) + "</td>";
 
             case "valor" -> "<td style=\"" + base + "text-align:right;font-weight:bold;color:"
-                    + (f.estado().fuera() ? f.estado().color() : estilo.colorTexto()) + ";\">"
+                    + (estilo.interpretacionColor() && f.estado().fuera()
+                            ? f.estado().color() : estilo.colorTexto()) + ";\">"
                     + Html.escapar(f.valor())
                     + (f.unidad() == null || f.unidad().isBlank() ? ""
                        : " <span style=\"font-weight:normal;font-size:" + (estilo.tamanoPt() - 1.5)
@@ -217,7 +226,8 @@ public class BloqueLista {
             // de un vistazo, que es lo único que tiene que hacer.
             case "estado" -> "<td style=\"" + base + "text-align:right;font-size:"
                     + (estilo.tamanoPt() - 1) + "pt;color:"
-                    + (f.estado().medido() ? f.estado().color() : "#5a6b78") + ";\">"
+                    + (estilo.interpretacionColor() && f.estado().medido()
+                            ? f.estado().color() : "#5a6b78") + ";\">"
                     + Html.escapar(f.etiquetaEstado())
                     + "</td>";
 
@@ -248,9 +258,11 @@ public class BloqueLista {
           .append(EstadoResultado.EN_RANGO.fondo()).append(";\"></div>");
 
         if (b.marcaVisible()) {
+            String colorMarca = estilo.interpretacionColor() && f.estado().medido()
+                    ? f.estado().color() : "#555555";
             sb.append("<div style=\"position:absolute;top:-0.8mm;height:").append(altoMm + 1.6)
               .append("mm;left:").append(b.marcaCss()).append("%;width:0.8mm;background:")
-              .append(f.estado().medido() ? f.estado().color() : "#5a6b78")
+              .append(colorMarca)
               .append(";\"></div>");
         }
         sb.append("</div>");
@@ -258,11 +270,19 @@ public class BloqueLista {
     }
 
     /** El aspecto de la lista. Se reaprovecha el de las tablas para no tener dos. */
-    public record Estilo(double tamanoPt, String colorTexto, String colorBorde) {
+    public record Estilo(double tamanoPt, String colorTexto, String colorBorde,
+                         double espaciadoColumnaMm, double espaciadoFilaMm,
+                         boolean interpretacionColor) {
 
         public static Estilo de(JsonNode el) {
             BloqueResultados.Estilo t = BloqueResultados.Estilo.de(el);
-            return new Estilo(t.tamanoPt(), t.colorTexto(), t.colorBorde());
+            JsonNode estilo = el.path("estilo");
+            return new Estilo(
+                    t.tamanoPt(), t.colorTexto(), t.colorBorde(),
+                    estilo.path("espaciadoColumnaMm").asDouble(0),
+                    estilo.path("espaciadoFilaMm").asDouble(0),
+                    !estilo.path("interpretacionColor").isBoolean()
+                            || estilo.path("interpretacionColor").asBoolean(true));
         }
     }
 }

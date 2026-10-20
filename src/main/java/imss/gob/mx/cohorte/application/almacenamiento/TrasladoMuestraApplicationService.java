@@ -104,7 +104,7 @@ public class TrasladoMuestraApplicationService {
                 idsMuestras,
                 institucionContextService.getIdInstitucionActual(),
                 idInstitucionDestino,
-                uuidAutoriza, motivo, observaciones, fechaLimite);
+                uuidAutoriza, motivo, observaciones, fechaLimite, true);
     }
 
     @Transactional

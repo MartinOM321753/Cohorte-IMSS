@@ -28,6 +28,24 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
     @Query(value = "SELECT CAST(p.folio AS UNSIGNED) FROM paciente p WHERE p.folio REGEXP '^[0-9]{6}$' ORDER BY 1", nativeQuery = true)
     List<Integer> findAllFoliosNumericos();
 
+    @Query(value = "SELECT CAST(p.folio AS UNSIGNED) FROM paciente p WHERE p.folio REGEXP '^[0-9]{6}$' AND CAST(p.folio AS UNSIGNED) BETWEEN :inicio AND :fin ORDER BY 1", nativeQuery = true)
+    List<Integer> findFoliosNumericosEnRango(@Param("inicio") int inicio, @Param("fin") int fin);
+
+    /**
+     * Participantes de las instituciones dadas cuyo folio cae en el rango numérico.
+     * Solo folios de seis dígitos, como los que genera el sistema; el rango se compara
+     * como número para que «1» y «000001» caigan en el mismo lugar.
+     */
+    @Query(value = "SELECT p.uuid AS uuid, p.folio AS folio, p.id_institucion AS idInstitucion "
+            + "FROM paciente p "
+            + "WHERE p.folio REGEXP '^[0-9]{6}$' "
+            + "AND CAST(p.folio AS UNSIGNED) BETWEEN :inicio AND :fin "
+            + "AND p.id_institucion IN (:ids) "
+            + "ORDER BY p.folio", nativeQuery = true)
+    List<PacienteFolioProyeccion> findEnRangoDeFolios(@Param("inicio") int inicio,
+                                                      @Param("fin") int fin,
+                                                      @Param("ids") List<Long> ids);
+
     List<Paciente> findAllByActivo(Boolean activo);
 
     Optional<Paciente> findByUuid(String uuid);
@@ -36,6 +54,16 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     /** Resuelve el expediente propio de un usuario PACIENTE a partir de su Persona vinculada. */
     Optional<Paciente> findByPersona_Id(Long personaId);
+
+    /**
+     * Si esta cuenta es de un participante, sin traerse el expediente.
+     *
+     * <p>Lo pregunta la sesion: «Mis cuestionarios» es solo para ellos, y el permiso no
+     * basta para saberlo —lo tienen tambien ROOT y ADMINISTRADOR, que no tienen
+     * expediente—. Sin esto, el menu ofrecia una pantalla que respondia «esta cuenta no
+     * esta vinculada a un expediente de participante».</p>
+     */
+    boolean existsByPersona_Id(Long personaId);
 
     /** Cuenta pacientes según su estado activo/inactivo (para el dashboard). */
     long countByActivo(boolean activo);

@@ -9,6 +9,9 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.PacienteEstadoValidato
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.AccionTubo;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.Protocolo;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocolo;
+import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocoloRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.toma.Toma;
+import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
@@ -20,6 +23,8 @@ import imss.gob.mx.cohorte.services.almacenamiento.muestra.MuestraService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.RecetaTubo;
 import imss.gob.mx.cohorte.services.almacenamiento.protocolo.ProtocoloService;
+import imss.gob.mx.cohorte.services.almacenamiento.toma.TomaService;
+import imss.gob.mx.cohorte.services.almacenamiento.traslado.TrasladoMuestraService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException;
@@ -57,6 +62,9 @@ public class ProcesamientoService {
     private final MaterializacionAlicuotaService materializacionService;
     private final LoteRepository loteRepository;
     private final InstitucionContextService institucionContextService;
+    private final TomaService tomaService;
+    private final TuboProtocoloRepository tuboProtocoloRepository;
+    private final TrasladoMuestraService trasladoMuestraService;
 
     @Transactional
     public ResultadoProcesamiento procesar(String pacienteUUID, Long idProtocolo, LocalDateTime fechaRecoleccion,
@@ -72,12 +80,16 @@ public class ProcesamientoService {
                     "No se puede procesar: el participante está inactivo (consentimiento retirado o baja). "
                     + "Reactívelo para procesar sus muestras.");
         }
-        // Una sola ronda (F4) por (participante, protocolo): no se re-procesa. Para
-        // alicuotar tubos que quedaron pendientes está alicuotarTubo (2ª pasada).
-        if (muestraRepository.existsByPaciente_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
-                paciente.getId(), inst.getId(), protocolo.getId())) {
-            throw new ObjConflictException("El participante " + paciente.getFolio()
-                    + " ya fue procesado con el protocolo «" + protocolo.getNombre()
+
+        Toma toma = tomaService.findOrCreate(paciente, protocolo.getTipoOrigen(),
+                fechaRecoleccion, inst, usuario, observaciones);
+
+        // Una sola ronda (F4) por (toma, protocolo, institución): no se re-procesa.
+        // Para alicuotar tubos que quedaron pendientes está alicuotarTubo (2ª pasada).
+        if (muestraRepository.existsByToma_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
+                toma.getId(), inst.getId(), protocolo.getId())) {
+            throw new ObjConflictException("Esta toma ya fue procesada con el protocolo «"
+                    + protocolo.getNombre()
                     + "». Para alicuotar más tubos, use la opción de alicuotar en su card.");
         }
 
@@ -92,53 +104,94 @@ public class ProcesamientoService {
 
         List<Muestra> padres = new ArrayList<>();
         List<Muestra> alicuotas = new ArrayList<>();
-        // Lotes de esta tanda, uno por clave de agrupación, preservando el orden.
         Map<String, Lote> lotesPorClave = new LinkedHashMap<>();
         Map<String, Integer> contadorEnLote = new HashMap<>();
-        // Tamaño CONFIGURADO de cada lote (suma de alícuotas de los tubos que lo
-        // alimentan, estén o no en esta pasada). Es el «total» de la etiqueta
-        // L{lote}/{pos}-{total}, y es fijo: 2 tubos × 6 agrupados → total 12.
         Map<String, Integer> totalConfiguradoPorClave = totalesPorClave(protocolo);
-        // El consecutivo de lote es por (participante, protocolo): L1, L2…
         int siguienteNumeroLote = loteRepository.findMaxNumeroLoteByPacienteAndProtocolo(
                 paciente.getId(), inst.getId(), protocolo.getId());
 
         boolean procesoAlguno = false;
+        // Acumular traslados por institución destino para enviar UN correo consolidado
+        Map<Long, List<TrasladoMuestra>> trasladosPorDestino = new LinkedHashMap<>();
 
         for (TuboProtocolo tubo : protocolo.getTubos()) {
             if (!Boolean.TRUE.equals(tubo.getActivo())) {
                 continue;
             }
             DecisionTubo dec = porTubo.get(tubo.getId());
-            // Sin decisión explícita se procesa con los valores del protocolo; una
-            // decisión con incluir=false lo deja fuera de esta tanda.
             if (dec != null && !dec.incluir()) {
                 continue;
             }
             procesoAlguno = true;
             AccionTubo accion = dec != null && dec.accion() != null ? dec.accion() : tubo.getAccion();
 
+            boolean hacerTransferencia = false;
+            if (accion == AccionTubo.TRANSFERIR) {
+                if (dec != null && Boolean.TRUE.equals(dec.transferirAutorizado())) {
+                    hacerTransferencia = true;
+                }
+                accion = AccionTubo.GUARDAR;
+            }
+
+            if (accion != AccionTubo.ALICUOTAR) {
+                Double vol = dec != null ? dec.volumen() : null;
+                if (vol == null || vol <= 0) {
+                    throw new ValidationException(
+                            "El volumen del tubo «" + tubo.getNombre() + "» es obligatorio para la acción "
+                            + accion + ". Indique el volumen recolectado.");
+                }
+            }
+
+            String obsTubo = dec != null && dec.observaciones() != null
+                    ? dec.observaciones() : observaciones;
             Muestra padre = crearPadre(tubo, accion, dec, protocolo, paciente, usuario, inst,
-                    fechaRecoleccion, observaciones);
+                    fechaRecoleccion, obsTubo, toma);
             padres.add(padre);
 
             if (accion == AccionTubo.ALICUOTAR) {
                 Lote lote = resolverLote(tubo, protocolo, paciente, usuario, inst,
-                        lotesPorClave, contadorEnLote, siguienteNumeroLote);
-                // Un lote nuevo tomó siguienteNumeroLote+1; uno reutilizado devuelve
-                // el suyo (≤ actual). El máximo deja el consecutivo listo para el próximo.
+                        lotesPorClave, contadorEnLote, siguienteNumeroLote, toma);
                 siguienteNumeroLote = Math.max(siguienteNumeroLote, lote.getNumeroLote());
                 int totalLote = totalConfiguradoPorClave.getOrDefault(claveLote(tubo),
                         tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0);
                 alicuotas.addAll(generarAlicuotas(padre, tubo, dec, lote, contadorEnLote,
-                        claveLote(tubo), totalLote, usuario, inst, fechaRecoleccion));
+                        claveLote(tubo), totalLote, usuario, inst, fechaRecoleccion, toma));
             }
-            // GUARDAR y ESTUDIO: la padre ya quedó creada. Los estudios se capturan
-            // después con el flujo de Estudios de muestra sobre esa padre.
+
+            if (hacerTransferencia) {
+                Long idDestino = dec != null && dec.idInstitucionDestino() != null
+                        ? dec.idInstitucionDestino()
+                        : (tubo.getInstitucionDestino() != null ? tubo.getInstitucionDestino().getId() : null);
+                if (idDestino == null) {
+                    throw new ValidationException(
+                            "El tubo «" + tubo.getNombre() + "» está configurado para transferir "
+                            + "pero no tiene institución destino.");
+                }
+                String motivo = dec != null && dec.motivoTransferencia() != null
+                        && !dec.motivoTransferencia().isBlank()
+                        ? dec.motivoTransferencia()
+                        : tubo.getMotivoTransferencia() != null
+                                && !tubo.getMotivoTransferencia().isBlank()
+                        ? tubo.getMotivoTransferencia()
+                        : "Transferencia automática — protocolo «"
+                                + protocolo.getNombre() + "»";
+                List<TrasladoMuestra> creados = trasladoMuestraService.iniciarPrestamo(
+                        List.of(padre.getId()), inst.getId(), idDestino,
+                        usuario.getUUID(), motivo, obsTubo, null, false);
+                trasladosPorDestino.computeIfAbsent(idDestino, k -> new ArrayList<>()).addAll(creados);
+            }
         }
 
         if (!procesoAlguno) {
             throw new ValidationException("No se seleccionó ningún tubo para procesar.");
+        }
+
+        // Un solo correo por institución destino con todas las muestras transferidas
+        for (List<TrasladoMuestra> grupo : trasladosPorDestino.values()) {
+            if (!grupo.isEmpty()) {
+                trasladoMuestraService.enviarEmailPrestamoEnviado(
+                        grupo, grupo.get(0).getInstitucionDestino());
+            }
         }
 
         return new ResultadoProcesamiento(padres, alicuotas, new ArrayList<>(lotesPorClave.values()));
@@ -148,27 +201,61 @@ public class ProcesamientoService {
      * 2ª pasada: alicuota un tubo primario que ya existe (p. ej. uno que se guardó
      * y ahora se decide alicuotar). Crea un lote NUEVO (L+1 dentro del participante,
      * protocolo) con las alícuotas de ese tubo.
+     *
+     * @param idTuboProtocolo si no es null, usa ese TuboProtocolo en lugar del propio
+     *                        del tubo (protocolo externo de la institución actual)
      */
     @Transactional
-    public ResultadoProcesamiento alicuotarTubo(Long idPadre, List<Double> planVolumenes) {
+    public ResultadoProcesamiento alicuotarTubo(Long idPadre, Long idTuboProtocolo,
+                                                List<Double> planVolumenes) {
         Institucion inst = institucionContextService.getInstitucionActual();
         BeanUser usuario = institucionContextService.getUsuarioActual();
         Muestra padre = muestraService.getByIdComoTenedor(idPadre);
         PacienteEstadoValidator.requirePacienteActivo(padre, "alicuotar");
 
-        TuboProtocolo tubo = padre.getTuboProtocolo();
-        if (tubo == null || tubo.getProtocolo() == null) {
-            throw new ValidationException("Este tubo no pertenece a un protocolo; no se puede alicuotar por aquí.");
-        }
-        if (tubo.getAccion() != AccionTubo.ALICUOTAR) {
-            throw new ValidationException("El tubo «" + tubo.getNombre()
-                    + "» no está configurado para alicuotar. Edite el protocolo (acción Alicuotar) y reintente.");
-        }
         if (PlanificadorAlicuotas.agotado(padre.getValorDisponible())) {
             throw new ValidationException("El tubo ya no tiene volumen disponible para alicuotar.");
         }
 
-        Protocolo proto = tubo.getProtocolo();
+        TuboProtocolo tubo;
+        Protocolo proto;
+
+        if (idTuboProtocolo != null) {
+            tubo = tuboProtocoloRepository.findById(idTuboProtocolo)
+                    .orElseThrow(() -> new ObjNotFoundException(
+                            "No se encontró la configuración de tubo del protocolo."));
+            proto = tubo.getProtocolo();
+            if (proto == null) {
+                throw new ValidationException("La configuración de tubo no pertenece a un protocolo.");
+            }
+            institucionContextService.verificarPertenece(proto.getInstitucion());
+            if (tubo.getAccion() != AccionTubo.ALICUOTAR) {
+                throw new ValidationException("El tubo «" + tubo.getNombre()
+                        + "» no está configurado para alicuotar.");
+            }
+            if (padre.getTipoMuestra() != null && proto.getTipoOrigen() != null
+                    && !padre.getTipoMuestra().getNombre().equalsIgnoreCase(proto.getTipoOrigen().getNombre())) {
+                throw new ValidationException(
+                        "El protocolo «" + proto.getNombre() + "» es para «"
+                        + proto.getTipoOrigen().getNombre() + "», pero el tubo es de «"
+                        + padre.getTipoMuestra().getNombre() + "».");
+            }
+        } else {
+            tubo = padre.getTuboProtocolo();
+            if (tubo == null || tubo.getProtocolo() == null) {
+                throw new ValidationException(
+                        "Este tubo no pertenece a un protocolo; no se puede alicuotar por aquí.");
+            }
+            if (tubo.getAccion() != AccionTubo.ALICUOTAR) {
+                throw new ValidationException("El tubo «" + tubo.getNombre()
+                        + "» no está configurado para alicuotar. Edite el protocolo "
+                        + "(acción Alicuotar) y reintente.");
+            }
+            proto = tubo.getProtocolo();
+        }
+
+        Toma toma = padre.getToma();
+
         int nextLote = loteRepository.findMaxNumeroLoteByPacienteAndProtocolo(
                 padre.getPaciente().getId(), inst.getId(), proto.getId()) + 1;
         Lote lote = new Lote();
@@ -176,6 +263,7 @@ public class ProcesamientoService {
         lote.setPaciente(padre.getPaciente());
         lote.setTipoResultante(tubo.getTipoResultante());
         lote.setProtocolo(proto);
+        lote.setToma(toma);
         lote.setNumeroLote(nextLote);
         lote.setUsuarioProcesa(usuario);
         lote.setFechaCreacion(Timestamp.valueOf(LocalDateTime.now()));
@@ -186,9 +274,9 @@ public class ProcesamientoService {
         contador.put(clave, 0);
         int totalLote = tubo.getNumeroAlicuotas() != null ? tubo.getNumeroAlicuotas() : 0;
         DecisionTubo dec = new DecisionTubo(tubo.getId(), true, AccionTubo.ALICUOTAR,
-                padre.getValor(), null, planVolumenes);
+                padre.getValor(), null, planVolumenes, null);
         List<Muestra> alic = generarAlicuotas(padre, tubo, dec, lote, contador, clave, totalLote,
-                usuario, inst, padre.getFechaRecoleccion());
+                usuario, inst, padre.getFechaRecoleccion(), toma);
         if (alic.isEmpty()) {
             throw new ValidationException("No alcanzó el volumen disponible para ninguna alícuota completa.");
         }
@@ -211,18 +299,18 @@ public class ProcesamientoService {
 
     private Muestra crearPadre(TuboProtocolo tubo, AccionTubo accion, DecisionTubo dec, Protocolo protocolo,
                                Paciente paciente, BeanUser usuario, Institucion inst,
-                               LocalDateTime fechaRecoleccion, String observaciones) {
+                               LocalDateTime fechaRecoleccion, String observaciones, Toma toma) {
         String prefijoRaw = tubo.getPrefijoCodigo();
         String folio = paciente.getFolio();
-        // El tubo primario se etiqueta por su ORDEN en el protocolo (T1…TN), no por
-        // número de lote: su identidad es el tubo, y de él pueden salir varios lotes.
         int orden = tubo.getOrden() != null ? tubo.getOrden() : 1;
 
         Muestra padre = new Muestra();
-        padre.setEtiqueta(EtiquetaMuestra.primario(prefijoRaw, folio, inst.getId(), orden));
-        padre.setNumeroLote(orden); // en una padre, numeroLote guarda el orden T (vestigial)
+        padre.setEtiqueta(etiquetaLibre(
+                EtiquetaMuestra.primario(prefijoRaw, folio, inst.getId(), orden), inst.getId()));
+        padre.setNumeroLote(orden);
         padre.setTipoMuestra(protocolo.getTipoOrigen());
         padre.setTuboProtocolo(tubo);
+        padre.setToma(toma);
         padre.setPaciente(paciente);
         padre.setUsuarioRecolecta(usuario);
         padre.setInstitucion(inst);
@@ -231,11 +319,10 @@ public class ProcesamientoService {
         padre.setObservaciones(observaciones);
         padre.setFechaRecoleccion(fechaRecoleccion);
         padre.setValorComprometido(0.0);
-        // Unidad: en ALICUOTAR la manda el tubo (la misma que descontará); en los
-        // demás, la que venga de la decisión.
-        padre.setUnidad(accion == AccionTubo.ALICUOTAR ? tubo.getUnidadVolumen()
+        padre.setUnidad(tubo.getUnidadVolumen() != null ? tubo.getUnidadVolumen()
                 : (dec != null ? dec.unidad() : null));
-        padre.setValor(dec != null ? dec.volumen() : null);
+        Double volDecision = dec != null ? dec.volumen() : null;
+        padre.setValor(volDecision != null ? volDecision : tubo.getVolumenEsperado());
 
         return muestraService.create(padre);
     }
@@ -250,7 +337,7 @@ public class ProcesamientoService {
 
     private Lote resolverLote(TuboProtocolo tubo, Protocolo protocolo, Paciente paciente, BeanUser usuario,
                               Institucion inst, Map<String, Lote> lotesPorClave,
-                              Map<String, Integer> contadorEnLote, int siguienteNumeroLote) {
+                              Map<String, Integer> contadorEnLote, int siguienteNumeroLote, Toma toma) {
         String clave = claveLote(tubo);
         Lote existente = lotesPorClave.get(clave);
         if (existente != null) {
@@ -261,6 +348,7 @@ public class ProcesamientoService {
         lote.setPaciente(paciente);
         lote.setTipoResultante(tubo.getTipoResultante());
         lote.setProtocolo(protocolo);
+        lote.setToma(toma);
         lote.setNumeroLote(siguienteNumeroLote + 1);
         lote.setUsuarioProcesa(usuario);
         lote.setFechaCreacion(Timestamp.valueOf(LocalDateTime.now()));
@@ -274,7 +362,8 @@ public class ProcesamientoService {
 
     private List<Muestra> generarAlicuotas(Muestra padre, TuboProtocolo tubo, DecisionTubo dec, Lote lote,
                                             Map<String, Integer> contadorEnLote, String clave, int totalLote,
-                                            BeanUser usuario, Institucion inst, LocalDateTime fechaRecoleccion) {
+                                            BeanUser usuario, Institucion inst, LocalDateTime fechaRecoleccion,
+                                            Toma toma) {
         RecetaTubo receta = recetaDe(tubo);
         PlanificadorAlicuotas.validarUnidad(tubo.getUnidadVolumen(), padre.getUnidad());
 
@@ -293,7 +382,7 @@ public class ProcesamientoService {
             volumenes = PlanificadorAlicuotas.planificar(receta, padre.getValorDisponible(), slotsLibres)
                     .volumenesSugeridos();
             if (volumenes.isEmpty()) {
-                return List.of(); // no alcanzó para ninguna completa
+                return List.of();
             }
         } else {
             volumenes = PlanificadorAlicuotas.validarPlan(planVolumenes, receta, padre.getValorDisponible(), slotsLibres);
@@ -310,20 +399,20 @@ public class ProcesamientoService {
             int numeroEnLote = contadorEnLote.merge(clave, 1, Integer::sum);
 
             Muestra a = new Muestra();
-            // Etiqueta por LOTE: prefijo del tubo + L{lote}/{pos}-{total}. La posición
-            // es la del lote (continua entre tubos), no el hueco del tubo.
-            a.setEtiqueta(EtiquetaMuestra.alicuotaLote(prefijo, folio, inst.getId(),
-                    lote.getNumeroLote(), numeroEnLote, totalLote));
+            a.setEtiqueta(etiquetaLibre(
+                    EtiquetaMuestra.alicuotaLote(prefijo, folio, inst.getId(),
+                            lote.getNumeroLote(), numeroEnLote, totalLote), inst.getId()));
             a.setValor(volumenes.get(i));
             a.setUnidad(unidad);
             a.setFechaRecoleccion(fechaRecoleccion);
             a.setPaciente(padre.getPaciente());
             a.setUsuarioRecolecta(usuario != null ? usuario : padre.getUsuarioRecolecta());
-            a.setTipoMuestra(tubo.getTipoResultante()); // RESULTANTE, no el origen del padre
+            a.setTipoMuestra(tubo.getTipoResultante());
             a.setTuboProtocolo(tubo);
-            a.setMuestraPadre(padre); // conserva de qué tubo primario salió
-            a.setNumeroAlicuota(slot); // hueco dentro del tubo (para la receta)
-            a.setTotalAlicuotas(totalLote); // tamaño del LOTE, para "pos-total"
+            a.setToma(toma);
+            a.setMuestraPadre(padre);
+            a.setNumeroAlicuota(slot);
+            a.setTotalAlicuotas(totalLote);
             a.setLote(lote);
             a.setNumeroEnLote(numeroEnLote);
             a.setNumeroLote(lote.getNumeroLote());
@@ -340,6 +429,23 @@ public class ProcesamientoService {
                 + "» → lote " + lote.getNumeroLote() + ". Se descuenta al ubicar cada una.");
 
         return generadas;
+    }
+
+    /**
+     * Si {@code base} ya está en uso, le agrega {@code .2}, {@code .3}… hasta
+     * encontrar una etiqueta libre. Primer uso queda sin sufijo.
+     */
+    private String etiquetaLibre(String base, Long idInstitucion) {
+        if (muestraRepository.findByEtiquetaIgnoreCaseAndInstitucion_Id(base, idInstitucion).isEmpty()) {
+            return base;
+        }
+        for (int n = 2; n < 1000; n++) {
+            String candidata = base + "." + n;
+            if (muestraRepository.findByEtiquetaIgnoreCaseAndInstitucion_Id(candidata, idInstitucion).isEmpty()) {
+                return candidata;
+            }
+        }
+        throw new ValidationException("No se pudo generar una etiqueta única para: " + base);
     }
 
     private static RecetaTubo recetaDe(TuboProtocolo tubo) {

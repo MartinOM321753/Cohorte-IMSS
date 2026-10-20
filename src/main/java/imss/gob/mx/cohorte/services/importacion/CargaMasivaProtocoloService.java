@@ -13,6 +13,8 @@ import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.AccionTubo;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.Protocolo;
 import imss.gob.mx.cohorte.modules.almacenamiento.protocolo.TuboProtocolo;
+import imss.gob.mx.cohorte.modules.almacenamiento.toma.Toma;
+import imss.gob.mx.cohorte.modules.almacenamiento.traslado.TrasladoMuestra;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import imss.gob.mx.cohorte.modules.paciente.Paciente;
 import imss.gob.mx.cohorte.modules.paciente.PacienteRepository;
@@ -21,30 +23,21 @@ import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.EtiquetaMuestra;
 import imss.gob.mx.cohorte.services.almacenamiento.muestra.PlanificadorAlicuotas;
 import imss.gob.mx.cohorte.services.almacenamiento.protocolo.ProtocoloService;
+import imss.gob.mx.cohorte.services.almacenamiento.toma.TomaService;
+import imss.gob.mx.cohorte.services.almacenamiento.traslado.TrasladoMuestraService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.*;
 
-/**
- * Carga masiva asociada a un <b>protocolo</b>. El archivo trae ALÍCUOTAS; los
- * tubos primarios (T1…TN) se generan a partir de la configuración del protocolo,
- * y de cada alícuota se conserva de qué tubo salió. Es el equivalente, para el
- * flujo nuevo, de {@code CargaMasivaMuestrasService} (que sigue vivo para el
- * formato anterior basado en tipo+tubo).
- *
- * <p>Columnas de la plantilla: {@code folio}, {@code tubo} (número T del tubo
- * primario; si falta, se infiere por orden), {@code lote} (número L; por omisión
- * 1), {@code volumen}, {@code unidad} (opcional), {@code caja} y {@code posicion}
- * (opcionales, p. ej. A1), {@code fecha} (opcional).</p>
- */
 @Service
 @RequiredArgsConstructor
 public class CargaMasivaProtocoloService {
@@ -57,268 +50,539 @@ public class CargaMasivaProtocoloService {
     private final CajaCriogenicaRepository cajaRepository;
     private final PosicionCajaRepository posicionCajaRepository;
     private final InstitucionContextService institucionContextService;
+    private final TomaService tomaService;
+    private final TrasladoMuestraService trasladoMuestraService;
+
+    // ── API pública ──────────────────────────────────────────────────────────
+
+    public List<String> listarHojas(MultipartFile archivo) {
+        List<LectorArchivoTabular.HojaLeida> hojas =
+                lector.leerHojas(archivo, LectorArchivoTabular.Topes.porOmision());
+        return hojas.stream().map(LectorArchivoTabular.HojaLeida::nombre).toList();
+    }
 
     @Transactional(readOnly = true)
     public ResultadoCargaProtocolo previsualizar(MultipartFile archivo, Long idProtocolo, String fechaPorOmision) {
-        return analizar(lector.leer(archivo), idProtocolo, fechaPorOmision, false);
+        return analizarTodo(contenidoDe(archivo), Map.of("", idProtocolo), fechaPorOmision, false);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public ResultadoCargaProtocolo confirmar(MultipartFile archivo, Long idProtocolo, String fechaPorOmision) {
-        return analizar(lector.leer(archivo), idProtocolo, fechaPorOmision, true);
+        return analizarTodo(contenidoDe(archivo), Map.of("", idProtocolo), fechaPorOmision, true);
     }
 
-    // ── Análisis / escritura ──────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public ResultadoCargaProtocolo previsualizarMultiHoja(MultipartFile archivo,
+                                                          Map<String, Long> hojaProtocolo,
+                                                          String fechaPorOmision) {
+        return analizarTodo(contenidoDe(archivo), hojaProtocolo, fechaPorOmision, false);
+    }
 
-    private ResultadoCargaProtocolo analizar(TablaLeida tabla, Long idProtocolo, String fechaPorOmision, boolean escribir) {
+    @Transactional(rollbackFor = Exception.class)
+    public ResultadoCargaProtocolo confirmarMultiHoja(MultipartFile archivo,
+                                                      Map<String, Long> hojaProtocolo,
+                                                      String fechaPorOmision) {
+        return analizarTodo(contenidoDe(archivo), hojaProtocolo, fechaPorOmision, true);
+    }
+
+    // ── Núcleo ───────────────────────────────────────────────────────────────
+
+    private ResultadoCargaProtocolo analizarTodo(byte[] contenido, Map<String, Long> hojaProtocolo,
+                                                  String fechaPorOmision, boolean escribir) {
         Institucion inst = institucionContextService.getInstitucionActual();
         BeanUser usuario = institucionContextService.getUsuarioActual();
-        Protocolo protocolo = protocoloService.getById(idProtocolo);
+        Timestamp ahora = Timestamp.valueOf(LocalDateTime.now());
 
-        // Tubos del protocolo por orden (T).
-        Map<Integer, TuboProtocolo> tuboPorOrden = new LinkedHashMap<>();
-        List<TuboProtocolo> tubosAlic = new ArrayList<>();
-        for (TuboProtocolo t : protocolo.getTubos()) {
-            if (Boolean.TRUE.equals(t.getActivo())) {
-                int o = t.getOrden() != null ? t.getOrden() : 0;
-                tuboPorOrden.put(o, t);
-                if (t.getAccion() == AccionTubo.ALICUOTAR) tubosAlic.add(t);
-            }
-        }
-        tubosAlic.sort((a, b) -> (a.getOrden() == null ? 0 : a.getOrden()) - (b.getOrden() == null ? 0 : b.getOrden()));
+        List<LectorArchivoTabular.HojaLeida> hojas =
+                lector.leerHojas(contenido, LectorArchivoTabular.Topes.porOmision());
 
         List<String> errores = new ArrayList<>();
         List<String> avisos = new ArrayList<>();
+        Set<String> procesados = new HashSet<>();
+        Contadores c = new Contadores();
+        Map<Long, List<TrasladoMuestra>> trasladosPorDestino = new LinkedHashMap<>();
 
-        Cols cols = colIndices(tabla.encabezados(), errores);
-        if (cols == null || tabla.vacia()) {
-            if (tabla.vacia()) errores.add("El archivo no tiene filas.");
-            return new ResultadoCargaProtocolo(0, 0, 0, 0, 0, errores, avisos);
+        for (LectorArchivoTabular.HojaLeida hoja : hojas) {
+            Long idProtocolo = hojaProtocolo.get(hoja.nombre());
+            if (idProtocolo == null && hojaProtocolo.containsKey("")) {
+                idProtocolo = hojaProtocolo.get("");
+            }
+            if (idProtocolo == null) continue;
+
+            Protocolo protocolo = protocoloService.getById(idProtocolo);
+            String prefHoja = hojas.size() > 1 ? "Hoja «" + hoja.nombre() + "»: " : "";
+
+            analizarHoja(hoja.tabla(), protocolo, fechaPorOmision, escribir,
+                    inst, usuario, ahora, procesados, c, trasladosPorDestino,
+                    errores, avisos, prefHoja);
         }
 
-        // Parseo de filas → agrupadas por folio.
+        if (escribir && !errores.isEmpty()) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException(
+                    "La carga tiene " + errores.size() + " error(es); no se escribió nada.");
+        }
+
+        if (escribir) {
+            for (List<TrasladoMuestra> grupo : trasladosPorDestino.values()) {
+                if (!grupo.isEmpty()) {
+                    trasladoMuestraService.enviarEmailPrestamoEnviado(
+                            grupo, grupo.get(0).getInstitucionDestino());
+                }
+            }
+        }
+
+        return new ResultadoCargaProtocolo(c.procesamientos, c.padres, c.alicuotas,
+                c.lotes, c.ubicadas, c.transferencias, errores, avisos);
+    }
+
+    private void analizarHoja(TablaLeida tabla, Protocolo protocolo, String fechaPorOmision,
+                              boolean escribir, Institucion inst, BeanUser usuario, Timestamp ahora,
+                              Set<String> procesados, Contadores c,
+                              Map<Long, List<TrasladoMuestra>> trasladosPorDestino,
+                              List<String> errores, List<String> avisos, String prefHoja) {
+
+        List<TuboProtocolo> tubosActivos = new ArrayList<>();
+        List<TuboProtocolo> tubosAlic = new ArrayList<>();
+        for (TuboProtocolo t : protocolo.getTubos()) {
+            if (!Boolean.TRUE.equals(t.getActivo())) continue;
+            tubosActivos.add(t);
+            if (t.getAccion() == AccionTubo.ALICUOTAR) tubosAlic.add(t);
+        }
+        tubosActivos.sort(Comparator.comparingInt(t -> t.getOrden() != null ? t.getOrden() : 0));
+        tubosAlic.sort(Comparator.comparingInt(t -> t.getOrden() != null ? t.getOrden() : 0));
+
+        List<RangoTubo> rangos = construirRangos(tubosAlic);
+        int totalEsperado = rangos.isEmpty() ? 0 : rangos.get(rangos.size() - 1).hasta;
+
+        Cols cols = colIndices(tabla.encabezados(), errores, prefHoja);
+        if (cols == null || tabla.vacia()) {
+            if (tabla.vacia()) errores.add(prefHoja + "La hoja no tiene filas de datos.");
+            return;
+        }
+
         Map<String, List<FilaAlic>> porFolio = new LinkedHashMap<>();
         List<List<String>> filas = tabla.filas();
+        int autoNumero = 0;
+        String folioAnterior = null;
+
         for (int i = 0; i < filas.size(); i++) {
             List<String> fila = filas.get(i);
             int numFila = tabla.numerosDeFila().get(i);
             String folio = celda(fila, cols.folio);
-            if (folio == null || folio.isBlank()) { errores.add("Fila " + numFila + ": falta el folio."); continue; }
+            if (folio == null || folio.isBlank()) {
+                errores.add(prefHoja + "Fila " + numFila + ": falta el folio.");
+                continue;
+            }
+            folio = folio.trim();
+
+            if (!folio.equals(folioAnterior)) { autoNumero = 0; folioAnterior = folio; }
+            autoNumero++;
+
+            Integer numAlic = cols.numeroAlicuota >= 0 ? parseInt(celda(fila, cols.numeroAlicuota)) : null;
+            if (numAlic == null) numAlic = autoNumero;
+
             Double volumen = parseDouble(celda(fila, cols.volumen));
-            if (volumen == null || volumen <= 0) { errores.add("Fila " + numFila + ": volumen inválido."); continue; }
-            Integer tuboT = parseInt(celda(fila, cols.tubo));
-            Integer loteL = parseInt(celda(fila, cols.lote));
+            if (volumen == null) {
+                errores.add(prefHoja + "Fila " + numFila + ": volumen vacío o inválido.");
+                continue;
+            }
+            if (volumen < 0) {
+                errores.add(prefHoja + "Fila " + numFila + ": el volumen no puede ser negativo.");
+                continue;
+            }
+
             FilaAlic f = new FilaAlic();
             f.numFila = numFila;
-            f.folio = folio.trim();
-            f.tuboT = tuboT;
-            f.loteL = loteL != null ? loteL : 1;
+            f.folio = folio;
+            f.numeroAlicuota = numAlic;
             f.volumen = volumen;
             f.unidad = celda(fila, cols.unidad);
             f.codigoCaja = celda(fila, cols.caja);
             f.posTexto = celda(fila, cols.posicion);
+            f.fecha = celda(fila, cols.fecha);
+            f.observaciones = celda(fila, cols.observaciones);
             porFolio.computeIfAbsent(f.folio, k -> new ArrayList<>()).add(f);
         }
-
-        int nProc = 0, nPadres = 0, nAlic = 0, nLotes = 0, nUbic = 0;
-        Timestamp ahora = Timestamp.valueOf(LocalDateTime.now());
 
         for (Map.Entry<String, List<FilaAlic>> e : porFolio.entrySet()) {
             String folio = e.getKey();
             List<FilaAlic> filasFolio = e.getValue();
 
-            Paciente paciente = resolverPaciente(folio);
-            if (paciente == null) { errores.add("Folio " + folio + ": participante no encontrado en la institución."); continue; }
-            if (!Boolean.TRUE.equals(paciente.getActivo())) { errores.add("Folio " + folio + ": participante inactivo."); continue; }
-            if (muestraRepository.existsByPaciente_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
-                    paciente.getId(), inst.getId(), protocolo.getId())) {
-                errores.add("Folio " + folio + ": ya fue procesado con el protocolo «" + protocolo.getNombre() + "».");
+            String clave = folio + "|" + protocolo.getId();
+            if (procesados.contains(clave)) {
+                errores.add(prefHoja + "Folio " + folio + ": aparece en más de una hoja para el mismo protocolo.");
                 continue;
             }
 
-            // Inferir tubo (T) cuando falta: repartir en orden entre los tubos ALICUOTAR.
-            inferirTubos(filasFolio, tubosAlic, errores);
-            if (tieneErrorDeFolio(filasFolio, tuboPorOrden, errores, folio)) continue;
+            Paciente paciente = resolverPaciente(folio);
+            if (paciente == null) {
+                errores.add(prefHoja + "Folio " + folio + ": participante no encontrado en la institución.");
+                continue;
+            }
+            if (!Boolean.TRUE.equals(paciente.getActivo())) {
+                errores.add(prefHoja + "Folio " + folio + ": participante inactivo.");
+                continue;
+            }
+            if (muestraRepository.existsByPaciente_IdAndInstitucion_IdAndTuboProtocolo_Protocolo_IdAndMuestraPadreIsNull(
+                    paciente.getId(), inst.getId(), protocolo.getId())) {
+                errores.add(prefHoja + "Folio " + folio + ": ya fue procesado con «" + protocolo.getNombre() + "».");
+                continue;
+            }
 
-            nProc++;
+            LocalDateTime fechaToma = resolverFecha(filasFolio, fechaPorOmision);
+            if (fechaToma == null) {
+                errores.add(prefHoja + "Folio " + folio + ": no se pudo determinar la fecha (ni en el archivo ni por omisión).");
+                continue;
+            }
 
-            // Crear padres sintéticos por tubo T usado.
-            Map<Integer, Muestra> padrePorTubo = new LinkedHashMap<>();
-            Map<Integer, List<FilaAlic>> porTubo = new LinkedHashMap<>();
-            for (FilaAlic f : filasFolio) porTubo.computeIfAbsent(f.tuboT, k -> new ArrayList<>()).add(f);
-
-            for (Map.Entry<Integer, List<FilaAlic>> te : porTubo.entrySet()) {
-                TuboProtocolo tubo = tuboPorOrden.get(te.getKey());
-                double pendiente = 0.0, repartido = 0.0;
-                for (FilaAlic f : te.getValue()) {
-                    repartido = PlanificadorAlicuotas.sumar(repartido, f.volumen);
-                    if (f.posTexto == null || f.posTexto.isBlank()) pendiente = PlanificadorAlicuotas.sumar(pendiente, f.volumen);
+            boolean errorEnRango = false;
+            Map<Integer, FilaAlic> porNumero = new LinkedHashMap<>();
+            for (FilaAlic f : filasFolio) {
+                if (f.numeroAlicuota < 1 || f.numeroAlicuota > totalEsperado) {
+                    errores.add(prefHoja + "Fila " + f.numFila + ": número de alícuota " + f.numeroAlicuota
+                            + " fuera del rango esperado (1-" + totalEsperado + ").");
+                    errorEnRango = true;
+                    continue;
                 }
+                if (porNumero.containsKey(f.numeroAlicuota)) {
+                    errores.add(prefHoja + "Fila " + f.numFila + ": número de alícuota " + f.numeroAlicuota + " duplicado.");
+                    errorEnRango = true;
+                    continue;
+                }
+                porNumero.put(f.numeroAlicuota, f);
+            }
+            if (errorEnRango) continue;
+
+            procesados.add(clave);
+            c.procesamientos++;
+
+            Toma toma = null;
+            if (escribir) {
+                toma = tomaService.findOrCreate(paciente, protocolo.getTipoOrigen(),
+                        fechaToma, inst, usuario, null);
+            }
+
+            // Crear TODOS los padres del protocolo
+            Map<Integer, Muestra> padrePorOrden = new LinkedHashMap<>();
+            for (TuboProtocolo tubo : tubosActivos) {
+                int orden = tubo.getOrden() != null ? tubo.getOrden() : 1;
+                boolean esAlicuotar = tubo.getAccion() == AccionTubo.ALICUOTAR;
+
                 Muestra padre = new Muestra();
-                padre.setEtiqueta(EtiquetaMuestra.primario(tubo.getPrefijoCodigo(), folio, inst.getId(), te.getKey()));
-                padre.setNumeroLote(te.getKey());
+                padre.setEtiqueta(etiquetaLibre(
+                        EtiquetaMuestra.primario(tubo.getPrefijoCodigo(), folio, inst.getId(), orden),
+                        inst.getId()));
+                padre.setNumeroLote(orden);
                 padre.setPaciente(paciente);
                 padre.setUsuarioRecolecta(usuario);
                 padre.setInstitucion(inst);
                 padre.setInstitucionActual(inst);
                 padre.setTipoMuestra(protocolo.getTipoOrigen());
                 padre.setTuboProtocolo(tubo);
-                padre.setUnidad(tubo.getUnidadVolumen());
-                padre.setValor(pendiente);
-                padre.setValorComprometido(pendiente);
+                padre.setToma(toma);
+                padre.setFechaRecoleccion(fechaToma);
                 padre.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
                 padre.setFechaRegistro(ahora);
-                if (PlanificadorAlicuotas.agotado(pendiente)) padre.setFechaAgotamiento(ahora);
+                padre.setUnidad(tubo.getUnidadVolumen());
+
+                if (esAlicuotar) {
+                    padre.setValor(0.0);
+                    padre.setValorComprometido(0.0);
+                    padre.setFechaAgotamiento(ahora);
+                } else {
+                    double vol = tubo.getVolumenEsperado() != null ? tubo.getVolumenEsperado() : 0.0;
+                    padre.setValor(vol);
+                    padre.setValorComprometido(0.0);
+                    if (PlanificadorAlicuotas.agotado(vol)) padre.setFechaAgotamiento(ahora);
+                }
+
                 if (escribir) padre = muestraRepository.save(padre);
-                padrePorTubo.put(te.getKey(), padre);
-                nPadres++;
+                padrePorOrden.put(orden, padre);
+                c.padres++;
             }
 
-            // Crear lotes por L y sus alícuotas.
-            Map<Integer, List<FilaAlic>> porLote = new LinkedHashMap<>();
-            for (FilaAlic f : filasFolio) porLote.computeIfAbsent(f.loteL, k -> new ArrayList<>()).add(f);
+            // Lotes y alícuotas para tubos ALICUOTAR
+            Map<String, Lote> lotesPorClave = new LinkedHashMap<>();
+            Map<String, Integer> contadorEnLote = new LinkedHashMap<>();
+            int siguienteNumLote = 0;
 
-            for (Map.Entry<Integer, List<FilaAlic>> le : porLote.entrySet()) {
-                int loteL = le.getKey();
-                List<FilaAlic> filasLote = le.getValue();
-                TuboProtocolo tuboRef = tuboPorOrden.get(filasLote.get(0).tuboT);
+            for (RangoTubo rango : rangos) {
+                TuboProtocolo tubo = rango.tubo;
+                int orden = tubo.getOrden() != null ? tubo.getOrden() : 1;
+                Muestra padre = padrePorOrden.get(orden);
+                String claveLote = claveLote(tubo);
 
-                Lote lote = new Lote();
-                lote.setInstitucion(inst);
-                lote.setPaciente(paciente);
-                lote.setTipoResultante(tuboRef != null ? tuboRef.getTipoResultante() : null);
-                lote.setProtocolo(protocolo);
-                lote.setNumeroLote(loteL);
-                lote.setUsuarioProcesa(usuario);
-                lote.setFechaCreacion(ahora);
-                if (escribir) lote = loteRepository.save(lote);
-                nLotes++;
+                Lote lote = lotesPorClave.get(claveLote);
+                if (lote == null) {
+                    siguienteNumLote++;
+                    lote = new Lote();
+                    lote.setInstitucion(inst);
+                    lote.setPaciente(paciente);
+                    lote.setTipoResultante(tubo.getTipoResultante());
+                    lote.setProtocolo(protocolo);
+                    lote.setToma(toma);
+                    lote.setNumeroLote(siguienteNumLote);
+                    lote.setUsuarioProcesa(usuario);
+                    lote.setFechaCreacion(ahora);
+                    if (escribir) lote = loteRepository.save(lote);
+                    lotesPorClave.put(claveLote, lote);
+                    contadorEnLote.put(claveLote, 0);
+                    c.lotes++;
+                }
 
-                int total = filasLote.size();
-                int pos = 0;
-                for (FilaAlic f : filasLote) {
-                    pos++;
-                    TuboProtocolo tubo = tuboPorOrden.get(f.tuboT);
-                    Muestra padre = padrePorTubo.get(f.tuboT);
+                int totalEnLote = totalParaLote(claveLote, rangos);
+
+                for (int num = rango.desde; num <= rango.hasta; num++) {
+                    int posEnLote = contadorEnLote.merge(claveLote, 1, Integer::sum);
+                    FilaAlic f = porNumero.get(num);
+
                     Muestra a = new Muestra();
-                    a.setEtiqueta(EtiquetaMuestra.alicuotaLote(tubo.getPrefijoCodigo(), folio, inst.getId(), loteL, pos, total));
+                    a.setEtiqueta(etiquetaLibre(
+                            EtiquetaMuestra.alicuotaLote(tubo.getPrefijoCodigo(), folio, inst.getId(),
+                                    lote.getNumeroLote(), posEnLote, totalEnLote),
+                            inst.getId()));
                     a.setPaciente(paciente);
                     a.setUsuarioRecolecta(usuario);
                     a.setInstitucion(inst);
                     a.setInstitucionActual(inst);
                     a.setTipoMuestra(tubo.getTipoResultante());
                     a.setTuboProtocolo(tubo);
+                    a.setToma(toma);
                     a.setMuestraPadre(padre);
                     a.setLote(lote);
-                    a.setNumeroAlicuota(pos);
-                    a.setTotalAlicuotas(total);
-                    a.setNumeroEnLote(pos);
-                    a.setNumeroLote(loteL);
-                    a.setValor(f.volumen);
-                    a.setUnidad(f.unidad != null && !f.unidad.isBlank() ? f.unidad : tubo.getUnidadVolumen());
-                    a.setValorComprometido(0.0);
+                    a.setNumeroAlicuota(num);
+                    a.setTotalAlicuotas(totalEsperado);
+                    a.setNumeroEnLote(posEnLote);
+                    a.setNumeroLote(lote.getNumeroLote());
+                    a.setFechaRecoleccion(fechaToma);
                     a.setFechaRegistro(ahora);
 
-                    PosicionCaja posicion = resolverPosicion(f, inst, errores);
-                    if (posicion != null) {
-                        a.setPosicionCaja(posicion);
-                        a.setEstadoMuestra(EstadoMuestra.EN_BIOBANCO);
-                        a.setFechaMaterializacion(ahora);
-                        a.setCantidadDescontadaPadre(f.volumen);
-                        if (escribir) { posicion.setOcupada(true); posicionCajaRepository.save(posicion); }
-                        nUbic++;
+                    if (f != null) {
+                        a.setValor(f.volumen);
+                        a.setUnidad(f.unidad != null && !f.unidad.isBlank() ? f.unidad : tubo.getUnidadVolumen());
+                        a.setObservaciones(f.observaciones);
+                        a.setValorComprometido(0.0);
+
+                        if (PlanificadorAlicuotas.agotado(f.volumen)) {
+                            a.setFechaAgotamiento(ahora);
+                        }
+
+                        PosicionCaja posicion = resolverPosicion(f, inst, errores, prefHoja);
+                        if (posicion != null) {
+                            a.setPosicionCaja(posicion);
+                            a.setEstadoMuestra(EstadoMuestra.EN_BIOBANCO);
+                            a.setFechaMaterializacion(ahora);
+                            a.setCantidadDescontadaPadre(f.volumen);
+                            if (escribir) { posicion.setOcupada(true); posicionCajaRepository.save(posicion); }
+                            c.ubicadas++;
+                        } else {
+                            a.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
+                        }
                     } else {
+                        a.setValor(0.0);
+                        a.setUnidad(tubo.getUnidadVolumen());
+                        a.setObservaciones("No recolectada");
+                        a.setValorComprometido(0.0);
+                        a.setFechaAgotamiento(ahora);
                         a.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
+                        avisos.add(prefHoja + "Folio " + folio + ": alícuota " + num
+                                + " no venía en el archivo; se crea como agotada.");
                     }
+
                     if (escribir) muestraRepository.save(a);
-                    nAlic++;
+                    c.alicuotas++;
+                }
+            }
+
+            // Transferencias automáticas para tubos TRANSFERIR
+            for (TuboProtocolo tubo : tubosActivos) {
+                if (tubo.getAccion() != AccionTubo.TRANSFERIR) continue;
+                int orden = tubo.getOrden() != null ? tubo.getOrden() : 1;
+                Muestra padre = padrePorOrden.get(orden);
+
+                Long idDestino = tubo.getInstitucionDestino() != null
+                        ? tubo.getInstitucionDestino().getId() : null;
+                if (idDestino == null) {
+                    avisos.add(prefHoja + "Folio " + folio + ": tubo «" + tubo.getNombre()
+                            + "» configurado para transferir pero sin institución destino.");
+                    continue;
+                }
+                if (PlanificadorAlicuotas.agotado(padre.getValor())) {
+                    avisos.add(prefHoja + "Folio " + folio + ": tubo «" + tubo.getNombre()
+                            + "» sin volumen; no se transfiere.");
+                    continue;
+                }
+
+                c.transferencias++;
+                if (escribir) {
+                    String motivo = tubo.getMotivoTransferencia() != null
+                            && !tubo.getMotivoTransferencia().isBlank()
+                            ? tubo.getMotivoTransferencia()
+                            : "Transferencia automática — protocolo «" + protocolo.getNombre() + "»";
+                    List<TrasladoMuestra> creados = trasladoMuestraService.iniciarPrestamo(
+                            List.of(padre.getId()), inst.getId(), idDestino,
+                            usuario.getUUID(), motivo, null, null, false);
+                    trasladosPorDestino.computeIfAbsent(idDestino, k -> new ArrayList<>()).addAll(creados);
                 }
             }
         }
-
-        if (escribir && !errores.isEmpty()) {
-            // El rollback lo fuerza la excepción; convertimos los errores en una.
-            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException(
-                    "La carga tiene " + errores.size() + " error(es); no se escribió nada. Primero corrija el archivo.");
-        }
-        return new ResultadoCargaProtocolo(nProc, nPadres, nAlic, nLotes, nUbic, errores, avisos);
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
+    // ── Rangos de alícuotas ──────────────────────────────────────────────────
 
-    private record Cols(int folio, int tubo, int lote, int volumen, int unidad, int caja, int posicion, int fecha) {}
+    private record RangoTubo(TuboProtocolo tubo, int desde, int hasta) {}
 
-    private Cols colIndices(List<String> enc, List<String> errores) {
-        int folio = -1, tubo = -1, lote = -1, vol = -1, uni = -1, caja = -1, posc = -1, fecha = -1;
-        for (int i = 0; i < enc.size(); i++) {
-            String h = enc.get(i) == null ? "" : enc.get(i).trim().toLowerCase();
-            if (h.equals("folio")) folio = i;
-            else if (h.startsWith("tubo")) tubo = i;
-            else if (h.startsWith("lote")) lote = i;
-            else if (h.startsWith("volumen") || h.equals("vol")) vol = i;
-            else if (h.startsWith("unidad")) uni = i;
-            else if (h.startsWith("caja") || h.equals("codigocaja") || h.equals("codigo caja")) caja = i;
-            else if (h.startsWith("posicion") || h.startsWith("posición")) posc = i;
-            else if (h.startsWith("fecha")) fecha = i;
-        }
-        if (folio < 0) errores.add("Falta la columna obligatoria «folio».");
-        if (vol < 0) errores.add("Falta la columna obligatoria «volumen».");
-        return (folio >= 0 && vol >= 0) ? new Cols(folio, tubo, lote, vol, uni, caja, posc, fecha) : null;
-    }
-
-    private void inferirTubos(List<FilaAlic> filas, List<TuboProtocolo> tubosAlic, List<String> errores) {
-        boolean faltaAlguno = filas.stream().anyMatch(f -> f.tuboT == null);
-        if (!faltaAlguno || tubosAlic.isEmpty()) return;
-        // Reparto por orden: llena el cupo configurado de cada tubo ALICUOTAR.
-        int idx = 0, usados = 0;
-        for (FilaAlic f : filas) {
-            if (f.tuboT != null) continue;
-            if (idx >= tubosAlic.size()) { break; }
-            TuboProtocolo t = tubosAlic.get(idx);
+    private List<RangoTubo> construirRangos(List<TuboProtocolo> tubosAlic) {
+        List<RangoTubo> rangos = new ArrayList<>();
+        int acum = 0;
+        for (TuboProtocolo t : tubosAlic) {
             int cupo = t.getNumeroAlicuotas() != null ? t.getNumeroAlicuotas() : 0;
-            f.tuboT = t.getOrden();
-            usados++;
-            if (usados >= cupo) { idx++; usados = 0; }
+            if (cupo <= 0) continue;
+            rangos.add(new RangoTubo(t, acum + 1, acum + cupo));
+            acum += cupo;
         }
+        return rangos;
     }
 
-    private boolean tieneErrorDeFolio(List<FilaAlic> filas, Map<Integer, TuboProtocolo> tuboPorOrden,
-                                      List<String> errores, String folio) {
-        boolean error = false;
-        for (FilaAlic f : filas) {
-            if (f.tuboT == null || tuboPorOrden.get(f.tuboT) == null) {
-                errores.add("Folio " + folio + ", fila " + f.numFila + ": no se pudo determinar el tubo (T).");
-                error = true;
-            } else if (tuboPorOrden.get(f.tuboT).getAccion() != AccionTubo.ALICUOTAR) {
-                errores.add("Folio " + folio + ", fila " + f.numFila + ": el tubo T" + f.tuboT
-                        + " no está configurado para alicuotar.");
-                error = true;
+    private int totalParaLote(String claveLote, List<RangoTubo> rangos) {
+        int total = 0;
+        for (RangoTubo r : rangos) {
+            if (claveLote(r.tubo).equals(claveLote)) {
+                total += r.hasta - r.desde + 1;
             }
         }
-        return error;
+        return total;
+    }
+
+    private String claveLote(TuboProtocolo tubo) {
+        Long tipoRes = tubo.getTipoResultante() != null ? tubo.getTipoResultante().getId() : null;
+        return tubo.esAgruparEnLote() ? "G:" + tipoRes : "S:" + tubo.getId();
+    }
+
+    // ── Columnas ─────────────────────────────────────────────────────────────
+
+    private record Cols(int folio, int numeroAlicuota, int volumen, int unidad,
+                        int fecha, int caja, int posicion, int observaciones) {}
+
+    private Cols colIndices(List<String> enc, List<String> errores, String prefHoja) {
+        int folio = -1, numAlic = -1, vol = -1, uni = -1, fecha = -1, caja = -1, pos = -1, obs = -1;
+        for (int i = 0; i < enc.size(); i++) {
+            String h = enc.get(i) == null ? "" : enc.get(i).trim().toLowerCase()
+                    .replace("á", "a").replace("é", "e").replace("í", "i")
+                    .replace("ó", "o").replace("ú", "u");
+            if (h.equals("folio")) folio = i;
+            else if (h.equals("numero_alicuota") || h.equals("numeroalicuota")
+                    || h.equals("numero alicuota") || h.equals("alicuota") || h.equals("no.")) numAlic = i;
+            else if (h.startsWith("volumen") || h.equals("vol")) vol = i;
+            else if (h.startsWith("unidad")) uni = i;
+            else if (h.startsWith("fecha")) fecha = i;
+            else if (h.startsWith("caja") || h.equals("codigocaja") || h.equals("codigo caja")
+                    || h.equals("codigo_caja")) caja = i;
+            else if (h.startsWith("posicion")) pos = i;
+            else if (h.startsWith("observacion") || h.equals("obs")) obs = i;
+        }
+        if (folio < 0) errores.add(prefHoja + "Falta la columna obligatoria «folio».");
+        if (vol < 0) errores.add(prefHoja + "Falta la columna obligatoria «volumen».");
+        return (folio >= 0 && vol >= 0) ? new Cols(folio, numAlic, vol, uni, fecha, caja, pos, obs) : null;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private LocalDateTime resolverFecha(List<FilaAlic> filas, String fechaPorOmision) {
+        for (FilaAlic f : filas) {
+            if (f.fecha != null && !f.fecha.isBlank()) {
+                LocalDateTime dt = parseFecha(f.fecha);
+                if (dt != null) return dt;
+            }
+        }
+        if (fechaPorOmision != null && !fechaPorOmision.isBlank()) {
+            return parseFecha(fechaPorOmision);
+        }
+        return null;
+    }
+
+    private static final DateTimeFormatter[] FORMATOS_FECHA = {
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            DateTimeFormatter.ISO_LOCAL_DATE,
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("d/M/yyyy"),
+    };
+
+    private LocalDateTime parseFecha(String texto) {
+        if (texto == null || texto.isBlank()) return null;
+        texto = texto.trim();
+        for (DateTimeFormatter fmt : FORMATOS_FECHA) {
+            try {
+                return LocalDateTime.parse(texto, fmt);
+            } catch (DateTimeParseException ignored) {}
+            try {
+                return LocalDate.parse(texto, fmt).atStartOfDay();
+            } catch (DateTimeParseException ignored) {}
+        }
+        return null;
     }
 
     private Paciente resolverPaciente(String folio) {
         Long idInst = institucionContextService.getIdInstitucionActual();
         Paciente p = pacienteRepository.findByFolioAndInstitucion_Id(folio, idInst).orElse(null);
         if (p == null) {
-            String padded = folio.chars().allMatch(Character::isDigit) ? String.format("%06d", Integer.parseInt(folio)) : folio;
-            if (!padded.equals(folio)) p = pacienteRepository.findByFolioAndInstitucion_Id(padded, idInst).orElse(null);
+            String padded = folio.chars().allMatch(Character::isDigit)
+                    ? String.format("%06d", Integer.parseInt(folio)) : folio;
+            if (!padded.equals(folio))
+                p = pacienteRepository.findByFolioAndInstitucion_Id(padded, idInst).orElse(null);
         }
         return p;
     }
 
-    private PosicionCaja resolverPosicion(FilaAlic f, Institucion inst, List<String> errores) {
-        if (f.codigoCaja == null || f.codigoCaja.isBlank() || f.posTexto == null || f.posTexto.isBlank()) return null;
-        CajaCriogenica caja = cajaRepository.findByCodigoCajaAndInstitucion_Id(f.codigoCaja.trim(), inst.getId()).orElse(null);
-        if (caja == null) { errores.add("Fila " + f.numFila + ": caja «" + f.codigoCaja + "» no existe."); return null; }
-        EtiquetaPosicionCaja.Coordenada c;
-        try { c = EtiquetaPosicionCaja.parsear(f.posTexto.trim()); }
-        catch (RuntimeException ex) { errores.add("Fila " + f.numFila + ": posición «" + f.posTexto + "» inválida."); return null; }
-        PosicionCaja pos = posicionCajaRepository.findByCaja_IdAndFilaAndColumna(caja.getId(), c.fila(), c.columna()).orElse(null);
-        if (pos == null) { errores.add("Fila " + f.numFila + ": la posición " + f.posTexto + " no existe en la caja."); return null; }
-        if (Boolean.TRUE.equals(pos.getOcupada())) { errores.add("Fila " + f.numFila + ": la posición " + f.codigoCaja + " " + f.posTexto + " ya está ocupada."); return null; }
+    private PosicionCaja resolverPosicion(FilaAlic f, Institucion inst,
+                                          List<String> errores, String prefHoja) {
+        if (f.codigoCaja == null || f.codigoCaja.isBlank()
+                || f.posTexto == null || f.posTexto.isBlank()) return null;
+        CajaCriogenica caja = cajaRepository.findByCodigoCajaAndInstitucion_Id(
+                f.codigoCaja.trim(), inst.getId()).orElse(null);
+        if (caja == null) {
+            errores.add(prefHoja + "Fila " + f.numFila + ": caja «" + f.codigoCaja + "» no existe.");
+            return null;
+        }
+        EtiquetaPosicionCaja.Coordenada coord;
+        try { coord = EtiquetaPosicionCaja.parsear(f.posTexto.trim()); }
+        catch (RuntimeException ex) {
+            errores.add(prefHoja + "Fila " + f.numFila + ": posición «" + f.posTexto + "» inválida.");
+            return null;
+        }
+        PosicionCaja pos = posicionCajaRepository.findByCaja_IdAndFilaAndColumna(
+                caja.getId(), coord.fila(), coord.columna()).orElse(null);
+        if (pos == null) {
+            errores.add(prefHoja + "Fila " + f.numFila + ": la posición " + f.posTexto + " no existe en la caja.");
+            return null;
+        }
+        if (Boolean.TRUE.equals(pos.getOcupada())) {
+            errores.add(prefHoja + "Fila " + f.numFila + ": la posición " + f.codigoCaja + " " + f.posTexto + " ya está ocupada.");
+            return null;
+        }
         return pos;
+    }
+
+    private String etiquetaLibre(String base, Long idInstitucion) {
+        if (muestraRepository.findByEtiquetaIgnoreCaseAndInstitucion_Id(base, idInstitucion).isEmpty()) {
+            return base;
+        }
+        for (int n = 2; n < 1000; n++) {
+            String candidata = base + "." + n;
+            if (muestraRepository.findByEtiquetaIgnoreCaseAndInstitucion_Id(candidata, idInstitucion).isEmpty()) {
+                return candidata;
+            }
+        }
+        throw new ArchivoInvalidoException("No se encontró una etiqueta libre para «" + base + "».");
+    }
+
+    private byte[] contenidoDe(MultipartFile archivo) {
+        if (archivo == null || archivo.isEmpty()) {
+            throw new ArchivoInvalidoException("No se recibió ningún archivo.");
+        }
+        try { return archivo.getBytes(); }
+        catch (IOException e) { throw new ArchivoInvalidoException("No se pudo leer el archivo."); }
     }
 
     private static String celda(List<String> fila, int idx) {
@@ -329,22 +593,31 @@ public class CargaMasivaProtocoloService {
 
     private static Double parseDouble(String s) {
         if (s == null || s.isBlank()) return null;
-        try { return Double.parseDouble(s.trim().replace(",", ".")); } catch (NumberFormatException e) { return null; }
+        try { return Double.parseDouble(s.trim().replace(",", ".")); }
+        catch (NumberFormatException e) { return null; }
     }
 
     private static Integer parseInt(String s) {
         if (s == null || s.isBlank()) return null;
-        try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return null; }
+        try { return Integer.parseInt(s.trim()); }
+        catch (NumberFormatException e) { return null; }
     }
+
+    // ── Modelos internos ─────────────────────────────────────────────────────
 
     private static final class FilaAlic {
         int numFila;
         String folio;
-        Integer tuboT;
-        int loteL;
+        int numeroAlicuota;
         Double volumen;
         String unidad;
         String codigoCaja;
         String posTexto;
+        String fecha;
+        String observaciones;
+    }
+
+    private static final class Contadores {
+        int procesamientos, padres, alicuotas, lotes, ubicadas, transferencias;
     }
 }

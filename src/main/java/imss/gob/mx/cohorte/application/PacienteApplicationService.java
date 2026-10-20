@@ -15,6 +15,8 @@ import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.Personas.PersonaService;
 import imss.gob.mx.cohorte.services.auth.PasswordResetService;
 import imss.gob.mx.cohorte.services.pacientes.ImportacionParticipantesAsyncService;
+import imss.gob.mx.cohorte.services.pacientes.ReasignacionRangoAsyncService;
+import org.springframework.core.task.TaskRejectedException;
 import imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService;
 import imss.gob.mx.cohorte.services.institucion.InstitucionRegistroService;
 import imss.gob.mx.cohorte.services.pacientes.PacienteService;
@@ -51,6 +53,7 @@ public class PacienteApplicationService {
     private final PersonaService personaService;
     private final ReclutamientoParticipanteService reclutamientoService;
     private final ImportacionParticipantesAsyncService importacionParticipantesAsyncService;
+    private final ReasignacionRangoAsyncService reasignacionRangoAsyncService;
     private final InstitucionContextService institucionContextService;
     private final InstitucionJerarquiaService institucionJerarquiaService;
     private final InstitucionRegistroService institucionRegistroService;
@@ -418,6 +421,37 @@ public class PacienteApplicationService {
         return guardado;
     }
 
+    /**
+     * Programa la reasignación de todos los participantes al alcance del usuario cuyo
+     * folio cae en el rango. Regresa de inmediato; el resultado llega por correo.
+     *
+     * <p>Lo que se valida aquí es lo que no depende del padrón: el rango y el destino.
+     * El ámbito (las instituciones visibles) se resuelve ahora, porque el hilo de fondo
+     * no tiene la sesión de quien pidió el cambio.</p>
+     */
+    public void reasignarInstitucionPorRangoAsync(int folioDesde, int folioHasta, Long idInstitucionDestino) {
+        if (folioDesde > folioHasta) {
+            throw new ValidationException("El folio inicial no puede ser mayor que el folio final");
+        }
+        Institucion destino = institucionRegistroService.resolverInstitucionDestino(
+                institucionContextService.getIdInstitucionActual(), idInstitucionDestino);
+        List<Long> visibles = getInstitucionesVisibles();
+
+        BeanUser usuarioActual = institucionContextService.getUsuarioActual();
+        Persona persona = usuarioActual.getPersona();
+        String email = persona != null ? persona.getEmail() : null;
+        String nombre = persona != null ? persona.getNombre() : usuarioActual.getUsername();
+
+        try {
+            reasignacionRangoAsyncService.procesarYNotificar(
+                    folioDesde, folioHasta, visibles, destino, email, nombre);
+        } catch (TaskRejectedException e) {
+            throw new ValidationException(
+                    "Ya hay reasignaciones por rango en proceso. Intente de nuevo cuando terminen; "
+                            + "le llegará un correo con el resumen.");
+        }
+    }
+
     // ─── Participantes que ya no se gestionan pero conservan registros propios ──
 
     /**
@@ -478,10 +512,13 @@ public class PacienteApplicationService {
                 institucionContextService.getIdInstitucionActual());
     }
 
-    /** Alterna el estado activo/inactivo del paciente. Devuelve el paciente actualizado. */
     @Transactional
     public Paciente toggleActivo(String uuid) {
-        return pacienteService.toggleActivo(uuid, institucionContextService.getIdInstitucionActual());
+        Paciente paciente = participanteAccesoService.resolverIncluyendoInactivo(uuid);
+        boolean nuevoEstado = !Boolean.TRUE.equals(paciente.getActivo());
+        paciente.setActivo(nuevoEstado);
+        paciente.setFechaActualizacion(java.time.LocalDateTime.now());
+        return pacienteService.guardar(paciente);
     }
 
     @Transactional

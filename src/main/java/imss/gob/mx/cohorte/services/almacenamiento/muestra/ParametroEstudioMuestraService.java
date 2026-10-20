@@ -109,8 +109,10 @@ public class ParametroEstudioMuestraService {
 
         paramBD.setUnidad(datos.getUnidad());
         paramBD.setTipo(datos.getTipo());
-        paramBD.setValorMinimo(datos.getValorMinimo());
-        paramBD.setValorMaximo(datos.getValorMaximo());
+        paramBD.setValorMinMujeres(datos.getValorMinMujeres());
+        paramBD.setValorMaxMujeres(datos.getValorMaxMujeres());
+        paramBD.setValorMinHombres(datos.getValorMinHombres());
+        paramBD.setValorMaxHombres(datos.getValorMaxHombres());
         return repository.save(paramBD);
     }
 

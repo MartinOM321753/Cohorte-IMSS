@@ -127,12 +127,22 @@ public class  MuestraController {
             @RequestParam(value = "tipos", required = false) List<String> tipos,
             @RequestParam(value = "sexo", required = false) String sexo,
             @RequestParam(value = "folioDesde", required = false) String folioDesde,
-            @RequestParam(value = "folioHasta", required = false) String folioHasta) {
+            @RequestParam(value = "folioHasta", required = false) String folioHasta,
+            @Parameter(description = "UUID del participante para filtrar el desglose de un procedimiento.")
+            @RequestParam(value = "uuidPaciente", required = false) String uuidPaciente,
+            @Parameter(description = "ID del protocolo para filtrar el desglose. -1 = sin protocolo (legado).")
+            @RequestParam(value = "idProtocolo", required = false) Long idProtocolo,
+            @Parameter(description = "ID de la toma. Si se proporciona, filtra por toma en vez de por protocolo.")
+            @RequestParam(value = "idToma", required = false) Long idToma) {
+
+        boolean sinProtocolo = idProtocolo != null && idProtocolo == -1L;
+        Long idProtoReal = sinProtocolo ? null : idProtocolo;
 
         PaginaMuestras pagina = muestraApplicationService.buscarPaginaMuestras(
                 cursor, "ANTERIOR".equalsIgnoreCase(direccion), size,
                 incluirHistorico, ocultarDevueltasHuerfanas,
-                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta);
+                busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta,
+                uuidPaciente, idProtoReal, sinProtocolo, idToma);
 
         PaginaMuestrasResponseDTO body = PaginaMuestrasResponseDTO.builder()
                 .muestras(MuestraMapper.toResponseDTOList(pagina.muestras()))
@@ -146,6 +156,50 @@ public class  MuestraController {
                 .build();
 
         return ResponseEntity.ok(new APIResponse("Muestras encontradas", body, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/resumen")
+    @Operation(summary = "Resumen de procedimientos",
+        description = "Devuelve una fila por cada combinación (participante, protocolo) con conteos "
+            + "de tubos, alícuotas, almacenadas y pendientes. Usa los mismos filtros que el "
+            + "listado de detalle pero sin paginación: la cantidad de combinaciones es baja.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Éxito",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = APIResponse.class)))
+    })
+    @PreAuthorize("hasAuthority('MUESTRAS_VER')")
+    public ResponseEntity<APIResponse> getResumen(
+            @RequestParam(value = "incluirHistorico", defaultValue = "false") boolean incluirHistorico,
+            @RequestParam(value = "busqueda", required = false) String busqueda,
+            @RequestParam(value = "fechaDesde", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(value = "fechaHasta", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(value = "tipos", required = false) List<String> tipos,
+            @RequestParam(value = "sexo", required = false) String sexo,
+            @RequestParam(value = "folioDesde", required = false) String folioDesde,
+            @RequestParam(value = "folioHasta", required = false) String folioHasta) {
+
+        List<Object[]> filas = muestraApplicationService.buscarResumen(
+                incluirHistorico, busqueda, fechaDesde, fechaHasta, tipos, sexo, folioDesde, folioHasta);
+
+        List<ResumenProcedimientoDTO> body = filas.stream().map(r -> ResumenProcedimientoDTO.builder()
+                .uuidPaciente((String) r[0])
+                .folioPaciente((String) r[1])
+                .nombrePaciente(((String) r[2]).replaceAll("\\s+", " ").trim())
+                .pacienteActivo((Boolean) r[3])
+                .idToma(r[4] != null ? ((Number) r[4]).longValue() : null)
+                .nombreTipo((String) r[5])
+                .idProtocolo(r[6] != null ? ((Number) r[6]).longValue() : null)
+                .tubos(((Number) r[7]).intValue())
+                .alicuotas(((Number) r[8]).intValue())
+                .almacenadas(((Number) r[9]).intValue())
+                .pendientes(((Number) r[10]).intValue())
+                .build()
+        ).toList();
+
+        return ResponseEntity.ok(new APIResponse("Resumen de procedimientos", body, false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -225,10 +279,40 @@ public class  MuestraController {
         boolean laTengo = muestra.getInstitucionActual() != null
                 && muestra.getInstitucionActual().getId().equals(idInstitucionActual);
 
+        // Navegación: la toma/protocolo puede estar en la alícuota o en su padre.
+        Muestra ref = muestra.getToma() != null || muestra.getMuestraPadre() == null
+                ? muestra : muestra.getMuestraPadre();
+        Long idToma = ref.getToma() != null ? ref.getToma().getId() : null;
+        Long idProto = ref.getTuboProtocolo() != null && ref.getTuboProtocolo().getProtocolo() != null
+                ? ref.getTuboProtocolo().getProtocolo().getId() : null;
+        String nombreTipo = null;
+        if (idToma != null && ref.getToma().getTipoMuestra() != null) {
+            nombreTipo = ref.getToma().getTipoMuestra().getNombre();
+        } else if (idProto != null) {
+            nombreTipo = ref.getTuboProtocolo().getProtocolo().getNombre();
+        }
+
+        var pac = muestra.getPaciente();
+        String nombrePac = "";
+        if (pac != null && pac.getPersona() != null) {
+            var p = pac.getPersona();
+            nombrePac = ((p.getNombre() != null ? p.getNombre() : "")
+                    + " " + (p.getSegundoNombre() != null ? p.getSegundoNombre() : "")
+                    + " " + (p.getApellidoPaterno() != null ? p.getApellidoPaterno() : "")
+                    + " " + (p.getApellidoMaterno() != null ? p.getApellidoMaterno() : ""))
+                    .replaceAll("\\s+", " ").trim();
+        }
+
         MuestraEscaneadaDTO dto = MuestraEscaneadaDTO.builder()
                 .muestra(MuestraMapper.toResponseDTO(muestra))
                 .idMuestraPadre(muestra.getMuestraPadre() != null ? muestra.getMuestraPadre().getId() : null)
                 .requiereHistorico(!esPropia && !laTengo)
+                .idToma(idToma)
+                .idProtocolo(idProto)
+                .nombreTipo(nombreTipo)
+                .uuidPaciente(pac != null ? pac.getUuid() : null)
+                .folioPaciente(pac != null ? pac.getFolio() : null)
+                .nombrePaciente(nombrePac)
                 .build();
 
         return ResponseEntity.ok(new APIResponse("Etiqueta resuelta", dto, false, HttpStatus.OK));

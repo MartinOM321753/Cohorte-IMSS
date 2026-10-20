@@ -60,7 +60,7 @@ public class PacienteImportRowService {
 
         String folio;
         if (folioRaw.isEmpty()) {
-            folio = folioGeneratorService.generarFolio();
+            folio = folioGeneratorService.generarFolio(institucion);
         } else {
             folio = folioGeneratorService.normalizar(folioRaw);
             if (pacienteRepository.existsByFolio(folio)) {

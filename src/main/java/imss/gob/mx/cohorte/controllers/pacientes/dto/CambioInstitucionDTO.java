@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.controllers.pacientes.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -54,6 +56,24 @@ public class CambioInstitucionDTO {
     public static class ReasignacionRequest {
         @NotEmpty(message = "Debe indicar al menos un participante")
         private List<String> uuids;
+
+        @NotNull(message = "La institución destino es obligatoria")
+        private Long idInstitucion;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReasignacionRangoRequest {
+        @NotNull(message = "El folio inicial es obligatorio")
+        @Min(value = 1, message = "El folio inicial debe ser al menos 1")
+        @Max(value = 999999, message = "El folio inicial no puede pasar de 999999")
+        private Integer folioDesde;
+
+        @NotNull(message = "El folio final es obligatorio")
+        @Min(value = 1, message = "El folio final debe ser al menos 1")
+        @Max(value = 999999, message = "El folio final no puede pasar de 999999")
+        private Integer folioHasta;
 
         @NotNull(message = "La institución destino es obligatoria")
         private Long idInstitucion;

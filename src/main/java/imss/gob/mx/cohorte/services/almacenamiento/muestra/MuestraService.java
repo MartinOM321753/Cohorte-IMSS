@@ -50,6 +50,7 @@ public class MuestraService {
     private final MuestraTipoInstitucionRepository muestraTipoInstitucionRepository;
     private final TrasladoMuestraRepository trasladoMuestraRepository;
     private final HistorialCambioMuestraService historialCambioMuestraService;
+    private final MaterializacionAlicuotaService materializacionService;
 
     // ── Consultas ────────────────────────────────────────────────────────────
 
@@ -176,6 +177,11 @@ public class MuestraService {
                 hayAnteriores, haySiguientes,
                 muestraRepository.contarPagina(criterios),
                 muestraRepository.contarHuerfanasDevueltas(criterios));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Object[]> buscarResumen(CriteriosMuestra criterios) {
+        return muestraRepository.buscarResumen(criterios);
     }
 
     /**
@@ -390,13 +396,67 @@ public class MuestraService {
             }
         }
 
+        // ── Validación de volumen (Punto 5) ──────────────────────────────────
+        if (valor != null && valor < 0) {
+            throw new ValidationException("El volumen no puede ser negativo.");
+        }
+
+        double valorAnterior = muestraBD.getValor() != null ? muestraBD.getValor() : 0.0;
+        double valorNuevo = valor != null ? valor : 0.0;
+        Muestra padre = muestraBD.getMuestraPadre();
+
+        if (padre != null && muestraBD.isMaterializada()) {
+            if (unidad != null && padre.getUnidad() != null
+                    && !unidad.equalsIgnoreCase(padre.getUnidad())) {
+                throw new ValidationException(
+                        "La unidad de la alícuota debe coincidir con la de su padre ("
+                        + padre.getUnidad() + ").");
+            }
+
+            double delta = PlanificadorAlicuotas.restar(valorNuevo, valorAnterior);
+            if (delta > 0) {
+                double disponiblePadre = padre.getValorDisponible() != null
+                        ? padre.getValorDisponible() : 0.0;
+                if (PlanificadorAlicuotas.mayorQue(delta, disponiblePadre)) {
+                    throw new ValidationException(
+                            "No hay volumen suficiente en la muestra padre ("
+                            + PlanificadorAlicuotas.fmt(disponiblePadre) + " "
+                            + (padre.getUnidad() != null ? padre.getUnidad() : "")
+                            + " disponible). Se requieren "
+                            + PlanificadorAlicuotas.fmt(delta) + " adicionales.");
+                }
+                padre.setValor(PlanificadorAlicuotas.restar(
+                        padre.getValor() != null ? padre.getValor() : 0.0, delta));
+                padre.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
+                muestraRepository.save(padre);
+            } else if (delta < 0) {
+                boolean padreRetirada = padre.getEstadoMuestra() == EstadoMuestra.BAJA
+                        || padre.isAgotada();
+                if (!padreRetirada) {
+                    double devolver = Math.abs(delta);
+                    padre.setValor(PlanificadorAlicuotas.sumar(
+                            padre.getValor() != null ? padre.getValor() : 0.0, devolver));
+                    padre.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
+                    muestraRepository.save(padre);
+                }
+            }
+        }
+
         muestraBD.setValor(valor);
         muestraBD.setUnidad(unidad);
         muestraBD.setFechaRecoleccion(fechaRecoleccion);
         muestraBD.setObservaciones(observaciones);
         muestraBD.setFechaActualizacion(Timestamp.valueOf(LocalDateTime.now()));
 
-        return muestraRepository.save(muestraBD);
+        Muestra saved = muestraRepository.save(muestraBD);
+
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        materializacionService.sellarAgotamientoSiProcede(saved, usuario);
+        if (padre != null) {
+            materializacionService.sellarAgotamientoSiProcede(padre, usuario);
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -516,6 +576,11 @@ public class MuestraService {
         }
         if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
             throw new ObjConflictException("La muestra está dada de baja.");
+        }
+        if (PlanificadorAlicuotas.agotado(muestra.getValor())) {
+            throw new ValidationException(
+                    "No se puede ubicar una muestra sin volumen (volumen actual: "
+                    + PlanificadorAlicuotas.fmt(muestra.getValor()) + ").");
         }
 
         PosicionCaja nuevaPos = posicionCajaRepository.findById(idPosicionCaja)

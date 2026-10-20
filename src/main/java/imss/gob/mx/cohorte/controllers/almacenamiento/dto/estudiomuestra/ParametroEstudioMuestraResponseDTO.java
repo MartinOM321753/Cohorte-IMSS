@@ -17,8 +17,10 @@ public class ParametroEstudioMuestraResponseDTO {
     private String nombre;
     private String unidad;
     private TipoParametro tipo;
-    private Double valorMinimo;
-    private Double valorMaximo;
+    private Double valorMinMujeres;
+    private Double valorMaxMujeres;
+    private Double valorMinHombres;
+    private Double valorMaxHombres;
     /** Poblado solo cuando tipo = TEXTO_OPCIONES */
     /** Posición dentro de su tipo de estudio de muestra. Es el orden en que hay que mostrarlo. */
     private Integer orden;

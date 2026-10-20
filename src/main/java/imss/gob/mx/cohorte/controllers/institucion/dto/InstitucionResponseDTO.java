@@ -22,6 +22,8 @@ public class InstitucionResponseDTO {
     private EncargadoResumenDTO encargado;
     private Boolean tieneBiobanco;
     private Boolean activo;
+    private Integer folioInicio;
+    private Integer folioFin;
 
     @Data
     @Builder

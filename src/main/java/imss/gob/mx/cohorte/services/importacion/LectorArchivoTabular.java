@@ -77,6 +77,25 @@ public class LectorArchivoTabular {
         COMO_SE_VE
     }
 
+    /**
+     * Cuanto ancho y cuanto largo admite esta lectura.
+     *
+     * <p>Los topes son del formato que se espera, no del lector: doscientas columnas
+     * son de sobra para el export de un instrumento medico y rechazan un archivo
+     * equivocado antes de que llegue a interpretarse, mientras que el volcado de un
+     * cuestionario escaneado trae legitimamente una columna por pregunta. Un solo
+     * tope para los dos casos tendria que ser el alto, y entonces el caso comun
+     * perderia la comprobacion que mas le sirve.</p>
+     */
+    public record Topes(int maxFilas, int maxColumnas) {
+        public static Topes porOmision() {
+            return new Topes(LimitesArchivo.MAX_FILAS, LimitesArchivo.MAX_COLUMNAS);
+        }
+    }
+
+    /** Una hoja del libro, con su nombre tal como esta en la pestana. */
+    public record HojaLeida(String nombre, TablaLeida tabla) {}
+
     /** Una celda cuyo valor venia de una formula, en modo {@link ModoLectura#COMO_SE_VE}. */
     public record CeldaDerivada(int fila, int columna, String referencia) {}
 
@@ -89,30 +108,65 @@ public class LectorArchivoTabular {
 
     /** Lectura canonica: la que usan los importadores. Rechaza formulas. */
     public TablaLeida leer(MultipartFile archivo) {
-        return leerInterno(archivo, ModoLectura.CANONICO).tabla();
+        return leer(archivo, Topes.porOmision());
+    }
+
+    /** Lectura canonica con topes propios del formato que se espera. */
+    public TablaLeida leer(MultipartFile archivo, Topes topes) {
+        return leerInterno(archivo, ModoLectura.CANONICO, topes).tabla();
     }
 
     /** Lectura reproducible: el texto tal como se ve en Excel, con avisos. */
     public TablaConAvisos leerComoSeVe(MultipartFile archivo) {
-        return leerInterno(archivo, ModoLectura.COMO_SE_VE);
+        return leerInterno(archivo, ModoLectura.COMO_SE_VE, Topes.porOmision());
     }
 
-    private TablaConAvisos leerInterno(MultipartFile archivo, ModoLectura modo) {
-        if (archivo == null || archivo.isEmpty()) {
+    /**
+     * Todas las hojas del libro, cada una con su nombre.
+     *
+     * <p>Hace falta porque hay formatos en los que el dato esta repartido en varias
+     * pestanas y cual es cual lo dice el nombre, no la posicion: el volcado de un
+     * cuestionario trae las respuestas en una hoja y las lecturas en desacuerdo en
+     * otra. Leer solo la primera perderia la mitad del archivo, y leerla por indice
+     * daria por buena una suposicion sobre el orden de las pestanas que nadie
+     * garantiza.</p>
+     *
+     * <p>Una hoja que no se puede interpretar como tabla —sin encabezados, o vacia—
+     * se omite en lugar de tumbar la lectura: un libro de Excel suele arrastrar
+     * pestanas de trabajo que no son datos.</p>
+     */
+    public List<HojaLeida> leerHojas(MultipartFile archivo, Topes topes) {
+        return leerHojas(contenidoDe(archivo), topes);
+    }
+
+    /**
+     * Lo mismo, pero sobre bytes que ya se tienen.
+     *
+     * <p>Hace falta para lo que se lee fuera de la peticion que subio el archivo: una
+     * carga que corre en segundo plano ya no tiene el {@link MultipartFile} —el
+     * contenedor lo libera al contestar— asi que recibe el contenido y nada mas. El
+     * tope de tamano se comprueba igual: aqui los bytes ya estan en memoria, pero lo
+     * que cuesta de verdad es lo que se expande al interpretarlos.</p>
+     */
+    public List<HojaLeida> leerHojas(byte[] contenido, Topes topes) {
+        if (contenido == null || contenido.length == 0) {
             throw new ArchivoInvalidoException("No se recibio ningun archivo.");
         }
-        if (archivo.getSize() > LimitesArchivo.MAX_BYTES) {
+        if (contenido.length > LimitesArchivo.MAX_BYTES) {
             throw new ArchivoInvalidoException(
                     "El archivo pesa mas de " + (LimitesArchivo.MAX_BYTES / 1024 / 1024)
                             + " MB. Exporta solo las filas que necesitas cargar.");
         }
-
-        byte[] contenido;
-        try {
-            contenido = archivo.getBytes();
-        } catch (IOException e) {
-            throw new ArchivoInvalidoException("No se pudo leer el archivo enviado.");
+        if (!tieneFirmaZip(contenido)) {
+            // Un CSV es una sola tabla sin nombre; se entrega como hoja unica para
+            // que quien consuma esto no tenga que distinguir el caso.
+            return List.of(new HojaLeida("", leerCsv(contenido, topes)));
         }
+        return leerTodasLasHojas(contenido, topes);
+    }
+
+    private TablaConAvisos leerInterno(MultipartFile archivo, ModoLectura modo, Topes topes) {
+        byte[] contenido = contenidoDe(archivo);
 
         String nombre = archivo.getOriginalFilename() == null
                 ? "" : archivo.getOriginalFilename().toLowerCase();
@@ -125,7 +179,7 @@ public class LectorArchivoTabular {
                         "El archivo parece un libro de Excel pero no tiene extension .xlsx. "
                                 + "Vuelve a exportarlo o renombralo correctamente.");
             }
-            return leerXlsx(contenido, modo);
+            return leerXlsx(contenido, modo, topes);
         }
 
         if (nombre.endsWith(".xlsx")) {
@@ -138,7 +192,24 @@ public class LectorArchivoTabular {
 
         // Un CSV ya es texto literal: no hay formato de celda que reproducir ni
         // formulas que resolver, asi que los dos modos leen exactamente igual.
-        return new TablaConAvisos(leerCsv(contenido), List.of());
+        return new TablaConAvisos(leerCsv(contenido, topes), List.of());
+    }
+
+    /** Comprueba el tamano y entrega los bytes. Comun a todas las formas de leer. */
+    private byte[] contenidoDe(MultipartFile archivo) {
+        if (archivo == null || archivo.isEmpty()) {
+            throw new ArchivoInvalidoException("No se recibio ningun archivo.");
+        }
+        if (archivo.getSize() > LimitesArchivo.MAX_BYTES) {
+            throw new ArchivoInvalidoException(
+                    "El archivo pesa mas de " + (LimitesArchivo.MAX_BYTES / 1024 / 1024)
+                            + " MB. Exporta solo las filas que necesitas cargar.");
+        }
+        try {
+            return archivo.getBytes();
+        } catch (IOException e) {
+            throw new ArchivoInvalidoException("No se pudo leer el archivo enviado.");
+        }
     }
 
     private boolean tieneFirmaZip(byte[] contenido) {
@@ -151,7 +222,7 @@ public class LectorArchivoTabular {
 
     // ── CSV ──────────────────────────────────────────────────────────────────
 
-    private TablaLeida leerCsv(byte[] contenido) {
+    private TablaLeida leerCsv(byte[] contenido, Topes topes) {
         List<String> encabezados;
         List<List<String>> filas = new ArrayList<>();
         List<Integer> numeros = new ArrayList<>();
@@ -170,7 +241,7 @@ public class LectorArchivoTabular {
             char separador = ParserCsv.detectarSeparador(cabecera);
             encabezados = limpiar(ParserCsv.partir(cabecera, separador));
             quitarColumnasVaciasFinales(encabezados);
-            validarEncabezados(encabezados);
+            validarEncabezados(encabezados, topes);
 
             String linea;
             int numeroLinea = 1;
@@ -178,9 +249,9 @@ public class LectorArchivoTabular {
                 numeroLinea++;
                 if (linea.isBlank()) continue;
 
-                if (filas.size() >= LimitesArchivo.MAX_FILAS) {
+                if (filas.size() >= topes.maxFilas()) {
                     throw new ArchivoInvalidoException(
-                            "El archivo tiene mas de " + LimitesArchivo.MAX_FILAS
+                            "El archivo tiene mas de " + topes.maxFilas()
                                     + " filas. Divide la carga en varios archivos.");
                 }
 
@@ -202,65 +273,37 @@ public class LectorArchivoTabular {
 
     // ── XLSX ─────────────────────────────────────────────────────────────────
 
-    private TablaConAvisos leerXlsx(byte[] contenido, ModoLectura modo) {
-        // Los topes de POI son estaticos y globales; se fijan en cada lectura para
-        // no depender de que otro punto del sistema los haya dejado como estaban.
-        ZipSecureFile.setMinInflateRatio(LimitesArchivo.RATIO_MINIMO_INFLADO);
-        ZipSecureFile.setMaxEntrySize(LimitesArchivo.MAX_BYTES_ENTRADA_ZIP);
-
-        List<String> encabezados;
-        List<List<String>> filas = new ArrayList<>();
-        List<Integer> numeros = new ArrayList<>();
+    private TablaConAvisos leerXlsx(byte[] contenido, ModoLectura modo, Topes topes) {
         List<CeldaDerivada> derivadas = new ArrayList<>();
+        DataFormatter formateador = formateador();
 
-        // El formateador aplica el formato que la celda tiene puesto en la hoja.
-        // Se le da la configuracion regional del cliente porque de ella dependen
-        // los formatos de fecha y numero heredados de Excel.
-        DataFormatter formateador = new DataFormatter(Locale.of("es", "MX"));
-
-        // XSSFWorkbook directamente y no WorkbookFactory: asi solo se acepta xlsx y
-        // no se abre la puerta a otros formatos que POI sepa interpretar.
-        try (Workbook libro = new XSSFWorkbook(new ByteArrayInputStream(contenido))) {
-            if (libro.getNumberOfSheets() == 0) {
-                throw new ArchivoInvalidoException("El libro no tiene ninguna hoja.");
-            }
+        try (Workbook libro = abrir(contenido)) {
             Sheet hoja = libro.getSheetAt(0);
-
-            Row filaEncabezados = hoja.getRow(hoja.getFirstRowNum());
-            if (filaEncabezados == null) {
+            TablaLeida tabla = tablaDeHoja(hoja, modo, topes, formateador, derivadas);
+            if (tabla == null) {
                 throw new ArchivoInvalidoException("La primera hoja no tiene fila de encabezados.");
             }
+            return new TablaConAvisos(tabla, derivadas);
+        } catch (ArchivoInvalidoException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ArchivoInvalidoException(
+                    "No se pudo abrir el libro de Excel. Comprueba que no este protegido con contrasena "
+                            + "y que sea un .xlsx valido.");
+        }
+    }
 
-            encabezados = new ArrayList<>();
-            for (int c = 0; c < filaEncabezados.getLastCellNum(); c++) {
-                encabezados.add(valorDeCelda(filaEncabezados.getCell(c),
-                        filaEncabezados.getRowNum() + 1, c, modo, formateador, derivadas));
-            }
-            encabezados = limpiar(encabezados);
-            quitarColumnasVaciasFinales(encabezados);
-            validarEncabezados(encabezados);
+    /** Recorre el libro entero. Ver {@link #leerHojas}. */
+    private List<HojaLeida> leerTodasLasHojas(byte[] contenido, Topes topes) {
+        List<HojaLeida> hojas = new ArrayList<>();
+        DataFormatter formateador = formateador();
 
-            for (int f = filaEncabezados.getRowNum() + 1; f <= hoja.getLastRowNum(); f++) {
-                Row fila = hoja.getRow(f);
-                if (fila == null) continue;
-
-                List<String> celdas = new ArrayList<>();
-                boolean vacia = true;
-                for (int c = 0; c < encabezados.size(); c++) {
-                    String valor = valorDeCelda(fila.getCell(c), f + 1, c, modo, formateador, derivadas);
-                    if (!valor.isEmpty()) vacia = false;
-                    celdas.add(valor);
-                }
-                if (vacia) continue;   // filas en blanco intercaladas
-
-                if (filas.size() >= LimitesArchivo.MAX_FILAS) {
-                    throw new ArchivoInvalidoException(
-                            "El archivo tiene mas de " + LimitesArchivo.MAX_FILAS
-                                    + " filas. Divide la carga en varios archivos.");
-                }
-
-                filas.add(celdas);
-                numeros.add(f + 1);
+        try (Workbook libro = abrir(contenido)) {
+            for (int i = 0; i < libro.getNumberOfSheets(); i++) {
+                Sheet hoja = libro.getSheetAt(i);
+                TablaLeida tabla = tablaDeHoja(
+                        hoja, ModoLectura.CANONICO, topes, formateador, new ArrayList<>());
+                if (tabla != null) hojas.add(new HojaLeida(hoja.getSheetName(), tabla));
             }
         } catch (ArchivoInvalidoException e) {
             throw e;
@@ -270,7 +313,96 @@ public class LectorArchivoTabular {
                             + "y que sea un .xlsx valido.");
         }
 
-        return new TablaConAvisos(new TablaLeida(encabezados, filas, numeros), derivadas);
+        if (hojas.isEmpty()) {
+            throw new ArchivoInvalidoException(
+                    "Ninguna hoja del libro tiene una tabla con encabezados.");
+        }
+        return hojas;
+    }
+
+    /**
+     * XSSFWorkbook directamente y no WorkbookFactory: asi solo se acepta xlsx y no
+     * se abre la puerta a otros formatos que POI sepa interpretar.
+     */
+    private Workbook abrir(byte[] contenido) throws IOException {
+        // Los topes de POI son estaticos y globales; se fijan en cada lectura para
+        // no depender de que otro punto del sistema los haya dejado como estaban.
+        ZipSecureFile.setMinInflateRatio(LimitesArchivo.RATIO_MINIMO_INFLADO);
+        ZipSecureFile.setMaxEntrySize(LimitesArchivo.MAX_BYTES_ENTRADA_ZIP);
+
+        Workbook libro = new XSSFWorkbook(new ByteArrayInputStream(contenido));
+        if (libro.getNumberOfSheets() == 0) {
+            throw new ArchivoInvalidoException("El libro no tiene ninguna hoja.");
+        }
+        return libro;
+    }
+
+    /**
+     * El formateador aplica el formato que la celda tiene puesto en la hoja. Se le
+     * da la configuracion regional del cliente porque de ella dependen los formatos
+     * de fecha y numero heredados de Excel.
+     */
+    private DataFormatter formateador() {
+        return new DataFormatter(Locale.of("es", "MX"));
+    }
+
+    /**
+     * Una hoja convertida en tabla, o null si no tiene encabezados utilizables.
+     *
+     * <p>Devolver null en lugar de fallar es lo que permite recorrer un libro
+     * entero: un archivo de Excel real arrastra pestanas de notas y de trabajo, y
+     * que una de ellas no sea una tabla no invalida las que si lo son. Quien pide
+     * una sola hoja —y por tanto sabe cual quiere— convierte ese null en error.</p>
+     */
+    private TablaLeida tablaDeHoja(Sheet hoja, ModoLectura modo, Topes topes,
+                                   DataFormatter formateador, List<CeldaDerivada> derivadas) {
+        Row filaEncabezados = hoja.getRow(hoja.getFirstRowNum());
+        if (filaEncabezados == null) return null;
+
+        List<String> encabezados = new ArrayList<>();
+        for (int c = 0; c < filaEncabezados.getLastCellNum(); c++) {
+            encabezados.add(valorDeCelda(filaEncabezados.getCell(c),
+                    filaEncabezados.getRowNum() + 1, c, modo, formateador, derivadas));
+        }
+        encabezados = limpiar(encabezados);
+        quitarColumnasVaciasFinales(encabezados);
+        if (encabezados.isEmpty()) return null;
+        validarEncabezados(encabezados, topes);
+
+        List<List<String>> filas = new ArrayList<>();
+        List<Integer> numeros = new ArrayList<>();
+
+        for (int f = filaEncabezados.getRowNum() + 1; f <= hoja.getLastRowNum(); f++) {
+            Row fila = hoja.getRow(f);
+            if (fila == null) continue;
+
+            List<String> celdas = new ArrayList<>();
+            boolean vacia = true;
+            for (int c = 0; c < encabezados.size(); c++) {
+                String valor = valorDeCelda(fila.getCell(c), f + 1, c, modo, formateador, derivadas);
+                if (!valor.isEmpty()) vacia = false;
+                celdas.add(valor);
+            }
+            if (vacia) continue;   // filas en blanco intercaladas
+
+            if (filas.size() >= topes.maxFilas()) {
+                // Se nombra la hoja: un libro con varias pestanas se lee entero, y una
+                // sola pestana larga tumba la lectura de todas. Sin el nombre, el
+                // mensaje acusa a «el archivo» de algo que pasa en una hoja que a lo
+                // mejor no es la que se queria cargar —el caso real es subir en esta
+                // pantalla un archivo que era de otra—.
+                String nombre = hoja.getSheetName();
+                throw new ArchivoInvalidoException(
+                        "La hoja \"" + nombre + "\" tiene mas de " + topes.maxFilas()
+                                + " filas, que es el maximo de esta carga. Comprueba que sea el "
+                                + "archivo correcto para esta pantalla; si lo es, dividelo.");
+            }
+
+            filas.add(celdas);
+            numeros.add(f + 1);
+        }
+
+        return new TablaLeida(encabezados, filas, numeros);
     }
 
     /**
@@ -359,13 +491,13 @@ public class LectorArchivoTabular {
 
     // ── Comunes ──────────────────────────────────────────────────────────────
 
-    private void validarEncabezados(List<String> encabezados) {
+    private void validarEncabezados(List<String> encabezados, Topes topes) {
         if (encabezados.isEmpty()) {
             throw new ArchivoInvalidoException("El archivo no tiene encabezados.");
         }
-        if (encabezados.size() > LimitesArchivo.MAX_COLUMNAS) {
+        if (encabezados.size() > topes.maxColumnas()) {
             throw new ArchivoInvalidoException(
-                    "El archivo tiene mas de " + LimitesArchivo.MAX_COLUMNAS + " columnas.");
+                    "El archivo tiene mas de " + topes.maxColumnas() + " columnas.");
         }
     }
 

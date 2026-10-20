@@ -95,6 +95,14 @@ public class Institucion {
             columnDefinition = "BIT(1) NOT NULL DEFAULT b'1'")
     private Boolean verParticipantesHijas = true;
 
+    /** Inicio del rango de folios asignado a esta institución (inclusive). Null = sin rango. */
+    @Column(name = "folio_inicio")
+    private Integer folioInicio;
+
+    /** Fin del rango de folios asignado a esta institución (inclusive). */
+    @Column(name = "folio_fin")
+    private Integer folioFin;
+
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private Timestamp fechaRegistro;
 }

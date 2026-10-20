@@ -153,6 +153,16 @@ public class Muestra {
     private Integer numeroEnLote;
 
     /**
+     * Toma de la que proviene esta muestra: el registro inmutable de recolección
+     * (participante + tipo + fecha + institución origen). Null en registros
+     * anteriores al rediseño; NOT NULL en flujo de protocolo.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @JoinColumn(name = "id_toma")
+    private imss.gob.mx.cohorte.modules.almacenamiento.toma.Toma toma;
+
+    /**
      * Configuración del tubo primario del protocolo que originó esta muestra.
      * En una padre indica qué tubo del protocolo es; en una alícuota, de qué tubo
      * salió. Null en el flujo anterior (basado en TuboMuestra).

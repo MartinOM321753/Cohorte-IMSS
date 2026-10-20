@@ -21,8 +21,12 @@ public class TuboProtocoloResponseDTO {
     private Integer numeroAlicuotas;
     private Double volumenAlicuota;
     private List<Double> volumenesAlicuota;
+    private Double volumenEsperado;
     private String unidadVolumen;
     private String destinoSugerido;
+    private Long idInstitucionDestino;
+    private String nombreInstitucionDestino;
+    private String motivoTransferencia;
     private Boolean agruparEnLote;
     private Boolean generacionAutomatica;
     private Boolean permiteAlicuotaParcial;

@@ -37,7 +37,7 @@ class MaterializacionAlicuotasTest {
     void preparar() {
         repositorio = mock(MuestraRepository.class);
         historial = mock(HistorialCambioMuestraService.class);
-        servicio = new MaterializacionAlicuotaService(repositorio, historial);
+        servicio = new MaterializacionAlicuotaService(repositorio, org.mockito.Mockito.mock(imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository.class), historial);
         usuario = new BeanUser();
     }
 
@@ -260,8 +260,8 @@ class MaterializacionAlicuotasTest {
     }
 
     @Test
-    @DisplayName("Agotarse no libera la posición: el tubo vacío puede seguir en la caja")
-    void agotarseNoVaciaElHueco() {
+    @DisplayName("Agotarse libera la posición: la padre es desechable y sale de la caja al vaciarse")
+    void agotarseLiberaElHueco() {
         Muestra padre = padreCon(50.0, 50.0);
         var posicion = new imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja();
         posicion.setId(77L);
@@ -270,8 +270,8 @@ class MaterializacionAlicuotasTest {
         servicio.materializar(alicuotaDe(padre, 11L, 50.0), usuario, "CRIO-A3 B2");
 
         assertTrue(padre.isAgotada());
-        assertNotNull(padre.getPosicionCaja(),
-                "vaciar el hueco solo le mentiría al visor 3D mientras el tubo siga dentro");
+        assertNull(padre.getPosicionCaja(),
+                "al agotarse, la padre sale de la caja y la posición queda libre para otra muestra");
     }
 
     // ── Coma flotante ────────────────────────────────────────────────────────

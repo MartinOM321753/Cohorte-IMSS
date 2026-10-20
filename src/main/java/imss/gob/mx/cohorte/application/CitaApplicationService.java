@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import imss.gob.mx.cohorte.security.institucion.RequireModulo;
 import imss.gob.mx.cohorte.modules.institucion.ModuloSistema;
+import imss.gob.mx.cohorte.services.institucion.InstitucionJerarquiaService;
 
 @Service
 @AllArgsConstructor
@@ -36,6 +37,7 @@ public class CitaApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final InstitucionRepository institucionRepository;
     private final InstitucionContextService institucionContextService;
+    private final InstitucionJerarquiaService institucionJerarquiaService;
 
     @Transactional(readOnly = true)
     public List<Cita> getAll(){
@@ -80,24 +82,29 @@ public class CitaApplicationService {
     }
 
     @Transactional
-    public Cita save(Cita cita){
-        // Se permite agendar aunque el participante esté inactivo: así entra en
-        // "seguimiento" (inactivo + cita sin confirmar) y solo se activa cuando
-        // confirme. El resto de flujos clínicos siguen exigiendo que esté activo.
+    public Cita save(Cita cita, String institucionDestinoUUID){
         Paciente paciente = participanteAccesoService.resolverIncluyendoInactivo(cita.getPaciente().getUuid());
         BeanUser usuario = userService.getByUUID(cita.getUsuarioAgenda().getUUID());
-        if (cita.getInstitucion() == null || cita.getInstitucion().getId() == null) {
-            throw new ObjNotFoundException("Falta informacion de institucion responsable de la cita");
+
+        Institucion institucion;
+        if (institucionDestinoUUID != null && !institucionDestinoUUID.isBlank()) {
+            institucion = institucionRepository.findByUuid(institucionDestinoUUID)
+                    .orElseThrow(() -> new ObjNotFoundException(
+                            "No se encontró la institución destino con UUID: " + institucionDestinoUUID));
+            Long idActual = institucionContextService.getIdInstitucionActual();
+            List<Long> visibles = institucionJerarquiaService.getInstitucionesVisibles(idActual);
+            if (!visibles.contains(institucion.getId())) {
+                throw new ObjNotFoundException(
+                        "La institución destino no está entre las instituciones visibles");
+            }
+        } else {
+            institucion = institucionContextService.getInstitucionActual();
         }
-        Institucion institucion = institucionRepository.findById(cita.getInstitucion().getId())
-                .orElseThrow(() -> new ObjNotFoundException("No se encontró la institución con id: " + cita.getInstitucion().getId()));
-        // Aislamiento por institución: no se permite agendar citas a nombre de otra institución
-        institucionContextService.verificarPertenece(institucion);
+
         cita.setPaciente(paciente);
         cita.setUsuarioAgenda(usuario);
         cita.setInstitucion(institucion);
         Cita saved = citaService.create(cita);
-        // El listener se ejecuta AFTER_COMMIT en hilo async — no bloquea la respuesta HTTP
         eventPublisher.publishEvent(new CitaAgendadaEvent(saved));
         return saved;
     }

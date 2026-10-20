@@ -50,11 +50,17 @@ public class ParametroEstudioMuestra {
     @Column(name = "orden", nullable = false, columnDefinition = "INTEGER DEFAULT 0")
     private Integer orden = 0;
 
-    @Column(name = "valor_minimo")
-    private Double valorMinimo;
+    @Column(name = "valor_min_mujeres")
+    private Double valorMinMujeres;
 
-    @Column(name = "valor_maximo")
-    private Double valorMaximo;
+    @Column(name = "valor_max_mujeres")
+    private Double valorMaxMujeres;
+
+    @Column(name = "valor_min_hombres")
+    private Double valorMinHombres;
+
+    @Column(name = "valor_max_hombres")
+    private Double valorMaxHombres;
 
     @OneToMany(mappedBy = "parametro", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("orden ASC")

@@ -19,6 +19,7 @@ import java.util.List;
  * @param volumen         volumen extraído que entra a la padre; null = sin dato
  * @param unidad          unidad del volumen para GUARDAR/ESTUDIO; en ALICUOTAR manda el tubo
  * @param planVolumenes   reparto explícito de las alícuotas; vacío = automático
+ * @param observaciones   observaciones para la muestra padre; null = sin dato
  */
 public record DecisionTubo(
         Long idTuboProtocolo,
@@ -26,8 +27,19 @@ public record DecisionTubo(
         AccionTubo accion,
         Double volumen,
         String unidad,
-        List<Double> planVolumenes
+        List<Double> planVolumenes,
+        String observaciones,
+        Boolean transferirAutorizado,
+        Long idInstitucionDestino,
+        String motivoTransferencia
 ) {
+    public DecisionTubo(Long idTuboProtocolo, boolean incluir, AccionTubo accion,
+                        Double volumen, String unidad, List<Double> planVolumenes,
+                        String observaciones) {
+        this(idTuboProtocolo, incluir, accion, volumen, unidad, planVolumenes,
+             observaciones, null, null, null);
+    }
+
     public DecisionTubo {
         planVolumenes = planVolumenes == null ? List.of() : List.copyOf(planVolumenes);
     }

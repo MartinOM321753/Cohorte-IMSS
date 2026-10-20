@@ -1,6 +1,7 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.OrdenLlenado;
 
 import java.util.List;
 
@@ -14,6 +15,10 @@ public class CajaMapper {
         c.setTipoCaja(dto.getTipoCaja());
         c.setColor(dto.getColor());
         c.setObservaciones(dto.getObservaciones());
+        if (dto.getOrdenLlenado() != null) {
+            try { c.setOrdenLlenado(OrdenLlenado.valueOf(dto.getOrdenLlenado())); }
+            catch (IllegalArgumentException ignored) { }
+        }
         return c;
     }
 
@@ -43,6 +48,7 @@ public class CajaMapper {
             .activo(c.getActivo())
             .idPosicionPiso(idPosicionPiso)
             .ubicacionPiso(ubicacion)
+            .ordenLlenado(c.getOrdenLlenado().name())
             .build();
     }
 

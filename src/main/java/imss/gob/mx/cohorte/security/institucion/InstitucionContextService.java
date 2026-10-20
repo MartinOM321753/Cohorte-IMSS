@@ -68,6 +68,19 @@ public class InstitucionContextService {
         return institucion;
     }
 
+    /**
+     * ¿El usuario autenticado tiene el rol ROOT? ROOT administra las instituciones,
+     * sus módulos y los permisos de sus usuarios sin importar a qué institución
+     * pertenezca. Solo cambia la administración: los registros de los participantes
+     * siguen aislados por institución.
+     */
+    public boolean esRootActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ROOT".equals(a.getAuthority()));
+    }
+
     /** Atajo para obtener únicamente el id de la institución del usuario actual. */
     public Long getIdInstitucionActual() {
         return getInstitucionActual().getId();

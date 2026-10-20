@@ -41,8 +41,9 @@ public class MuestraResponseDTO {
     private String tipoResultanteLote;
     private Integer numeroEnLote;
 
+    private Long idToma;
     // Protocolo y tubo del flujo nuevo (para agrupar la vista en cards por
-    // participante × protocolo y mostrar T{orden}). Null en lo heredado.
+    // participante × toma y mostrar T{orden}). Null en lo heredado.
     private Long idProtocolo;
     private String nombreProtocolo;
     private Integer ordenTubo;

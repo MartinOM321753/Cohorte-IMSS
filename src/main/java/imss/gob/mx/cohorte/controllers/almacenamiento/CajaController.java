@@ -6,6 +6,7 @@ import imss.gob.mx.cohorte.controllers.almacenamiento.dto.CajaRequestDTO;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.CajaResponseDTO;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.services.almacenamiento.caja.ReservaPosicionService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +24,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/almacenamiento/cajas")
@@ -32,6 +36,7 @@ import java.util.List;
 public class CajaController {
 
     private final CajasApplicationService cajasApplicationService;
+    private final ReservaPosicionService reservaPosicionService;
 
     @GetMapping
     @Operation(summary = "Listar todas las cajas criogénicas", description = "Obtiene una lista completa de todas las cajas criogénicas registradas en el sistema")
@@ -214,5 +219,43 @@ public class CajaController {
         @PathVariable Long id) {
         List<PosicionCaja> posiciones = cajasApplicationService.getPosicionesLibresByCaja(id);
         return ResponseEntity.ok(new APIResponse("Posiciones libres encontradas", posiciones, false, HttpStatus.OK));
+    }
+
+    // ── Reserva temporal de posiciones (estilo «cine») ──────────────────────
+
+    @GetMapping("/{id}/posiciones/reservadas")
+    @Operation(summary = "Posiciones reservadas por otros usuarios",
+               description = "Devuelve los IDs de posiciones de esta caja que otro usuario tiene temporalmente reservadas.")
+    @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'MUESTRAS_CREAR')")
+    public ResponseEntity<APIResponse> getReservadas(
+            @PathVariable Long id,
+            @RequestParam String sesion) {
+        List<PosicionCaja> posiciones = cajasApplicationService.getPosicionesByCaja(id);
+        Set<Long> ids = posiciones.stream().map(PosicionCaja::getId).collect(Collectors.toSet());
+        Set<Long> reservadas = reservaPosicionService.reservadasEnCaja(ids, sesion);
+        return ResponseEntity.ok(new APIResponse("Reservadas", reservadas, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/posiciones/reservar")
+    @Operation(summary = "Reservar posiciones temporalmente",
+               description = "Bloquea las posiciones indicadas por ~5 min para que otro usuario no las seleccione.")
+    @PreAuthorize("hasAnyAuthority('MUESTRAS_CREAR', 'TRASLADOS_CONFIRMAR')")
+    public ResponseEntity<APIResponse> reservar(@RequestBody Map<String, Object> body) {
+        String sesion = (String) body.get("sesion");
+        @SuppressWarnings("unchecked")
+        List<Number> ids = (List<Number>) body.get("ids");
+        List<Long> idsPosicion = ids.stream().map(Number::longValue).toList();
+        reservaPosicionService.reservarVarias(idsPosicion, sesion);
+        return ResponseEntity.ok(new APIResponse("Posiciones reservadas", null, false, HttpStatus.OK));
+    }
+
+    @PostMapping("/posiciones/liberar")
+    @Operation(summary = "Liberar reservas de una sesión",
+               description = "Libera todas las posiciones reservadas por la sesión indicada.")
+    @PreAuthorize("hasAnyAuthority('MUESTRAS_CREAR', 'TRASLADOS_CONFIRMAR')")
+    public ResponseEntity<APIResponse> liberarSesion(@RequestBody Map<String, String> body) {
+        String sesion = body.get("sesion");
+        reservaPosicionService.liberarSesion(sesion);
+        return ResponseEntity.ok(new APIResponse("Reservas liberadas", null, false, HttpStatus.OK));
     }
 }

@@ -39,6 +39,15 @@ public class TuboProtocoloRequestDTO {
 
     private List<Double> volumenesAlicuota;
 
+    /** Volumen esperado del tubo primario al momento de la recolección. */
+    private Double volumenEsperado;
+
+    /** Institución destino para transferencia automática (acción TRANSFERIR). */
+    private Long idInstitucionDestino;
+
+    @Size(max = 200, message = "Motivo de transferencia máximo 200 caracteres")
+    private String motivoTransferencia;
+
     @Size(max = 20, message = "Unidad de volumen máximo 20 caracteres")
     private String unidadVolumen;
 

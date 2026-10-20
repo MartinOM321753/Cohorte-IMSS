@@ -24,11 +24,13 @@ public class ProtocoloMapper {
         tubo.setAccion(dto.getAccion() != null ? dto.getAccion() : AccionTubo.GUARDAR);
         tubo.setNumeroAlicuotas(dto.getNumeroAlicuotas() != null ? dto.getNumeroAlicuotas() : 0);
         tubo.setVolumenAlicuota(dto.getVolumenAlicuota());
+        tubo.setVolumenEsperado(dto.getVolumenEsperado());
         tubo.setVolumenesAlicuota(dto.getVolumenesAlicuota() != null
                 ? ajustarVolumenes(dto.getNumeroAlicuotas(), dto.getVolumenAlicuota(), dto.getVolumenesAlicuota())
                 : null);
         tubo.setUnidadVolumen(dto.getUnidadVolumen());
         tubo.setDestinoSugerido(dto.getDestinoSugerido());
+        tubo.setMotivoTransferencia(dto.getMotivoTransferencia());
         tubo.setOrden(dto.getOrden() != null ? dto.getOrden() : 0);
         tubo.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
         tubo.setAgruparEnLote(dto.getAgruparEnLote() != null ? dto.getAgruparEnLote() : Boolean.FALSE);
@@ -51,8 +53,12 @@ public class ProtocoloMapper {
                 .numeroAlicuotas(tubo.getNumeroAlicuotas())
                 .volumenAlicuota(tubo.getVolumenAlicuota())
                 .volumenesAlicuota(copiaVolumenes(tubo.getVolumenesAlicuota()))
+                .volumenEsperado(tubo.getVolumenEsperado())
                 .unidadVolumen(tubo.getUnidadVolumen())
                 .destinoSugerido(tubo.getDestinoSugerido())
+                .idInstitucionDestino(tubo.getInstitucionDestino() != null ? tubo.getInstitucionDestino().getId() : null)
+                .nombreInstitucionDestino(tubo.getInstitucionDestino() != null ? tubo.getInstitucionDestino().getNombre() : null)
+                .motivoTransferencia(tubo.getMotivoTransferencia())
                 .agruparEnLote(tubo.esAgruparEnLote())
                 .generacionAutomatica(tubo.esGeneracionAutomatica())
                 .permiteAlicuotaParcial(tubo.admiteAlicuotaParcial())

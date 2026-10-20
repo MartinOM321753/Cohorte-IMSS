@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muestra trasladada a tu laboratorio</title>
+  <title>Muestras trasladadas a tu laboratorio</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
@@ -21,10 +21,16 @@
           <tr>
             <td style="padding:36px 32px 28px;">
               <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8782;">Notificación de traslado</p>
-              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">Muestra enviada a tu laboratorio</h2>
+              <h2 th:if="${totalMuestras == 1}" style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">Muestra enviada a tu laboratorio</h2>
+              <h2 th:if="${totalMuestras > 1}" style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">
+                <span th:text="${totalMuestras}">3</span> muestras enviadas a tu laboratorio
+              </h2>
 
-              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+              <p th:if="${totalMuestras == 1}" style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
                 Hola, <strong th:text="${nombreEncargado}">Encargado</strong>. Se ha registrado el traslado de una muestra biológica hacia tu laboratorio. Por favor confirma la recepción cuando llegue.
+              </p>
+              <p th:if="${totalMuestras > 1}" style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+                Hola, <strong th:text="${nombreEncargado}">Encargado</strong>. Se han registrado <strong th:text="${totalMuestras}">3</strong> traslados de muestras biológicas hacia tu laboratorio. Por favor confirma la recepción de cada una cuando lleguen.
               </p>
 
               <table width="100%" cellpadding="0" cellspacing="0"
@@ -33,9 +39,17 @@
                   <td style="padding:20px 24px;">
                     <p style="margin:0 0 12px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#1e4e3a;">Detalles del traslado</p>
                     <table cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
+                      <tr th:if="${totalMuestras == 1}">
                         <td style="padding:4px 0;font-size:14px;color:#6b7280;width:160px;">Muestra:</td>
-                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;font-family:monospace;" th:text="${etiquetaMuestra}">MU-001</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;font-family:monospace;" th:text="${etiquetas[0]}">MU-001</td>
+                      </tr>
+                      <tr th:if="${totalMuestras > 1}">
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;width:160px;vertical-align:top;">Muestras:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;font-family:monospace;">
+                          <span th:each="etq, iter : ${etiquetas}">
+                            <span th:text="${etq}">MU-001</span><span th:if="${!iter.last}">, </span>
+                          </span>
+                        </td>
                       </tr>
                       <tr>
                         <td style="padding:4px 0;font-size:14px;color:#6b7280;">Institución destino:</td>
@@ -73,8 +87,11 @@
                      style="background:#fef9ee;border-left:4px solid #d4a866;border-radius:4px;margin-bottom:24px;">
                 <tr>
                   <td style="padding:16px 20px;">
-                    <p style="margin:0;font-size:14px;color:#713f12;line-height:1.5;">
+                    <p th:if="${totalMuestras == 1}" style="margin:0;font-size:14px;color:#713f12;line-height:1.5;">
                       ⚠️ <strong>Acción requerida</strong> — Una vez que recibas físicamente la muestra, ingresa al sistema y confirma su recepción para actualizar el estado del traslado.
+                    </p>
+                    <p th:if="${totalMuestras > 1}" style="margin:0;font-size:14px;color:#713f12;line-height:1.5;">
+                      ⚠️ <strong>Acción requerida</strong> — Una vez que recibas físicamente las muestras, ingresa al sistema y confirma la recepción de cada una para actualizar el estado de los traslados.
                     </p>
                   </td>
                 </tr>

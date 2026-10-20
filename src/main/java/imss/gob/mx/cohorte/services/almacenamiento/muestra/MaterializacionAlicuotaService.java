@@ -1,5 +1,8 @@
 package imss.gob.mx.cohorte.services.almacenamiento.muestra;
 
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.EstadoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.Muestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.MuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.historial.TipoEventoMuestra;
@@ -44,6 +47,7 @@ import java.util.Map;
 public class MaterializacionAlicuotaService {
 
     private final MuestraRepository muestraRepository;
+    private final PosicionCajaRepository posicionCajaRepository;
     private final HistorialCambioMuestraService historialService;
 
     /**
@@ -124,16 +128,8 @@ public class MaterializacionAlicuotaService {
     }
 
     /**
-     * Sella el agotamiento si la muestra se quedó sin volumen.
-     *
-     * <p>No es una baja: la baja es una decisión —contaminación, pérdida,
-     * retiro de consentimiento— y el agotamiento es un hecho consumado. Si se
-     * mezclaran, la pregunta «cuántas muestras se echaron a perder» quedaría
-     * sepultada bajo decenas de miles de tubos consumidos con normalidad.</p>
-     *
-     * <p>Tampoco libera la posición si la tenía: puede haber un tubo vacío
-     * todavía dentro de la caja hasta que alguien pase a retirarlo, y vaciar el
-     * hueco solo le mentiría al visor 3D. Eso se ofrece, no se hace.</p>
+     * Sella el agotamiento si la muestra se quedó sin volumen y libera su
+     * posición en caja automáticamente.
      */
     @Transactional
     public void sellarAgotamientoSiProcede(Muestra muestra, BeanUser usuario) {
@@ -144,6 +140,23 @@ public class MaterializacionAlicuotaService {
             return;
         }
         muestra.setFechaAgotamiento(Timestamp.valueOf(LocalDateTime.now()));
+
+        if (muestra.getPosicionCaja() != null) {
+            PosicionCaja pos = posicionCajaRepository.findById(
+                    muestra.getPosicionCaja().getId()).orElse(null);
+            if (pos != null) {
+                pos.setOcupada(false);
+                posicionCajaRepository.save(pos);
+            }
+            muestra.setPosicionCaja(null);
+            muestra.setEstadoMuestra(EstadoMuestra.SIN_POSICION);
+
+            historialService.registrarEvento(muestra, usuario,
+                    TipoEventoMuestra.POSICION_LIBERADA,
+                    "PosicionCaja liberada", null,
+                    "Posición liberada automáticamente al agotarse la muestra.", null);
+        }
+
         muestraRepository.save(muestra);
 
         historialService.registrarEvento(muestra, usuario,

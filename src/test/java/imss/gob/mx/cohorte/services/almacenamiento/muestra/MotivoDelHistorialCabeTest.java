@@ -100,7 +100,7 @@ class MotivoDelHistorialCabeTest {
         MuestraRepository muestras = mock(MuestraRepository.class);
         HistorialCambioMuestraService historial = mock(HistorialCambioMuestraService.class);
         MaterializacionAlicuotaService materializacion =
-                new MaterializacionAlicuotaService(muestras, historial);
+                    new MaterializacionAlicuotaService(muestras, org.mockito.Mockito.mock(imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository.class), historial);
 
         Muestra padre = new Muestra();
         padre.setId(1L);
@@ -140,7 +140,7 @@ class MotivoDelHistorialCabeTest {
         MuestraRepository muestras = mock(MuestraRepository.class);
         HistorialCambioMuestraService historial = mock(HistorialCambioMuestraService.class);
         MaterializacionAlicuotaService materializacion =
-                new MaterializacionAlicuotaService(muestras, historial);
+                new MaterializacionAlicuotaService(muestras, org.mockito.Mockito.mock(imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCajaRepository.class), historial);
 
         Muestra padre = new Muestra();
         padre.setId(1L);

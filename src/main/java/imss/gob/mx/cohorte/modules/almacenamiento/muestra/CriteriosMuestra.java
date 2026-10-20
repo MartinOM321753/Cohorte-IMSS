@@ -31,7 +31,11 @@ public record CriteriosMuestra(
         List<String> tipos,
         Persona.Sexo sexo,
         String folioDesde,
-        String folioHasta) {
+        String folioHasta,
+        String uuidPaciente,
+        Long idProtocolo,
+        boolean sinProtocolo,
+        Long idToma) {
 
     /**
      * Ancho con el que {@code FolioGeneratorService} rellena los folios numéricos.
@@ -66,7 +70,41 @@ public record CriteriosMuestra(
                 normalizarTipos(tipos),
                 normalizarSexo(sexo),
                 extremo(folioDesde, folioHasta, true),
-                extremo(folioDesde, folioHasta, false));
+                extremo(folioDesde, folioHasta, false),
+                null, null, false, null);
+    }
+
+    public static CriteriosMuestra de(
+            Long idInstitucion,
+            boolean incluirHistorico,
+            boolean ocultarDevueltasHuerfanas,
+            String busqueda,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            List<String> tipos,
+            String sexo,
+            String folioDesde,
+            String folioHasta,
+            String uuidPaciente,
+            Long idProtocolo,
+            boolean sinProtocolo,
+            Long idToma) {
+
+        return new CriteriosMuestra(
+                idInstitucion,
+                incluirHistorico,
+                ocultarDevueltasHuerfanas,
+                normalizarTexto(busqueda),
+                fechaDesde != null ? fechaDesde.atStartOfDay() : null,
+                fechaHasta != null ? fechaHasta.atTime(23, 59, 59, 999_999_999) : null,
+                normalizarTipos(tipos),
+                normalizarSexo(sexo),
+                extremo(folioDesde, folioHasta, true),
+                extremo(folioDesde, folioHasta, false),
+                normalizarTexto(uuidPaciente) != null ? uuidPaciente.trim() : null,
+                idProtocolo,
+                sinProtocolo,
+                idToma);
     }
 
     private static String normalizarTexto(String texto) {
@@ -172,6 +210,18 @@ public record CriteriosMuestra(
 
     public boolean hayTipos() {
         return tipos != null && !tipos.isEmpty();
+    }
+
+    public boolean hayPaciente() {
+        return uuidPaciente != null && !uuidPaciente.isBlank();
+    }
+
+    public boolean hayProtocolo() {
+        return idProtocolo != null || sinProtocolo;
+    }
+
+    public boolean hayToma() {
+        return idToma != null;
     }
 
     /** Si algún criterio distinto de la institución está activo. */

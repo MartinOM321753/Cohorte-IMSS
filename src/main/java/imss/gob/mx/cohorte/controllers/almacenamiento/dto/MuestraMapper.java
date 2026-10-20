@@ -107,6 +107,7 @@ public class MuestraMapper {
             .tipoResultanteLote(m.getLote() != null && m.getLote().getTipoResultante() != null
                 ? m.getLote().getTipoResultante().getNombre() : null)
             .numeroEnLote(m.getNumeroEnLote())
+            .idToma(m.getToma() != null ? m.getToma().getId() : null)
             .idProtocolo(m.getTuboProtocolo() != null && m.getTuboProtocolo().getProtocolo() != null
                 ? m.getTuboProtocolo().getProtocolo().getId() : null)
             .nombreProtocolo(m.getTuboProtocolo() != null && m.getTuboProtocolo().getProtocolo() != null

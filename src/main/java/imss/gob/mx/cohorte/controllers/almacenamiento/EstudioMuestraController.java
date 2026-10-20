@@ -1,6 +1,6 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
-import imss.gob.mx.cohorte.application.almacenamiento.EstudioMuestraApplicationService;
+import imss.gob.mx.cohorte.application.almacenamiento   .EstudioMuestraApplicationService;
 import imss.gob.mx.cohorte.application.almacenamiento.GestionEstudioMuestraApplicationService;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.estudiomuestra.*;
 import imss.gob.mx.cohorte.modules.almacenamiento.muestra.estudios.*;
@@ -136,8 +136,10 @@ public class EstudioMuestraController {
         parametro.setNombre(dto.getNombre());
         parametro.setUnidad(dto.getUnidad());
         parametro.setTipo(dto.getTipo());
-        parametro.setValorMinimo(dto.getValorMinimo());
-        parametro.setValorMaximo(dto.getValorMaximo());
+        parametro.setValorMinMujeres(dto.getValorMinMujeres());
+        parametro.setValorMaxMujeres(dto.getValorMaxMujeres());
+        parametro.setValorMinHombres(dto.getValorMinHombres());
+        parametro.setValorMaxHombres(dto.getValorMaxHombres());
         ParametroEstudioMuestra creado = gestionAppService.createParametro(parametro, dto.getOpciones());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new APIResponse(EstudioMuestraMapper.toParametroDTO(creado),
@@ -155,8 +157,10 @@ public class EstudioMuestraController {
         datos.setNombre(dto.getNombre());
         datos.setUnidad(dto.getUnidad());
         datos.setTipo(dto.getTipo());
-        datos.setValorMinimo(dto.getValorMinimo());
-        datos.setValorMaximo(dto.getValorMaximo());
+        datos.setValorMinMujeres(dto.getValorMinMujeres());
+        datos.setValorMaxMujeres(dto.getValorMaxMujeres());
+        datos.setValorMinHombres(dto.getValorMinHombres());
+        datos.setValorMaxHombres(dto.getValorMaxHombres());
         ParametroEstudioMuestra actualizado = gestionAppService.updateParametro(id, datos, dto.getOpciones());
         return ResponseEntity.ok(new APIResponse(EstudioMuestraMapper.toParametroDTO(actualizado),
                 "Parámetro actualizado", HttpStatus.OK, false));
