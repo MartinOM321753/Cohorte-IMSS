@@ -1,7 +1,10 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento;
 
+import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaMuestrasService;
 import imss.gob.mx.cohorte.services.importacion.CargaMasivaProtocoloService;
+import imss.gob.mx.cohorte.services.importacion.CargaProtocoloAsyncService;
 import imss.gob.mx.cohorte.services.importacion.PlantillaCargaMuestras;
 import imss.gob.mx.cohorte.services.importacion.PlantillaCargaProtocolo;
 import imss.gob.mx.cohorte.services.importacion.PrevisualizacionCargaMuestras;
@@ -42,8 +45,10 @@ public class CargaMasivaMuestrasController {
 
     private final CargaMasivaMuestrasService cargaMasivaService;
     private final CargaMasivaProtocoloService cargaProtocoloService;
+    private final CargaProtocoloAsyncService cargaProtocoloAsyncService;
     private final PlantillaCargaMuestras plantillaService;
     private final PlantillaCargaProtocolo plantillaProtocoloService;
+    private final InstitucionContextService institucionContextService;
 
     /**
      * Interpreta el archivo y devuelve la previsualización. No escribe nada.
@@ -150,21 +155,43 @@ public class CargaMasivaMuestrasController {
 
     @PostMapping("/protocolo/confirmar")
     @Operation(summary = "Guardar una carga por protocolo",
-            description = "Crea todos los tubos primarios del protocolo, lotes de alícuotas y transferencias automáticas.")
+            description = "Lanza la carga en segundo plano. Al terminar, envía un correo con el resumen.")
     @PreAuthorize("hasAuthority('MUESTRAS_CARGA_MASIVA')")
     public ResponseEntity<APIResponse> confirmarProtocolo(
             @RequestParam("archivo") MultipartFile archivo,
             @RequestParam(value = "idProtocolo", required = false) Long idProtocolo,
             @RequestParam(value = "fechaPorOmision", required = false) String fechaPorOmision,
             @RequestParam(value = "hojaProtocolo", required = false) String hojaProtocoloJson) {
-        ResultadoCargaProtocolo r;
-        if (hojaProtocoloJson != null && !hojaProtocoloJson.isBlank()) {
-            java.util.Map<String, Long> mapa = parsearHojaProtocolo(hojaProtocoloJson);
-            r = cargaProtocoloService.confirmarMultiHoja(archivo, mapa, fechaPorOmision);
-        } else {
-            r = cargaProtocoloService.confirmar(archivo, idProtocolo, fechaPorOmision);
+
+        byte[] contenido;
+        try { contenido = archivo.getBytes(); }
+        catch (java.io.IOException e) {
+            throw new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ValidationException(
+                    "No se pudo leer el archivo.");
         }
-        return ResponseEntity.ok(new APIResponse(r, resumenProto(r), HttpStatus.OK, false));
+
+        BeanUser usuario = institucionContextService.getUsuarioActual();
+        String emailSolicitante = usuario.getPersona() != null
+                ? usuario.getPersona().getEmail() : null;
+        String nombreSolicitante = usuario.getPersona() != null
+                ? usuario.getPersona().getNombre() : usuario.getUsername();
+
+        org.springframework.security.core.context.SecurityContext secCtx =
+                org.springframework.security.core.context.SecurityContextHolder.getContext();
+
+        java.util.Map<String, Long> mapa = (hojaProtocoloJson != null && !hojaProtocoloJson.isBlank())
+                ? parsearHojaProtocolo(hojaProtocoloJson) : null;
+
+        cargaProtocoloAsyncService.confirmarYNotificar(
+                contenido, idProtocolo, mapa, fechaPorOmision,
+                secCtx,
+                emailSolicitante, nombreSolicitante);
+
+        return ResponseEntity.accepted()
+                .body(new APIResponse(null,
+                        "La carga se está procesando en segundo plano. "
+                                + "Recibirá un correo con el resumen al finalizar.",
+                        HttpStatus.ACCEPTED, false));
     }
 
     private static java.util.Map<String, Long> parsearHojaProtocolo(String json) {

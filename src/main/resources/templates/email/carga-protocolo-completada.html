@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carga masiva de muestras completada</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+          <tr>
+            <td style="background:#1e4e3a;padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">Cohorte de Trabajadores de la Salud</h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;">Carga masiva de muestras por protocolo</p>
+            </td>
+          </tr>
+          <tr><td style="background:#4ade80;height:3px;"></td></tr>
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8782;">Proceso finalizado</p>
+              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">La carga de muestras ya se complet&oacute;</h2>
+
+              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+                La carga realizada por <strong th:text="${nombre}">Usuario</strong> se proces&oacute; correctamente. Este es el resumen:
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;width:200px;">Participantes procesados:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${procesamientos}">39</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Tubos primarios creados:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${padres}">78</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Al&iacute;cuotas creadas:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#15803d;" th:text="${alicuotas}">468</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Lotes:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${lotes}">39</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Con ubicaci&oacute;n asignada:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#0d1411;" th:text="${ubicadas}">468</td>
+                      </tr>
+                      <tr th:if="${transferencias > 0}">
+                        <td style="padding:4px 0;font-size:14px;color:#6b7280;">Transferencias:</td>
+                        <td style="padding:4px 0;font-size:14px;font-weight:600;color:#b45309;" th:text="${transferencias}">0</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <div th:if="${tieneAvisos}">
+                <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0d1411;">Avisos</p>
+                <table width="100%" cellpadding="0" cellspacing="0"
+                       style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;font-size:13px;">
+                  <tr style="background:#fffbeb;">
+                    <th style="padding:10px 12px;text-align:left;color:#92400e;font-weight:600;border-bottom:1px solid #e5e7eb;">Detalle</th>
+                  </tr>
+                  <tr th:each="aviso : ${avisos}">
+                    <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b45309;" th:text="${aviso}">Aviso</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p th:if="${!tieneAvisos}" style="margin:0;font-size:14px;color:#15803d;line-height:1.6;">
+                Todas las muestras se registraron sin advertencias.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="border-top:1px solid #f0f0f0;padding:20px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
+                ACCESO RESTRINGIDO &middot; Todas las acciones se registran en bit&aacute;cora institucional
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

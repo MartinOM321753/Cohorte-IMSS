@@ -85,6 +85,19 @@ public class CargaMasivaProtocoloService {
         return analizarTodo(contenidoDe(archivo), hojaProtocolo, fechaPorOmision, true);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public ResultadoCargaProtocolo confirmarDesdeBytes(byte[] contenido, Long idProtocolo,
+                                                       String fechaPorOmision) {
+        return analizarTodo(contenido, Map.of("", idProtocolo), fechaPorOmision, true);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ResultadoCargaProtocolo confirmarMultiHojaDesdeBytes(byte[] contenido,
+                                                                Map<String, Long> hojaProtocolo,
+                                                                String fechaPorOmision) {
+        return analizarTodo(contenido, hojaProtocolo, fechaPorOmision, true);
+    }
+
     // ── Núcleo ───────────────────────────────────────────────────────────────
 
     private ResultadoCargaProtocolo analizarTodo(byte[] contenido, Map<String, Long> hojaProtocolo,
