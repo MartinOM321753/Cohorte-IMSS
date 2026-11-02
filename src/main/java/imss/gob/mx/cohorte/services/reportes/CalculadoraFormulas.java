@@ -52,6 +52,10 @@ public class CalculadoraFormulas {
 
             if (resultado.ausente()) return resultado;
 
+            // Un texto —la banda de un percentil— no tiene número ni unidad que declarar;
+            // pasarlo por Magnitud.de lo volvería ausente y la celda saldría en blanco.
+            if (resultado.esTexto()) return resultado;
+
             // La unidad que se imprime es la que declaró quien escribió la fórmula. El
             // evaluador no puede nombrar la que sale de dividir kilos entre metros al
             // cuadrado, y tampoco le corresponde discutirla.
@@ -154,7 +158,7 @@ public class CalculadoraFormulas {
     public String estado(FormulaReporte formula, ContextoReporte ctx,
                          java.util.function.Function<String, Magnitud> porClave) {
         Magnitud valor = calcular(formula, ctx, porClave);
-        if (valor.ausente()) return "";
+        if (valor.ausente() || valor.esTexto()) return "";
 
         Magnitud min = minimo(formula, ctx, porClave);
         Magnitud max = maximo(formula, ctx, porClave);

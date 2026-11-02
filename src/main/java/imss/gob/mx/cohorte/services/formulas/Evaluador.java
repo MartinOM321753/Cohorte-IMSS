@@ -245,8 +245,30 @@ public final class Evaluador {
             case "min" -> extremo(valores, true);
             case "max" -> extremo(valores, false);
             case "promedio" -> promedio(valores);
+            case "percentil" -> percentil(valores, false);
+            case "bandapercentil" -> percentil(valores, true);
             default -> Magnitud.sinDato();
         };
+    }
+
+    /**
+     * El primer argumento es el valor y los once siguientes, los cortes de la tabla.
+     *
+     * <p>Un texto en cualquier lugar lo deja sin dato: no se interpola con «Derecha».
+     * Fuera del P5–P95 el percentil numérico queda ausente y la banda lo dice con
+     * palabras, que es la única respuesta honesta que da la tabla.</p>
+     */
+    private static Magnitud percentil(List<Magnitud> valores, boolean comoBanda) {
+        if (valores.stream().anyMatch(Magnitud::esTexto)) return Magnitud.sinDato();
+
+        BigDecimal valor = valores.get(0).valor();
+        List<BigDecimal> cortes = valores.subList(1, valores.size()).stream()
+                .map(Magnitud::valor).toList();
+
+        if (comoBanda) return Magnitud.deTexto(Percentiles.banda(valor, cortes));
+
+        BigDecimal p = Percentiles.interpolar(valor, cortes);
+        return p == null ? Magnitud.sinDato() : Magnitud.de(p, Unidad.NINGUNA);
     }
 
     private static Magnitud raiz(Magnitud m) {
