@@ -182,6 +182,10 @@ public class EstudioMuestraMapper {
                 case ALICUOTAS_COMPROMETIDAS -> "Alícuotas comprometidas";
                 case ALICUOTA_MATERIALIZADA -> "Alícuota materializada";
                 case MUESTRA_AGOTADA -> "Muestra agotada";
+                case ENTREGA_REALIZADA -> "Entrega a colaborador";
+                case ENTREGA_DEVUELTA -> "Entrega devuelta";
+                case ENTREGA_CONSUMIDA -> "Entrega consumida";
+                case ENTREGA_CANCELADA -> "Entrega cancelada";
                 case ACTUALIZACION_CAMPO -> null;
             };
         }

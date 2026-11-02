@@ -185,6 +185,18 @@ public class PermisoInitializer {
             new String[]{"TRASLADOS_DEVOLVER", "TRASLADOS", "Iniciar devolucion de traslados"},
             new String[]{"TRASLADOS_CANCELAR", "TRASLADOS", "Cancelar traslados"},
 
+            new String[]{"COLABORADORES_ACCEDER", "COLABORADORES", "Acceder al catalogo de colaboradores (personas fisicas que reciben muestras)"},
+            new String[]{"COLABORADORES_LOOKUP", "COLABORADORES", "Consultar colaboradores activos desde el formulario de entrega"},
+            new String[]{"COLABORADORES_CREAR", "COLABORADORES", "Registrar colaboradores"},
+            new String[]{"COLABORADORES_EDITAR", "COLABORADORES", "Editar colaboradores"},
+
+            new String[]{"ENTREGAS_ACCEDER", "ENTREGAS", "Acceder al tab de entregas a colaboradores"},
+            new String[]{"ENTREGAS_LOOKUP", "ENTREGAS", "Consultar estado de entregas desde MuestrasTab"},
+            new String[]{"ENTREGAS_CREAR", "ENTREGAS", "Entregar muestras a un colaborador"},
+            new String[]{"ENTREGAS_DEVOLVER", "ENTREGAS", "Registrar la devolucion de una entrega"},
+            new String[]{"ENTREGAS_CONSUMIR", "ENTREGAS", "Marcar una entrega como consumida"},
+            new String[]{"ENTREGAS_CANCELAR", "ENTREGAS", "Cancelar una entrega"},
+
             new String[]{"DOCUMENTOS_VER_METADATA", "DOCUMENTOS", "Ver metadata de documentos"},
             new String[]{"DOCUMENTOS_DESCARGAR", "DOCUMENTOS", "Descargar archivos de MinIO"},
             new String[]{"DOCUMENTOS_SUBIR", "DOCUMENTOS", "Subir documentos"},
@@ -301,7 +313,10 @@ public class PermisoInitializer {
             "PROTOCOLOS_ACCEDER", "PROTOCOLOS_CREAR", "PROTOCOLOS_EDITAR",
             "PROTOCOLOS_LOOKUP", "TRASLADOS_ACCEDER",
             "TRASLADOS_CANCELAR", "TRASLADOS_CONFIRMAR", "TRASLADOS_CREAR",
-            "TRASLADOS_DEVOLVER", "TRASLADOS_LOOKUP", "UNIDADES_LOOKUP"
+            "TRASLADOS_DEVOLVER", "TRASLADOS_LOOKUP", "UNIDADES_LOOKUP",
+            "COLABORADORES_ACCEDER", "COLABORADORES_LOOKUP", "COLABORADORES_CREAR",
+            "COLABORADORES_EDITAR", "ENTREGAS_ACCEDER", "ENTREGAS_LOOKUP",
+            "ENTREGAS_CREAR", "ENTREGAS_DEVOLVER", "ENTREGAS_CONSUMIR", "ENTREGAS_CANCELAR"
     );
 
     private static final Set<String> PERMISOS_ENCARGADO = Set.of(
@@ -321,7 +336,10 @@ public class PermisoInitializer {
             "PROTOCOLOS_ELIMINAR", "PROTOCOLOS_LOOKUP",
             "TRASLADOS_ACCEDER", "TRASLADOS_CANCELAR", "TRASLADOS_CONFIRMAR",
             "TRASLADOS_CREAR", "TRASLADOS_DEVOLVER", "TRASLADOS_LOOKUP",
-            "UNIDADES_LOOKUP"
+            "UNIDADES_LOOKUP",
+            "COLABORADORES_ACCEDER", "COLABORADORES_LOOKUP", "COLABORADORES_CREAR",
+            "COLABORADORES_EDITAR", "ENTREGAS_ACCEDER", "ENTREGAS_LOOKUP",
+            "ENTREGAS_CREAR", "ENTREGAS_DEVOLVER", "ENTREGAS_CONSUMIR", "ENTREGAS_CANCELAR"
     );
 
     private static final Set<String> PERMISOS_PACIENTE = Set.of(
