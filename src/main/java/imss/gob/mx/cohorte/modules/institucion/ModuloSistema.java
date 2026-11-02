@@ -26,5 +26,16 @@ public enum ModuloSistema {
     /** Acceso al registro de acciones de escritura (crear/actualizar/eliminar). */
     BITACORA_ACCIONES,
     /** Diseño de plantillas y emisión de reportes en PDF. */
-    REPORTES
+    REPORTES,
+    /**
+     * Análisis agregado de resultados de la cohorte (estudios, exámenes,
+     * somatometría) con desglose por institución, sexo, edad y rangos.
+     *
+     * <p>A diferencia de los demás módulos —que operan sobre los datos de la
+     * propia institución— ANALISIS lee de forma agregada todo el subárbol de la
+     * institución (ella y sus descendientes; ver {@code AnalisisScopeService}).
+     * Que la raíz lo conceda a una institución padre habilita el análisis cruzado
+     * de esa rama; una sede hoja solo se analiza a sí misma.</p>
+     */
+    ANALISIS
 }

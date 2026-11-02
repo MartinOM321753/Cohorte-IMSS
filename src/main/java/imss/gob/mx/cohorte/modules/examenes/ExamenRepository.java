@@ -1,8 +1,11 @@
 package imss.gob.mx.cohorte.modules.examenes;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,6 +13,11 @@ import java.util.Optional;
 public interface ExamenRepository extends JpaRepository<Examen, Long> {
 
     Optional<Examen> findByParametro(String nombre);
+
+    /** Exámenes activos cuyas instituciones están en el alcance dado (catálogo de métricas). */
+    @Query("SELECT e FROM Examen e WHERE e.institucion.id IN :instituciones AND e.activo = true "
+         + "ORDER BY e.parametro ASC")
+    List<Examen> findActivosByInstituciones(@Param("instituciones") Collection<Long> instituciones);
 
     List<Examen> findAllByActivo(Boolean activo);
 

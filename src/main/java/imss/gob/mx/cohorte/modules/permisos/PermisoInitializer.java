@@ -244,7 +244,18 @@ public class PermisoInitializer {
             new String[]{"BITACORA_ACCIONES_VER", "BITACORA", "Ver bitacora de acciones"},
 
             new String[]{"PERMISOS_VER", "PERMISOS", "Ver panel de permisos"},
-            new String[]{"PERMISOS_EDITAR", "PERMISOS", "Editar permisos y roles"}
+            new String[]{"PERMISOS_EDITAR", "PERMISOS", "Editar permisos y roles"},
+
+            // ── Análisis ────────────────────────────────────────────────────────
+            //
+            // ACCEDER abre el módulo (ver gráficas y agregados de todo el subárbol).
+            // EXPORTAR baja los agregados que se ven en pantalla. EXPORTA_CRUDO es
+            // aparte y más fuerte a propósito: baja datos a nivel participante, que
+            // no pasan por la supresión k-anónima, así que no puede ir con el permiso
+            // de exportar agregados.
+            new String[]{"ANALISIS_ACCEDER", "ANALISIS", "Acceder al modulo de analisis (graficas y agregados del subarbol)"},
+            new String[]{"ANALISIS_EXPORTAR", "ANALISIS", "Descargar los agregados que se muestran en pantalla (CSV/XLSX)"},
+            new String[]{"ANALISIS_EXPORTA_CRUDO", "ANALISIS", "Descargar datos a nivel participante (sin supresion k-anonima)"}
     );
 
     // ── Mapeo de roles → códigos de permisos ──────────────────────────────────
