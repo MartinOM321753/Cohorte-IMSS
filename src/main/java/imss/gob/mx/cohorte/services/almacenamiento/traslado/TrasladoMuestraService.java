@@ -155,6 +155,15 @@ public class TrasladoMuestraService {
                 throw new ObjConflictException(
                         "La muestra '" + muestra.getEtiqueta() + "' ya está en préstamo activo.");
             }
+            if (muestra.getEstadoMuestra() == EstadoMuestra.ENTREGADA) {
+                throw new ObjConflictException(
+                        "La muestra '" + muestra.getEtiqueta() + "' está entregada a un colaborador; "
+                        + "registra antes su devolución.");
+            }
+            if (muestra.getEstadoMuestra() == EstadoMuestra.CONSUMIDA) {
+                throw new ObjConflictException(
+                        "La muestra '" + muestra.getEtiqueta() + "' está consumida y ya no existe físicamente.");
+            }
             if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
                 throw new ObjConflictException(
                         "La muestra '" + muestra.getEtiqueta() + "' está dada de baja.");

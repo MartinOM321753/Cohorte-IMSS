@@ -370,7 +370,7 @@ public class DashboardController {
             return new CajaOcupacionDTO(
                     caja.getId(),
                     caja.getCodigoCaja(),
-                    caja.getTipoCaja(),
+                    caja.getTipoMuestraRecomendado() != null ? caja.getTipoMuestraRecomendado().getNombre() : null,
                     total,
                     ocupadas,
                     pct

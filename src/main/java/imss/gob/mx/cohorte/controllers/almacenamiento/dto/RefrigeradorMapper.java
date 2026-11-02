@@ -11,6 +11,7 @@ public class RefrigeradorMapper {
         Refrigerador r = new Refrigerador();
         r.setCodigo(dto.getCodigo());
         r.setNombre(dto.getNombre());
+        r.setTemperatura(dto.getTemperatura());
         r.setMarca(dto.getMarca());
         r.setModelo(dto.getModelo());
         return r;
@@ -25,6 +26,7 @@ public class RefrigeradorMapper {
             .id(r.getId())
             .codigo(r.getCodigo())
             .nombre(r.getNombre())
+            .temperatura(r.getTemperatura())
             .marca(r.getMarca())
             .modelo(r.getModelo())
             .activo(r.getActivo())

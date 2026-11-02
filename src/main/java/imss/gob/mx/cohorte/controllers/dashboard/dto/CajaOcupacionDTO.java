@@ -6,7 +6,7 @@ package imss.gob.mx.cohorte.controllers.dashboard.dto;
 public record CajaOcupacionDTO(
         Long   cajaId,
         String codigo,
-        String tipoCaja,
+        String nombreTipoMuestra,
         long   totalPosiciones,
         long   ocupadas,
         int    pct

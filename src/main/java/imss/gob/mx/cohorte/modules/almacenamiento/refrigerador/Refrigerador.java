@@ -31,6 +31,9 @@ public class Refrigerador {
     @Column(name = "modelo", length = 50)
     private String modelo;
 
+    @Column(name = "temperatura")
+    private Double temperatura;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 

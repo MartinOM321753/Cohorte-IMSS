@@ -13,6 +13,7 @@ public class TipoMuestraMapper {
         tipo.setNombre(dto.getNombre());
         tipo.setDescripcion(dto.getDescripcion());
         tipo.setTemperaturaAlmacenamiento(dto.getTemperaturaAlmacenamiento());
+        tipo.setTemperatura(dto.getTemperatura());
         return tipo;
     }
 
@@ -102,6 +103,7 @@ public class TipoMuestraMapper {
                 .nombre(tipo.getNombre())
                 .descripcion(tipo.getDescripcion())
                 .temperaturaAlmacenamiento(tipo.getTemperaturaAlmacenamiento())
+                .temperatura(tipo.getTemperatura())
                 .activo(tipo.getActivo())
                 .tubos(tubosDTO)
                 .build();

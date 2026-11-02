@@ -241,6 +241,24 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/iniciar-devolucion").hasAuthority("TRASLADOS_DEVOLVER")
                         .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/traslados/*/cancelar").hasAuthority("TRASLADOS_CANCELAR")
 
+                        // ── Colaboradores (personas físicas que reciben muestras) ──
+                        // El GET lo usan el tab Colaboradores Y el formulario de entrega
+                        // (lista de activos), por eso admite también ENTREGAS_CREAR.
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/colaboradores/**")
+                                .hasAnyAuthority("COLABORADORES_ACCEDER", "COLABORADORES_LOOKUP", "ENTREGAS_CREAR")
+                        .requestMatchers(HttpMethod.POST, "/api/almacenamiento/colaboradores/**").hasAuthority("COLABORADORES_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/colaboradores/**").hasAuthority("COLABORADORES_EDITAR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/almacenamiento/colaboradores/**").hasAuthority("COLABORADORES_EDITAR")
+
+                        // ── Entregas a colaboradores (préstamo a persona física) ──
+                        // GET también para MuestrasTab (estado de entrega por muestra).
+                        .requestMatchers(HttpMethod.GET, "/api/almacenamiento/entregas/**")
+                                .hasAnyAuthority("ENTREGAS_ACCEDER", "ENTREGAS_LOOKUP", "ENTREGAS_CREAR", "MUESTRAS_VER")
+                        .requestMatchers(HttpMethod.POST, "/api/almacenamiento/entregas/**").hasAuthority("ENTREGAS_CREAR")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/entregas/*/devolver").hasAuthority("ENTREGAS_DEVOLVER")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/entregas/*/consumir").hasAuthority("ENTREGAS_CONSUMIR")
+                        .requestMatchers(HttpMethod.PUT, "/api/almacenamiento/entregas/*/cancelar").hasAuthority("ENTREGAS_CANCELAR")
+
                         // ── Almacenes (instituciones destino) — compartido entre tabs ──
                         .requestMatchers(HttpMethod.GET, "/api/almacenamiento/almacenes/**")
                                 .hasAnyAuthority("TRASLADOS_ACCEDER", "TRASLADOS_LOOKUP",

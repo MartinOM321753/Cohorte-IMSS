@@ -645,6 +645,15 @@ public class MuestraApplicationService {
                     "No se pueden generar alícuotas de una muestra en tránsito (PRESTADA). "
                     + "Confirma primero la recepción o espera a que la devolución se complete.");
         }
+        if (padre.getEstadoMuestra() == EstadoMuestra.ENTREGADA) {
+            throw new ObjConflictException(
+                    "No se pueden generar alícuotas de una muestra entregada a un colaborador. "
+                    + "Registra antes su devolución.");
+        }
+        if (padre.getEstadoMuestra() == EstadoMuestra.CONSUMIDA) {
+            throw new ObjConflictException(
+                    "La muestra está consumida y ya no existe físicamente; no se pueden generar alícuotas.");
+        }
         if (padre.getEstadoMuestra() == EstadoMuestra.BAJA) {
             throw new ObjConflictException("La muestra está dada de baja; no se pueden generar más alícuotas.");
         }

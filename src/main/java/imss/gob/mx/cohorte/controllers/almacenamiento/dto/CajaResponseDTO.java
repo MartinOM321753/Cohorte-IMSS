@@ -14,11 +14,15 @@ public class CajaResponseDTO {
     private String codigoCaja;
     private Integer filas;
     private Integer columnas;
-    private String tipoCaja;
     private String color;
     private String observaciones;
     private Boolean activo;
     private Long idPosicionPiso;
     private String ubicacionPiso;
     private String ordenLlenado;
+    private Double temperaturaRefrigerador;
+    private Long idTipoMuestraRecomendado;
+    private String nombreTipoMuestraRecomendado;
+    private Integer totalPosiciones;
+    private Integer posicionesLibres;
 }

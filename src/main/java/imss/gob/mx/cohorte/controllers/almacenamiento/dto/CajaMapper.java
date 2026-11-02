@@ -12,7 +12,6 @@ public class CajaMapper {
         c.setCodigoCaja(dto.getCodigoCaja());
         c.setFilas(dto.getFilas());
         c.setColumnas(dto.getColumnas());
-        c.setTipoCaja(dto.getTipoCaja());
         c.setColor(dto.getColor());
         c.setObservaciones(dto.getObservaciones());
         if (dto.getOrdenLlenado() != null) {
@@ -24,6 +23,7 @@ public class CajaMapper {
 
     public static CajaResponseDTO toResponseDTO(CajaCriogenica c) {
         String ubicacion = null;
+        Double temperaturaRef = null;
         if (c.getPosicionPiso() != null) {
             var pos = c.getPosicionPiso();
             var piso = pos.getPiso();
@@ -34,6 +34,9 @@ public class CajaMapper {
                 pos.getFila(),
                 pos.getColumna(),
                 pos.getAltura());
+            if (ref != null) {
+                temperaturaRef = ref.getTemperatura();
+            }
         }
         Long idPosicionPiso = c.getPosicionPiso() != null ? c.getPosicionPiso().getId() : null;
 
@@ -42,17 +45,29 @@ public class CajaMapper {
             .codigoCaja(c.getCodigoCaja())
             .filas(c.getFilas())
             .columnas(c.getColumnas())
-            .tipoCaja(c.getTipoCaja())
             .color(c.getColor())
             .observaciones(c.getObservaciones())
             .activo(c.getActivo())
             .idPosicionPiso(idPosicionPiso)
             .ubicacionPiso(ubicacion)
             .ordenLlenado(c.getOrdenLlenado().name())
+            .temperaturaRefrigerador(temperaturaRef)
+            .idTipoMuestraRecomendado(c.getTipoMuestraRecomendado() != null ? c.getTipoMuestraRecomendado().getId() : null)
+            .nombreTipoMuestraRecomendado(c.getTipoMuestraRecomendado() != null ? c.getTipoMuestraRecomendado().getNombre() : null)
             .build();
     }
 
     public static List<CajaResponseDTO> toResponseDTOList(List<CajaCriogenica> list) {
         return list.stream().map(CajaMapper::toResponseDTO).toList();
+    }
+
+    public static List<CajaResponseDTO> toResponseDTOList(List<CajaCriogenica> list, java.util.Map<Long, long[]> posicionCounts) {
+        return list.stream().map(c -> {
+            CajaResponseDTO dto = toResponseDTO(c);
+            long[] ct = posicionCounts.getOrDefault(c.getId(), new long[]{0, 0});
+            dto.setTotalPosiciones((int) ct[0]);
+            dto.setPosicionesLibres((int) (ct[0] - ct[1]));
+            return dto;
+        }).toList();
     }
 }

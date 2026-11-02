@@ -308,7 +308,7 @@ public class Ubicacion3DService {
             if (c != null) {
                 b.idCaja(c.getId())
                  .codigoCaja(c.getCodigoCaja())
-                 .tipoCaja(c.getTipoCaja())
+                 .nombreTipoMuestra(c.getTipoMuestraRecomendado() != null ? c.getTipoMuestraRecomendado().getNombre() : null)
                  .color(c.getColor())
                  .capacidad(capacidad(c))
                  .ocupadas((int) posicionCajaRepository.countOcupadasByCajaId(c.getId()));
@@ -380,7 +380,7 @@ public class Ubicacion3DService {
                 .codigoCaja(caja.getCodigoCaja())
                 .filas(caja.getFilas())
                 .columnas(caja.getColumnas())
-                .tipoCaja(caja.getTipoCaja())
+                .nombreTipoMuestra(caja.getTipoMuestraRecomendado() != null ? caja.getTipoMuestraRecomendado().getNombre() : null)
                 .color(caja.getColor())
                 .observaciones(caja.getObservaciones())
                 .ordenLlenado(caja.getOrdenLlenado().name())

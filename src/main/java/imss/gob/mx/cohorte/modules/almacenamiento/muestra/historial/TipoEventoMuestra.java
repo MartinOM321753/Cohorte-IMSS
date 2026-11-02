@@ -26,5 +26,13 @@ public enum TipoEventoMuestra {
     /** Una alícuota ocupó posición por primera vez y descontó de su padre. */
     ALICUOTA_MATERIALIZADA,
     /** La muestra se quedó sin volumen por consumo normal (no es una baja). */
-    MUESTRA_AGOTADA
+    MUESTRA_AGOTADA,
+    /** Muestra entregada en préstamo a un colaborador (persona física). */
+    ENTREGA_REALIZADA,
+    /** Entrega a colaborador devuelta: la muestra regresó al biobanco. */
+    ENTREGA_DEVUELTA,
+    /** Entrega a colaborador cerrada como consumida: la muestra no regresó. */
+    ENTREGA_CONSUMIDA,
+    /** Entrega a colaborador cancelada (registro corregido): la muestra regresó. */
+    ENTREGA_CANCELADA
 }

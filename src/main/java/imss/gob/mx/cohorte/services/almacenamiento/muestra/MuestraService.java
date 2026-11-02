@@ -574,6 +574,12 @@ public class MuestraService {
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException("No se puede asignar posición a una muestra prestada a otra institución.");
         }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.ENTREGADA) {
+            throw new ObjConflictException("No se puede ubicar una muestra entregada a un colaborador; registra antes su devolución.");
+        }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.CONSUMIDA) {
+            throw new ObjConflictException("La muestra está consumida y ya no existe físicamente para ubicarse.");
+        }
         if (muestra.getEstadoMuestra() == EstadoMuestra.BAJA) {
             throw new ObjConflictException("La muestra está dada de baja.");
         }
@@ -688,6 +694,16 @@ public class MuestraService {
             throw new ObjConflictException(
                     "No se puede dar de baja una muestra en tránsito. "
                     + "Cancela o completa el préstamo primero.");
+        }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.ENTREGADA) {
+            throw new ObjConflictException(
+                    "No se puede dar de baja una muestra entregada a un colaborador. "
+                    + "Registra antes su devolución o márcala como consumida.");
+        }
+        if (muestra.getEstadoMuestra() == EstadoMuestra.CONSUMIDA) {
+            throw new ObjConflictException(
+                    "La muestra está consumida (entregada y no regresó): es un estado terminal y no se da de baja. "
+                    + "Sus estudios pendientes aún pueden capturarse.");
         }
 
         // Las alícuotas sin ubicar son una promesa contra esta muestra: darla de

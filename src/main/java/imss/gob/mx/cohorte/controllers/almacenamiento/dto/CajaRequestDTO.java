@@ -23,9 +23,6 @@ public class CajaRequestDTO {
     @Min(value = 1, message = "El número de columnas debe ser al menos 1")
     private Integer columnas;
 
-    @Size(max = 50, message = "Tipo de caja máximo 50 caracteres")
-    private String tipoCaja;
-
     @Size(max = 30, message = "Color máximo 30 caracteres")
     private String color;
 
@@ -35,4 +32,6 @@ public class CajaRequestDTO {
     private Long idPosicionPiso;
 
     private String ordenLlenado;
+
+    private Long idTipoMuestraRecomendado;
 }

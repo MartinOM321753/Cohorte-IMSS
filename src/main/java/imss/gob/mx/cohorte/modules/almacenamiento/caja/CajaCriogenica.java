@@ -2,6 +2,7 @@ package imss.gob.mx.cohorte.modules.almacenamiento.caja;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.modules.institucion.Institucion;
 import jakarta.persistence.*;
@@ -27,9 +28,6 @@ public class CajaCriogenica {
 
     @Column(name = "columnas", nullable = false)
     private Integer columnas;
-
-    @Column(name = "tipo_caja", length = 50)
-    private String tipoCaja;
 
     @Column(name = "color", length = 30)
     private String color;
@@ -57,4 +55,8 @@ public class CajaCriogenica {
     @JoinColumn(name = "id_posicion_piso", unique = true)
     @JsonIgnore
     private PosicionPiso posicionPiso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_tipo_muestra_recomendado")
+    private TipoMuestra tipoMuestraRecomendado;
 }

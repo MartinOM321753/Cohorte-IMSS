@@ -1,5 +1,6 @@
 package imss.gob.mx.cohorte.controllers.almacenamiento.dto;
 
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,6 +16,9 @@ public class RefrigeradorRequestDTO {
 
     @Size(max = 100, message = "Nombre máximo 100 caracteres")
     private String nombre;
+
+    @NotNull(message = "La temperatura es obligatoria")
+    private Double temperatura;
 
     @Size(max = 50, message = "Marca máximo 50 caracteres")
     private String marca;

@@ -76,6 +76,7 @@ public class MuestraMapper {
                 .id(tm.getId())
                 .nombre(tm.getNombre())
                 .temperaturaAlmacenamiento(tm.getTemperaturaAlmacenamiento())
+                .temperatura(tm.getTemperatura())
                 .build();
         }
 

@@ -32,7 +32,8 @@ public final class AnalizadorFormula {
 
     /** Las funciones que se pueden usar. Fuera de esta lista no hay nada. */
     static final Set<String> FUNCIONES = Set.of(
-            "si", "min", "max", "abs", "redondear", "raiz", "promedio");
+            "si", "min", "max", "abs", "redondear", "raiz", "promedio",
+            "percentil", "bandapercentil");
 
     private final String texto;
     private int i;
@@ -250,6 +251,10 @@ public final class AnalizadorFormula {
             case "abs", "raiz" -> cuantos == 1 ? null : "«" + funcion + "» necesita un solo valor.";
             case "redondear" -> cuantos == 2 ? null : "«redondear» necesita dos: el valor y cuántos decimales.";
             case "min", "max", "promedio" -> cuantos >= 1 ? null : "«" + funcion + "» necesita al menos un valor.";
+            // Los nombres se comparan en minúsculas: «bandaPercentil» llega como «bandapercentil».
+            case "percentil", "bandapercentil" -> cuantos == Percentiles.PERCENTILES.length + 1 ? null
+                    : "«" + funcion + "» necesita el valor y los " + Percentiles.PERCENTILES.length
+                    + " cortes de la tabla, del P5 al P95.";
             default -> null;
         };
         if (problema != null) throw new ErrorDeFormula(problema, posicion);

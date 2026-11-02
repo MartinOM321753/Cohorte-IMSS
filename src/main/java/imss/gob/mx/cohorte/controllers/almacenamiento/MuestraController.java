@@ -576,6 +576,7 @@ public class  MuestraController {
                 .id(mti.getTipoMuestra().getId())
                 .nombre(mti.getTipoMuestra().getNombre())
                 .temperaturaAlmacenamiento(mti.getTipoMuestra().getTemperaturaAlmacenamiento())
+                .temperatura(mti.getTipoMuestra().getTemperatura())
                 .build())
             .tuboMuestra(TuboMuestraResumenDTO.builder()
                 .id(mti.getTuboMuestra().getId())

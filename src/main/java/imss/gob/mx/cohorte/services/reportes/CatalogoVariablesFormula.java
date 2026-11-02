@@ -48,6 +48,7 @@ public class CatalogoVariablesFormula {
     private static final String G_PARTICIPANTE = "Participante";
     private static final String G_ESTUDIOS     = "Estudios";
     private static final String G_EXAMENES     = "Exámenes de laboratorio";
+    private static final String G_REFERENCIAS  = "Tablas de referencia";
 
     private final TipoService tipoService;
     private final ExamenService examenService;
@@ -101,6 +102,27 @@ public class CatalogoVariablesFormula {
         List<Variable> variables = new ArrayList<>(delParticipante());
         variables.addAll(deEstudios());
         variables.addAll(deExamenes());
+        variables.addAll(deTablasDeReferencia());
+        return variables;
+    }
+
+    /**
+     * Los cortes de cada tabla de percentiles, ya escogidos para la edad y el sexo del
+     * participante. Con ellos se arma el rango esperado —P5 a P95, por ejemplo— y se
+     * alimentan {@code percentil(...)} y {@code bandaPercentil(...)}.
+     */
+    private List<Variable> deTablasDeReferencia() {
+        List<Variable> variables = new ArrayList<>();
+        for (var tabla : imss.gob.mx.cohorte.services.referencias.TablasReferencia.estandar().todas()) {
+            for (int percentil : tabla.cortes()) {
+                variables.add(variable(
+                        imss.gob.mx.cohorte.services.referencias.TablasReferencia
+                                .clave(tabla.id(), percentil),
+                        "P" + percentil, G_REFERENCIAS, tabla.nombre(), tabla.unidad(),
+                        "Corte P" + percentil + " para la edad y el sexo del participante. "
+                                + "Sin sexo registrado o fuera de la edad de la tabla, no hay valor."));
+            }
+        }
         return variables;
     }
 

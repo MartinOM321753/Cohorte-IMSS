@@ -52,9 +52,15 @@ public class CajaController {
                 schema = @Schema(implementation = APIResponse.class)))
     })
     @PreAuthorize("hasAnyAuthority('CAJAS_LOOKUP', 'CAJAS_ACCEDER', 'MUESTRAS_VER', 'TRASLADOS_CONFIRMAR')")
-    public ResponseEntity<APIResponse> getAll() {
-        List<CajaCriogenica> list = cajasApplicationService.getAllCajas();
-        return ResponseEntity.ok(new APIResponse("Cajas encontradas", CajaMapper.toResponseDTOList(list), false, HttpStatus.OK));
+    public ResponseEntity<APIResponse> getAll(
+            @Parameter(description = "Filtrar por temperatura del refrigerador (°C)")
+            @RequestParam(required = false) Double temperatura) {
+        List<CajaCriogenica> list = temperatura != null
+                ? cajasApplicationService.getCajasByTemperatura(temperatura)
+                : cajasApplicationService.getAllCajas();
+        List<Long> ids = list.stream().map(CajaCriogenica::getId).toList();
+        Map<Long, long[]> counts = cajasApplicationService.getPosicionCounts(ids);
+        return ResponseEntity.ok(new APIResponse("Cajas encontradas", CajaMapper.toResponseDTOList(list, counts), false, HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -97,7 +103,7 @@ public class CajaController {
     @PreAuthorize("hasAuthority('CAJAS_CREAR')")
     public ResponseEntity<APIResponse> create(@Validated @RequestBody CajaRequestDTO dto) {
         CajaCriogenica entity = CajaMapper.toEntity(dto);
-        CajaCriogenica saved = cajasApplicationService.createCaja(entity, dto.getIdPosicionPiso());
+        CajaCriogenica saved = cajasApplicationService.createCaja(entity, dto.getIdPosicionPiso(), dto.getIdTipoMuestraRecomendado());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(new APIResponse("Caja criogénica creada exitosamente", CajaMapper.toResponseDTO(saved), false, HttpStatus.CREATED));
     }
@@ -123,7 +129,7 @@ public class CajaController {
         @Parameter(description = "ID numérico de la caja criogénica", required = true)
         @PathVariable Long id, @Validated @RequestBody CajaRequestDTO dto) {
         CajaCriogenica entity = CajaMapper.toEntity(dto);
-        CajaCriogenica updated = cajasApplicationService.updateCaja(id, entity, dto.getIdPosicionPiso());
+        CajaCriogenica updated = cajasApplicationService.updateCaja(id, entity, dto.getIdPosicionPiso(), dto.getIdTipoMuestraRecomendado());
         return ResponseEntity.ok(new APIResponse("Caja criogénica actualizada", CajaMapper.toResponseDTO(updated), false, HttpStatus.OK));
     }
 

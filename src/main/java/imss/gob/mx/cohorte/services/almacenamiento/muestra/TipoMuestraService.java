@@ -78,6 +78,7 @@ public class TipoMuestraService {
         }
         if (datos.getDescripcion() != null) tipo.setDescripcion(datos.getDescripcion());
         if (datos.getTemperaturaAlmacenamiento() != null) tipo.setTemperaturaAlmacenamiento(datos.getTemperaturaAlmacenamiento());
+        tipo.setTemperatura(datos.getTemperatura());
         return tipoMuestraRepository.save(tipo);
     }
 

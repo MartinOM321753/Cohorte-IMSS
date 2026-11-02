@@ -219,6 +219,13 @@ public class ResolvedorCampos {
 
         if (PARTICIPANTE_SEXO.equals(clave)) return sexoComoNumero(ctx);
 
+        if (clave.startsWith("referencia.")) {
+            Boolean mujer = ctx.persona() == null || ctx.persona().getSexo() == null ? null
+                    : ctx.persona().getSexo() == imss.gob.mx.cohorte.modules.persona.Persona.Sexo.F;
+            return imss.gob.mx.cohorte.services.referencias.TablasReferencia.estandar()
+                    .corte(clave, mujer, ctx.edadEnAnios());
+        }
+
         return Magnitud.sinDato();
     }
 

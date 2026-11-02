@@ -15,6 +15,7 @@ public class RefrigeradorResponseDTO {
     private Long id;
     private String codigo;
     private String nombre;
+    private Double temperatura;
     private String marca;
     private String modelo;
     private Boolean activo;

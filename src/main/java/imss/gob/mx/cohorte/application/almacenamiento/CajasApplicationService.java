@@ -3,6 +3,8 @@ package imss.gob.mx.cohorte.application.almacenamiento;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.CajaCriogenica;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.EtiquetaPosicionCaja;
 import imss.gob.mx.cohorte.modules.almacenamiento.caja.PosicionCaja;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestra;
+import imss.gob.mx.cohorte.modules.almacenamiento.muestra.tipo.TipoMuestraRepository;
 import imss.gob.mx.cohorte.modules.almacenamiento.refrigerador.PosicionPiso;
 import imss.gob.mx.cohorte.controllers.almacenamiento.dto.ubicacion3d.Ubicacion3DCajaDTO;
 import imss.gob.mx.cohorte.services.almacenamiento.caja.CajaCriojenicaService;
@@ -11,6 +13,7 @@ import imss.gob.mx.cohorte.services.almacenamiento.caja.PosicionCajaService;
 import imss.gob.mx.cohorte.services.almacenamiento.refrigerador.PosicionPisoService;
 import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjConflictException;
+import imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,18 +33,21 @@ public class CajasApplicationService {
     private final PosicionPisoService posicionPisoService;
     private final Ubicacion3DService ubicacion3DService;
     private final InstitucionContextService institucionContextService;
+    private final TipoMuestraRepository tipoMuestraRepository;
 
     @Autowired
-    public CajasApplicationService(CajaCriojenicaService cajaCriojenicaService, 
-                                 PosicionCajaService posicionCajaService, 
+    public CajasApplicationService(CajaCriojenicaService cajaCriojenicaService,
+                                 PosicionCajaService posicionCajaService,
                                  PosicionPisoService posicionPisoService,
                                  Ubicacion3DService ubicacion3DService,
-                                 InstitucionContextService institucionContextService) {
+                                 InstitucionContextService institucionContextService,
+                                 TipoMuestraRepository tipoMuestraRepository) {
         this.cajaCriojenicaService = cajaCriojenicaService;
         this.posicionCajaService = posicionCajaService;
         this.posicionPisoService = posicionPisoService;
         this.ubicacion3DService = ubicacion3DService;
         this.institucionContextService = institucionContextService;
+        this.tipoMuestraRepository = tipoMuestraRepository;
     }
 
     /**
@@ -69,12 +75,22 @@ public class CajasApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<CajaCriogenica> getCajasByTemperatura(Double temperatura) {
+        return cajaCriojenicaService.getByTemperaturaRefrigerador(temperatura);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, long[]> getPosicionCounts(java.util.Collection<Long> cajaIds) {
+        return posicionCajaService.countPosicionesByCajaIds(cajaIds);
+    }
+
+    @Transactional(readOnly = true)
     public CajaCriogenica getCaja(Long id) {
         return cajaCriojenicaService.getById(id);
     }
 
     @Transactional
-    public CajaCriogenica createCaja(CajaCriogenica caja, Long idPosicionPiso) {
+    public CajaCriogenica createCaja(CajaCriogenica caja, Long idPosicionPiso, Long idTipoMuestraRecomendado) {
         if (idPosicionPiso != null) {
             PosicionPiso posicion = getPosicionPisoPropia(idPosicionPiso);
             if (posicion.getOcupada()) {
@@ -82,6 +98,7 @@ public class CajasApplicationService {
             }
             caja.setPosicionPiso(posicion);
         }
+        resolverTipoMuestra(caja, idTipoMuestraRecomendado);
         CajaCriogenica saved = cajaCriojenicaService.create(caja);
         
         // Generar posiciones automáticamente
@@ -94,7 +111,7 @@ public class CajasApplicationService {
     }
 
     @Transactional
-    public CajaCriogenica updateCaja(Long id, CajaCriogenica caja, Long idPosicionNueva) {
+    public CajaCriogenica updateCaja(Long id, CajaCriogenica caja, Long idPosicionNueva, Long idTipoMuestraRecomendado) {
         CajaCriogenica cajaBD = cajaCriojenicaService.getById(id);
 
         Long idPosicionActual = cajaBD.getPosicionPiso() != null ? cajaBD.getPosicionPiso().getId() : null;
@@ -123,6 +140,8 @@ public class CajasApplicationService {
             }
             caja.setPosicionPiso(null);
         }
+
+        resolverTipoMuestra(caja, idTipoMuestraRecomendado);
 
         int nuevasFilas = caja.getFilas() != null ? caja.getFilas() : cajaBD.getFilas();
         int nuevasColumnas = caja.getColumnas() != null ? caja.getColumnas() : cajaBD.getColumnas();
@@ -207,6 +226,16 @@ public class CajasApplicationService {
         return getPosicionesByCaja(idCaja).stream()
             .filter(p -> !p.getOcupada())
             .toList();
+    }
+
+    private void resolverTipoMuestra(CajaCriogenica caja, Long idTipoMuestraRecomendado) {
+        if (idTipoMuestraRecomendado != null) {
+            TipoMuestra tipo = tipoMuestraRepository.findById(idTipoMuestraRecomendado)
+                    .orElseThrow(() -> new ObjNotFoundException("No se encontró el tipo de muestra con id: " + idTipoMuestraRecomendado));
+            caja.setTipoMuestraRecomendado(tipo);
+        } else {
+            caja.setTipoMuestraRecomendado(null);
+        }
     }
 
     private void marcarPosicionPisoOcupada(Long idPosicion, Boolean ocupada) {

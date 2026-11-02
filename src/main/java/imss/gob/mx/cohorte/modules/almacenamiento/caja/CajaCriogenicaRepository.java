@@ -26,4 +26,9 @@ public interface CajaCriogenicaRepository extends JpaRepository<CajaCriogenica, 
     Optional<String> findMaxCodigoCajaByPrefixAndInstitucion(@Param("prefix") String prefix, @Param("idInst") Long idInstitucion);
 
     Optional<CajaCriogenica> findByCodigoCajaAndInstitucion_Id(String codigoCaja, Long idInstitucion);
+
+    @Query("SELECT c FROM CajaCriogenica c " +
+           "JOIN c.posicionPiso pp JOIN pp.piso p JOIN p.refrigerador r " +
+           "WHERE r.temperatura = :temp AND c.institucion.id = :instId AND c.activo = true")
+    List<CajaCriogenica> findByTemperaturaRefrigerador(@Param("temp") Double temp, @Param("instId") Long instId);
 }

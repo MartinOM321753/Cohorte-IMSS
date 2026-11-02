@@ -31,7 +31,7 @@ public class Ubicacion3DCajaEnPisoDTO {
     /** Datos de la caja alojada; null cuando el hueco está libre. */
     private Long idCaja;
     private String codigoCaja;
-    private String tipoCaja;
+    private String nombreTipoMuestra;
     private String color;
     private Integer capacidad;
     private Integer ocupadas;

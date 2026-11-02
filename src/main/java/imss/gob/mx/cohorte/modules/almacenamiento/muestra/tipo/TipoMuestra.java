@@ -30,9 +30,14 @@ public class TipoMuestra {
 
     /**
      * Temperatura de almacenamiento sugerida: "4°C", "-80°C", "Ambiente".
+     * @deprecated Usar {@link #temperatura} (numérico en °C).
      */
     @Column(name = "temperatura_almacenamiento", length = 30)
     private String temperaturaAlmacenamiento;
+
+    /** Temperatura de almacenamiento en °C (ej. -80.0, 4.0, -20.0). */
+    @Column(name = "temperatura")
+    private Double temperatura;
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;

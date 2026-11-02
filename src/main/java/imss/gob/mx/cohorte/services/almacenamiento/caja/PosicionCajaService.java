@@ -96,6 +96,16 @@ public class PosicionCajaService {
         return posicionCajaRepository.countOcupadasByCajaId(cajaId);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, long[]> countPosicionesByCajaIds(java.util.Collection<Long> cajaIds) {
+        if (cajaIds.isEmpty()) return java.util.Map.of();
+        java.util.Map<Long, long[]> map = new java.util.HashMap<>();
+        for (Object[] row : posicionCajaRepository.countPosicionesByCajaIds(cajaIds)) {
+            map.put((Long) row[0], new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+        }
+        return map;
+    }
+
     @Transactional
     public void deleteAllByCajaId(Long cajaId) {
         posicionCajaRepository.deleteAllByCajaId(cajaId);

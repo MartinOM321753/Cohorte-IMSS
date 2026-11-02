@@ -1,5 +1,7 @@
 package imss.gob.mx.cohorte.modules.examenes.resultados;
 
+import imss.gob.mx.cohorte.modules.analisis.CrudoNumProy;
+import imss.gob.mx.cohorte.modules.analisis.NumericoProy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,10 +10,37 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen, Long> {
+
+    /** Proyección numérica de un examen para el motor de análisis. */
+    @Query("SELECT new imss.gob.mx.cohorte.modules.analisis.NumericoProy("
+         + "r.valorObtenido, p.sexo, p.fechaNacimiento, r.fechaResultado, r.institucion.id) "
+         + "FROM ResultadoExamen r JOIN r.paciente pac JOIN pac.persona p "
+         + "WHERE r.examen.Id = :examenId AND r.institucion.id IN :instituciones "
+         + "AND (:desde IS NULL OR r.fechaResultado >= :desde) "
+         + "AND (:hasta IS NULL OR r.fechaResultado <= :hasta)")
+    List<NumericoProy> proyeccionPorExamen(
+            @Param("examenId")      Long examenId,
+            @Param("instituciones") Collection<Long> instituciones,
+            @Param("desde")         LocalDateTime desde,
+            @Param("hasta")         LocalDateTime hasta);
+
+    /** Filas crudas (con folio) de un examen, para la exportación a nivel participante. */
+    @Query("SELECT new imss.gob.mx.cohorte.modules.analisis.CrudoNumProy("
+         + "pac.folio, r.institucion.id, p.sexo, p.fechaNacimiento, r.fechaResultado, r.valorObtenido) "
+         + "FROM ResultadoExamen r JOIN r.paciente pac JOIN pac.persona p "
+         + "WHERE r.examen.Id = :examenId AND r.institucion.id IN :instituciones "
+         + "AND (:desde IS NULL OR r.fechaResultado >= :desde) "
+         + "AND (:hasta IS NULL OR r.fechaResultado <= :hasta)")
+    List<CrudoNumProy> crudoPorExamen(
+            @Param("examenId")      Long examenId,
+            @Param("instituciones") Collection<Long> instituciones,
+            @Param("desde")         LocalDateTime desde,
+            @Param("hasta")         LocalDateTime hasta);
 
     /**
      * Lo ya registrado para un grupo de participantes y examenes.
