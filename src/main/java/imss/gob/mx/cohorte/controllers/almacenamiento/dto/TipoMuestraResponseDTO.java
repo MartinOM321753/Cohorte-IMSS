@@ -13,6 +13,7 @@ public class TipoMuestraResponseDTO {
     private String nombre;
     private String descripcion;
     private String temperaturaAlmacenamiento;
+    private Double temperatura;
     private Boolean activo;
     private List<TuboMuestraResponseDTO> tubos;
 }

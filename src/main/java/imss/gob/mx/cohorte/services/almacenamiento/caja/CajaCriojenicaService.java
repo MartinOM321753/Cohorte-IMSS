@@ -38,6 +38,12 @@ public class CajaCriojenicaService {
     }
 
     @Transactional(readOnly = true)
+    public List<CajaCriogenica> getByTemperaturaRefrigerador(Double temperatura) {
+        return cajaCriogenicaRepository.findByTemperaturaRefrigerador(
+                temperatura, institucionContextService.getIdInstitucionActual());
+    }
+
+    @Transactional(readOnly = true)
     public CajaCriogenica getById(Long id) {
         CajaCriogenica caja = cajaCriogenicaRepository.findById(id)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontró la caja criogénica con id: " + id));
@@ -109,7 +115,6 @@ public class CajaCriojenicaService {
         if (caja.getColumnas() != null && caja.getColumnas() > 0) {
             cajaBD.setColumnas(caja.getColumnas());
         }
-        cajaBD.setTipoCaja(caja.getTipoCaja());
         cajaBD.setColor(caja.getColor());
         cajaBD.setObservaciones(caja.getObservaciones());
         if (caja.getOrdenLlenado() != null) {
@@ -124,6 +129,7 @@ public class CajaCriojenicaService {
             cajaBD.setPosicionPiso(null);
         }
         cajaBD.setActivo(caja.getActivo() != null ? caja.getActivo() : cajaBD.getActivo());
+        cajaBD.setTipoMuestraRecomendado(caja.getTipoMuestraRecomendado());
         // La fechaRegistro no se actualiza (updatable = false)
         return cajaCriogenicaRepository.save(cajaBD);
     }

@@ -98,6 +98,7 @@ public class RefrigeradorApplicationService {
         // Actualiza datos básicos
         refBD.setCodigo(refrigerador.getCodigo());
         refBD.setNombre(refrigerador.getNombre());
+        refBD.setTemperatura(refrigerador.getTemperatura());
         refBD.setMarca(refrigerador.getMarca());
         refBD.setModelo(refrigerador.getModelo());
         refBD.setActivo(refrigerador.getActivo());

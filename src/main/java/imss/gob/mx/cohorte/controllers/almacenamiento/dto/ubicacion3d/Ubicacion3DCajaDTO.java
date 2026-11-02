@@ -18,8 +18,7 @@ public class Ubicacion3DCajaDTO {
     /** Dimensiones reales de la rejilla — configurables por caja. */
     private Integer filas;
     private Integer columnas;
-    /** Catálogo libre de texto en CajaCriogenica.tipoCaja; puede venir null. */
-    private String tipoCaja;
+    private String nombreTipoMuestra;
     private String color;
     private String observaciones;
     private String ordenLlenado;

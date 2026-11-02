@@ -18,6 +18,10 @@ public interface PosicionCajaRepository extends JpaRepository<PosicionCaja, Long
     @Query("SELECT COUNT(p) FROM PosicionCaja p WHERE p.caja.id = :cajaId AND p.ocupada = true")
     long countOcupadasByCajaId(@Param("cajaId") Long cajaId);
 
+    @Query("SELECT p.caja.id, COUNT(p), SUM(CASE WHEN p.ocupada = true THEN 1 ELSE 0 END) " +
+           "FROM PosicionCaja p WHERE p.caja.id IN :cajaIds GROUP BY p.caja.id")
+    List<Object[]> countPosicionesByCajaIds(@Param("cajaIds") java.util.Collection<Long> cajaIds);
+
     @Modifying
     @Query("DELETE FROM PosicionCaja p WHERE p.caja.id = :cajaId")
     void deleteAllByCajaId(@Param("cajaId") Long cajaId);

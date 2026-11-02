@@ -10,4 +10,5 @@ public class TipoMuestraResumenDTO {
     private Long id;
     private String nombre;
     private String temperaturaAlmacenamiento;
+    private Double temperatura;
 }

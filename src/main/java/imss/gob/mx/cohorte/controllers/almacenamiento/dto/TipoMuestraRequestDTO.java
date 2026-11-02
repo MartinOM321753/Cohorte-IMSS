@@ -18,4 +18,6 @@ public class TipoMuestraRequestDTO {
 
     @Size(max = 30, message = "Temperatura máximo 30 caracteres")
     private String temperaturaAlmacenamiento;
+
+    private Double temperatura;
 }
