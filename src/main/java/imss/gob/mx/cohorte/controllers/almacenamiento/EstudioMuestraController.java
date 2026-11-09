@@ -247,6 +247,26 @@ public class EstudioMuestraController {
                 "Estudio de muestra actualizado", HttpStatus.OK, false));
     }
 
+    @PostMapping("/{idMuestra}/estudios/batch")
+    @Operation(summary = "Registrar múltiples estudios en una muestra (captura rápida)",
+               description = "Crea varios estudios de muestra en una sola transacción. "
+                           + "Si uno falla, ninguno se guarda.")
+    public ResponseEntity<APIResponse> createEstudiosBatch(
+            @PathVariable Long idMuestra,
+            @Valid @RequestBody EstudioMuestraBatchRequestDTO dto) {
+        List<EstudioMuestra> entities = dto.getEstudios().stream()
+                .map(EstudioMuestraMapper::toEntity)
+                .collect(Collectors.toList());
+        List<EstudioMuestra> creados = estudioAppService.createBatch(idMuestra, entities);
+        List<EstudioMuestraResponseDTO> dtos = creados.stream()
+                .map(EstudioMuestraMapper::toResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new APIResponse(dtos,
+                        creados.size() + " estudio(s) registrado(s)",
+                        HttpStatus.CREATED, false));
+    }
+
     // Estudios de muestra NO se pueden eliminar — solo editar sus resultados y consumo.
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -73,26 +73,40 @@ public class EstudioMuestraApplicationService {
     @Transactional
     public EstudioMuestra create(Long idMuestra, EstudioMuestra estudio) {
         Muestra muestra = muestraService.getByIdComoTenedor(idMuestra);
+        validarMuestraParaEstudio(muestra);
+        return crearEstudioInterno(muestra, estudio);
+    }
 
-        // Cuarentena: bloquear si el participante está inactivo
+    @Transactional
+    public List<EstudioMuestra> createBatch(Long idMuestra, List<EstudioMuestra> estudios) {
+        Muestra muestra = muestraService.getByIdComoTenedor(idMuestra);
+        validarMuestraParaEstudio(muestra);
+
+        List<EstudioMuestra> saved = new ArrayList<>();
+        for (EstudioMuestra estudio : estudios) {
+            saved.add(crearEstudioInterno(muestra, estudio));
+        }
+        return saved;
+    }
+
+    private void validarMuestraParaEstudio(Muestra muestra) {
         PacienteEstadoValidator.requirePacienteActivo(muestra, "aplicar estudio");
-
         if (muestra.getEstadoMuestra() == EstadoMuestra.PRESTADA) {
             throw new ObjConflictException(
                     "No se puede registrar un estudio en una muestra en tránsito hacia otra institución.");
         }
+    }
 
+    private EstudioMuestra crearEstudioInterno(Muestra muestra, EstudioMuestra estudio) {
         validarConsumo(muestra, estudio.getCantidadConsumida(), estudio.getUnidadConsumida());
 
         estudio.setMuestra(muestra);
         resolveRelaciones(estudio);
         EstudioMuestra saved = estudioService.create(estudio);
 
-        // Descontar cantidad consumida del valor de la muestra
         Double valorAnterior = muestra.getValor();
         muestra.setValor(PlanificadorAlicuotas.restar(valorAnterior, estudio.getCantidadConsumida()));
         muestraRepository.save(muestra);
-        // Un estudio también puede ser lo que termine de vaciar el tubo.
         materializacionService.sellarAgotamientoSiProcede(muestra, estudio.getUsuarioRealiza());
 
         historialService.registrarEvento(muestra, estudio.getUsuarioRealiza(),

@@ -90,6 +90,7 @@ public final class ConversorValor {
             case BOOLEANO -> Convertido.deBooleano(aBooleano(limpio));
             case TEXTO -> Convertido.deTexto(aTexto(limpio));
             case TEXTO_OPCIONES -> Convertido.deTexto(aOpcion(limpio, opciones));
+            case USUARIO -> Convertido.deTexto(aTexto(limpio));
         };
     }
 

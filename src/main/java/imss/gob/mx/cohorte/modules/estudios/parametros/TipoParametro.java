@@ -5,5 +5,7 @@ public enum TipoParametro {
     TEXTO,
     BOOLEANO,
     /** Texto con opciones predefinidas configurables (como un enum dinámico). */
-    TEXTO_OPCIONES
+    TEXTO_OPCIONES,
+    /** Selector de usuario del sistema (excluye ROOT). Se guarda como texto (nombre completo). */
+    USUARIO
 }
