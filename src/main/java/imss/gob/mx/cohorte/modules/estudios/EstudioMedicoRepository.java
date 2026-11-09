@@ -81,6 +81,7 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
            "FROM EstudioMedico e " +
            "WHERE e.paciente.activo = true AND e.paciente.institucion.id = :idInstitucion " +
            "AND e.tipoEstudio.activo = true " +
+           "AND e.tipoEstudio.institucion.id = :idInstitucion " +
            "GROUP BY e.paciente.Id")
     List<Object[]> countDistinctTipoByPacienteActivo(@Param("idInstitucion") Long idInstitucion);
 
@@ -98,6 +99,7 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
     @Query("SELECT e.paciente.Id FROM EstudioMedico e " +
            "WHERE e.paciente.activo = true AND e.paciente.institucion.id = :idInstitucion " +
            "AND e.tipoEstudio.activo = true " +
+           "AND e.tipoEstudio.institucion.id = :idInstitucion " +
            "GROUP BY e.paciente.Id " +
            "HAVING COUNT(DISTINCT e.tipoEstudio.Id) = :k")
     List<Long> findPacientesConExactamenteKEstudios(@Param("k") long k, @Param("idInstitucion") Long idInstitucion);
@@ -106,8 +108,10 @@ public interface EstudioMedicoRepository extends JpaRepository<EstudioMedico, Lo
      * Tipos de estudio cubiertos (ids) para un paciente.
      */
     @Query("SELECT DISTINCT e.tipoEstudio.Id FROM EstudioMedico e " +
-           "WHERE e.paciente.Id = :pacienteId AND e.tipoEstudio.activo = true")
-    List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId);
+           "WHERE e.paciente.Id = :pacienteId AND e.tipoEstudio.activo = true " +
+           "AND e.tipoEstudio.institucion.id = :idInstitucion")
+    List<Long> findTiposEstudioCubiertosIdsForPaciente(@Param("pacienteId") Long pacienteId,
+                                                       @Param("idInstitucion") Long idInstitucion);
 
     /**
      * Por cada tipo de estudio activo cubierto por el paciente, el id del estudio

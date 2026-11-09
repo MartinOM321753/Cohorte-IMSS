@@ -136,6 +136,7 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
            "FROM ResultadoExamen r " +
            "WHERE r.paciente.activo = true AND r.paciente.institucion.id = :idInstitucion " +
            "AND r.examen.activo = true " +
+           "AND r.examen.institucion.id = :idInstitucion " +
            "GROUP BY r.paciente.Id")
     List<Object[]> countDistinctExamenByPacienteActivo(@Param("idInstitucion") Long idInstitucion);
 
@@ -155,6 +156,7 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     @Query("SELECT r.paciente.Id FROM ResultadoExamen r " +
            "WHERE r.paciente.activo = true AND r.paciente.institucion.id = :idInstitucion " +
            "AND r.examen.activo = true " +
+           "AND r.examen.institucion.id = :idInstitucion " +
            "GROUP BY r.paciente.Id " +
            "HAVING COUNT(DISTINCT r.examen.Id) = :k")
     List<Long> findPacientesConExactamenteKExamenes(@Param("k") long k, @Param("idInstitucion") Long idInstitucion);
@@ -163,8 +165,10 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
      * Para un paciente, cuenta exámenes distintos cubiertos.
      */
     @Query("SELECT COUNT(DISTINCT r.examen.Id) FROM ResultadoExamen r " +
-           "WHERE r.paciente.Id = :pacienteId AND r.examen.activo = true")
-    long countDistinctExamenByPacienteId(@Param("pacienteId") Long pacienteId);
+           "WHERE r.paciente.Id = :pacienteId AND r.examen.activo = true " +
+           "AND r.examen.institucion.id = :idInstitucion")
+    long countDistinctExamenByPacienteId(@Param("pacienteId") Long pacienteId,
+                                         @Param("idInstitucion") Long idInstitucion);
 
     /**
      * Exámenes cubiertos (ids) para un paciente.
@@ -184,4 +188,14 @@ public interface ResultadoExamenRepository extends JpaRepository<ResultadoExamen
     List<Object[]> findExamenConResultadoMasRecientePorPaciente(@Param("pacienteId") Long pacienteId);
 
     boolean existsByExamen_Id(Long id);
+
+    /**
+     * Resultados de un paciente para un examen concreto, ordenados por fecha DESC.
+     * Lo usa el modal de la matriz de cobertura. Devuelve ternas [resultadoId, fechaResultado, valorObtenido].
+     */
+    @Query("SELECT r.Id, r.fechaResultado, r.valorObtenido FROM ResultadoExamen r " +
+           "WHERE r.paciente.uuid = :uuid AND r.examen.Id = :examenId " +
+           "ORDER BY r.fechaResultado DESC")
+    List<Object[]> findResultadosPorPacienteYExamen(
+            @Param("uuid") String uuid, @Param("examenId") Long examenId);
 }
