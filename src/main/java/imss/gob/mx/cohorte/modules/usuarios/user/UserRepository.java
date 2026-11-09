@@ -141,6 +141,30 @@ public interface UserRepository extends JpaRepository<BeanUser, Long> {
                                                            @Param("buscar") String buscar,
                                                            Pageable pageable);
 
+    @Query(value = "SELECT DISTINCT u FROM BeanUser u JOIN u.persona per LEFT JOIN u.rol r LEFT JOIN u.institucion inst "
+         + "WHERE (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(inst.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')))",
+           countQuery = "SELECT COUNT(DISTINCT u) FROM BeanUser u JOIN u.persona per LEFT JOIN u.rol r LEFT JOIN u.institucion inst "
+         + "WHERE (:buscar IS NULL OR :buscar = '' OR "
+         + "LOWER(per.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.segundoNombre) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoPaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.apellidoMaterno) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(CONCAT(per.nombre, ' ', COALESCE(per.segundoNombre, ''), ' ', per.apellidoPaterno, ' ', COALESCE(per.apellidoMaterno, ''))) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(u.username) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(per.email) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(r.role) LIKE LOWER(CONCAT('%', :buscar, '%')) OR "
+         + "LOWER(inst.nombre) LIKE LOWER(CONCAT('%', :buscar, '%')))")
+    Page<BeanUser> buscarPaginadoTodos(@Param("buscar") String buscar, Pageable pageable);
+
     @Query("SELECT DISTINCT u FROM BeanUser u " +
            "JOIN FETCH u.persona LEFT JOIN FETCH u.rol " +
            "WHERE u.institucion.id = :idInstitucion " +

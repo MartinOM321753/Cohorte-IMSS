@@ -47,18 +47,27 @@ public class UserApplicationService {
 
     @Transactional(readOnly = true)
     public List<BeanUser> findAllByInstitucion() {
+        if (isCallerRoot()) {
+            return userService.getAllUser();
+        }
         Long idInstitucion = institucionContextService.getIdInstitucionActual();
         return userService.getAllByInstitucionConInvitacionesPendientes(idInstitucion);
     }
 
     @Transactional(readOnly = true)
     public List<BeanUser> findAllActiveByInstitucion() {
+        if (isCallerRoot()) {
+            return userService.getAllUserByStatus(true);
+        }
         Long idInstitucion = institucionContextService.getIdInstitucionActual();
         return userService.getAllActiveByInstitucion(idInstitucion);
     }
 
     @Transactional(readOnly = true)
     public Page<BeanUser> buscarPaginado(String buscar, Pageable pageable) {
+        if (isCallerRoot()) {
+            return userService.buscarPaginadoTodos(buscar, pageable);
+        }
         Long idInstitucion = institucionContextService.getIdInstitucionActual();
         return userService.buscarPaginadoConInvitacionesPendientes(idInstitucion, buscar, pageable);
     }
@@ -164,12 +173,6 @@ public class UserApplicationService {
         if (targetIsRoot && !isCallerRoot()) {
             throw new ValidationException("No tiene permisos para modificar este usuario");
         }
-        if (targetIsRoot && isCallerRoot()) {
-            BeanUser actual = institucionContextService.getUsuarioActual();
-            if (!existing.getUUID().equals(actual.getUUID())) {
-                throw new ValidationException("Un usuario ROOT no puede editar a otro usuario ROOT.");
-            }
-        }
 
         beanUser.getPersona().setId(existing.getPersona().getId());
         Persona updatePersona = personaService.update(beanUser.getPersona());
@@ -227,6 +230,29 @@ public class UserApplicationService {
 
         passwordResetService.enviarInvitacion(user);
         return user;
+    }
+
+    @Transactional
+    public void adminCambiarPassword(Long id) {
+        if (!isCallerRoot()) {
+            throw new AccessDeniedException("Solo un usuario ROOT puede cambiar la contraseña de otro usuario.");
+        }
+        BeanUser target = userService.getUser(id);
+        String rawPassword = generarPasswordSeguro();
+        userService.forzarCambioPassword(id, rawPassword);
+        target.setDebeResetear(true);
+        passwordResetService.enviarInvitacion(target);
+        log.info("ROOT forzó cambio de contraseña para usuario id={}, se envió invitación.", id);
+    }
+
+    @Transactional
+    public void adminEstablecerPassword(Long id, String nuevaPassword) {
+        if (!isCallerRoot()) {
+            throw new AccessDeniedException("Solo un usuario ROOT puede cambiar la contraseña de otro usuario.");
+        }
+        userService.getUser(id);
+        userService.forzarCambioPassword(id, nuevaPassword);
+        log.info("ROOT estableció nueva contraseña para usuario id={}.", id);
     }
 
     @Transactional

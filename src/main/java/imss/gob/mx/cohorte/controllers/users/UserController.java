@@ -1,10 +1,15 @@
 package imss.gob.mx.cohorte.controllers.users;
 
 import imss.gob.mx.cohorte.application.UserApplicationService;
+import imss.gob.mx.cohorte.controllers.users.dto.PersonaSeleccionableDTO;
 import imss.gob.mx.cohorte.controllers.users.dto.UserMapper;
 import imss.gob.mx.cohorte.controllers.users.dto.UserRequestDTO;
 import imss.gob.mx.cohorte.controllers.users.dto.UserResponseDTO;
+import imss.gob.mx.cohorte.modules.almacenamiento.colaborador.Colaborador;
+import imss.gob.mx.cohorte.modules.almacenamiento.colaborador.ColaboradorRepository;
+import imss.gob.mx.cohorte.modules.persona.Persona;
 import imss.gob.mx.cohorte.modules.usuarios.user.BeanUser;
+import imss.gob.mx.cohorte.security.institucion.InstitucionContextService;
 import imss.gob.mx.cohorte.utils.APIResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +29,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import imss.gob.mx.cohorte.controllers.users.dto.AdminChangePasswordDTO;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +45,8 @@ public class UserController {
     private static final String ROOT_ROLE = "ROOT";
 
     private final UserApplicationService userApplicationService;
+    private final ColaboradorRepository colaboradorRepository;
+    private final InstitucionContextService institucionContextService;
 
     private boolean isCallerRoot(Authentication auth) {
         return auth != null && auth.getAuthorities().stream()
@@ -250,6 +260,59 @@ public class UserController {
         guardRoot(userApplicationService.findByUUID(uuid), auth, uuid);
         BeanUser updated = userApplicationService.reenviarInvitacion(uuid);
         return ResponseEntity.ok(new APIResponse("Invitacion reenviada correctamente", UserMapper.toResponseDTO(updated), false, HttpStatus.OK));
+    }
+
+    @PutMapping("/{id}/password")
+    @Operation(summary = "Cambiar contraseña de usuario (ROOT)",
+               description = "Permite a un ROOT establecer una nueva contraseña para cualquier usuario del sistema")
+    public ResponseEntity<APIResponse> adminChangePassword(
+            @PathVariable Long id,
+            @Validated @RequestBody AdminChangePasswordDTO dto,
+            Authentication auth) {
+        if (!isCallerRoot(auth)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new APIResponse("Solo un usuario ROOT puede realizar esta acción", null, true, HttpStatus.FORBIDDEN));
+        }
+        userApplicationService.adminEstablecerPassword(id, dto.nuevaPassword());
+        return ResponseEntity.ok(new APIResponse("Contraseña actualizada correctamente", null, false, HttpStatus.OK));
+    }
+
+    @GetMapping("/seleccionables")
+    @Operation(summary = "Personas seleccionables para parámetros de tipo USUARIO",
+               description = "Devuelve usuarios activos (excepto ROOT) y colaboradores activos de la institución, " +
+                       "combinados en una sola lista para usarse como opciones en parámetros de tipo USUARIO.")
+    public ResponseEntity<APIResponse> getSeleccionables(Authentication auth) {
+        List<BeanUser> usuarios = hideRootUsers(userApplicationService.findAllActiveByInstitucion(), auth);
+        Long idInst = institucionContextService.getIdInstitucionActual();
+        List<Colaborador> colaboradores = colaboradorRepository
+                .findAllByInstitucion_IdAndActivoOrderByPersona_ApellidoPaternoAsc(idInst, true);
+
+        List<PersonaSeleccionableDTO> lista = new ArrayList<>();
+        for (BeanUser u : usuarios) {
+            lista.add(PersonaSeleccionableDTO.builder()
+                    .nombreCompleto(nombreCompleto(u.getPersona()))
+                    .username(u.getUsername())
+                    .origen("USUARIO")
+                    .build());
+        }
+        for (Colaborador c : colaboradores) {
+            lista.add(PersonaSeleccionableDTO.builder()
+                    .nombreCompleto(nombreCompleto(c.getPersona()))
+                    .username(null)
+                    .origen("COLABORADOR")
+                    .build());
+        }
+        lista.sort((a, b) -> a.getNombreCompleto().compareToIgnoreCase(b.getNombreCompleto()));
+        return ResponseEntity.ok(new APIResponse("Personas seleccionables", lista, false, HttpStatus.OK));
+    }
+
+    private static String nombreCompleto(Persona p) {
+        if (p == null) return "";
+        StringBuilder sb = new StringBuilder(p.getNombre());
+        if (p.getSegundoNombre() != null && !p.getSegundoNombre().isBlank()) sb.append(" ").append(p.getSegundoNombre());
+        sb.append(" ").append(p.getApellidoPaterno());
+        if (p.getApellidoMaterno() != null && !p.getApellidoMaterno().isBlank()) sb.append(" ").append(p.getApellidoMaterno());
+        return sb.toString();
     }
 
     @PutMapping("/{id}")
