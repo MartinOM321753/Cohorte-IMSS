@@ -163,7 +163,7 @@ public final class CuestionarioDTOs {
         @Size(max = 60)
         private String valorHabilitante;
 
-        @Pattern(regexp = "IGUAL|DISTINTO|EN")
+        @Pattern(regexp = "IGUAL|DISTINTO|EN|SIN_RESPUESTA|CON_RESPUESTA")
         private String operadorDependencia;
     }
 
@@ -219,8 +219,11 @@ public final class CuestionarioDTOs {
         @Size(max = 60)
         private String valorHabilitante;
 
-        /** Cómo se compara la llave: {@code IGUAL} o {@code DISTINTO}. */
-        @Pattern(regexp = "IGUAL|DISTINTO|EN")
+        /**
+         * Cómo se compara la llave: {@code IGUAL}, {@code DISTINTO}, {@code EN}, o
+         * {@code SIN_RESPUESTA} / {@code CON_RESPUESTA}, que no llevan valor habilitante.
+         */
+        @Pattern(regexp = "IGUAL|DISTINTO|EN|SIN_RESPUESTA|CON_RESPUESTA")
         private String operadorDependencia;
 
         /** Celda que ocupa cuando el bloque se pinta como rejilla. */

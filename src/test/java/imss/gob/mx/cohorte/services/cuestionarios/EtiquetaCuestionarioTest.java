@@ -355,5 +355,152 @@ class EtiquetaCuestionarioTest {
             assertFalse(EvaluadorDependencias.habilitada(
                     a, Map.of("A", "2", "B", "2"), catalogo));
         }
+
+        // ── Los operadores que miran si hay respuesta ─────────────────
+        //
+        // El salto de la 191: «Si usted no trabaja, ¿a que se dedica?». La llave es un
+        // recuadro de texto, sin catalogo, y la condicion es «esta vacio». Quien trabaja
+        // lo deja en blanco y contesta las 62 siguientes; quien lo llena se las salta.
+        // Estos dos son la excepcion a «habilita cuando no sabe»: la llave vacia es
+        // justo lo que se evalua.
+
+        private VariableCuestionario soloSiNoHayRespuesta(String codigo, String llave) {
+            VariableCuestionario v = dependiente(llave, null);
+            v.setCodigo(codigo);
+            v.setOperadorDependencia(OperadorDependencia.SIN_RESPUESTA);
+            return v;
+        }
+
+        private VariableCuestionario soloSiHayRespuesta(String codigo, String llave) {
+            VariableCuestionario v = dependiente(llave, null);
+            v.setCodigo(codigo);
+            v.setOperadorDependencia(OperadorDependencia.CON_RESPUESTA);
+            return v;
+        }
+
+        @Test
+        @DisplayName("llave de texto vacia: la dependiente SI se pregunta (SIN_RESPUESTA)")
+        void sinRespuestaConLlaveVacia() {
+            VariableCuestionario p192 = soloSiNoHayRespuesta("P192_1", "P191");
+            assertTrue(EvaluadorDependencias.habilitada(p192, Map.of()));
+            assertTrue(EvaluadorDependencias.habilitada(p192, Map.of("P191", "")));
+            assertTrue(EvaluadorDependencias.habilitada(p192, Map.of("P191", "   ")));
+        }
+
+        @Test
+        @DisplayName("llave de texto con algo: la dependiente NO se pregunta (SIN_RESPUESTA)")
+        void sinRespuestaConLlaveLlena() {
+            VariableCuestionario p192 = soloSiNoHayRespuesta("P192_1", "P191");
+            assertFalse(EvaluadorDependencias.habilitada(p192, Map.of("P191", "Hogar")));
+        }
+
+        @Test
+        @DisplayName("sin valor habilitante no se da por incompleto: no lo necesita")
+        void sinRespuestaNoPideValor() {
+            VariableCuestionario p192 = soloSiNoHayRespuesta("P192_1", "P191");
+            assertNull(p192.getValorHabilitante());
+            // Si se tratara como una dependencia incompleta, habilitaria siempre y el
+            // salto no haria nada.
+            assertFalse(EvaluadorDependencias.habilitada(p192, Map.of("P191", "Estudiante")));
+        }
+
+        @Test
+        @DisplayName("CON_RESPUESTA es lo contrario: solo se pregunta si la llave tiene algo")
+        void conRespuesta() {
+            VariableCuestionario v = soloSiHayRespuesta("P50", "P49");
+            assertTrue(EvaluadorDependencias.habilitada(v, Map.of("P49", "otro")));
+            assertFalse(EvaluadorDependencias.habilitada(v, Map.of("P49", "")));
+            assertFalse(EvaluadorDependencias.habilitada(v, Map.of()),
+                    "con la llave vacia NO pregunta: es la excepcion a «habilita cuando no sabe»");
+        }
+
+        @Test
+        @DisplayName("llave vacia con IGUAL sigue habilitando: no se rompio la regla de siempre")
+        void laReglaDeSiempreSigueIgual() {
+            assertTrue(EvaluadorDependencias.habilitada(
+                    dependiente("P19", "1"), Map.of("P191", "Hogar")));
+            assertTrue(EvaluadorDependencias.habilitada(
+                    dependiente("P19", "1"), Map.of("P19", "")));
+            assertTrue(EvaluadorDependencias.habilitada(
+                    descarte("P112_1", "1"), Map.of()));
+            assertTrue(EvaluadorDependencias.habilitada(entre("P30", "2|3"), Map.of()));
+        }
+
+        @Test
+        @DisplayName("la cadena: una pregunta que depende de la 193, que depende de la 191")
+        void cadenaConSinRespuesta() {
+            VariableCuestionario p193 = soloSiNoHayRespuesta("P193_1", "P191");
+            VariableCuestionario p193b = dependiente("P193_1", "1");
+            p193b.setCodigo("P193_2");
+            VariableCuestionario p191 = new VariableCuestionario();
+            p191.setCodigo("P191");
+            Map<String, VariableCuestionario> catalogo = Map.of("P191", p191, "P193_1", p193);
+
+            // No trabaja: la 193_1 no se pregunta, luego la 193_2 tampoco, aunque su
+            // llave inmediata este vacia (que por si sola habilitaria).
+            assertFalse(EvaluadorDependencias.habilitada(
+                    p193b, Map.of("P191", "Hogar"), catalogo));
+            // Trabaja: la 193_1 se pregunta y manda su propia respuesta.
+            assertTrue(EvaluadorDependencias.habilitada(
+                    p193b, Map.of("P193_1", "1"), catalogo));
+            assertFalse(EvaluadorDependencias.habilitada(
+                    p193b, Map.of("P193_1", "2"), catalogo));
+            assertTrue(EvaluadorDependencias.habilitada(p193b, Map.of(), catalogo));
+        }
+
+        @Test
+        @DisplayName("una llave que el catalogo no conoce sigue siendo un defecto que se nota")
+        void sinRespuestaLlaveInexistenteEnElCatalogo() {
+            VariableCuestionario v = soloSiHayRespuesta("P50", "P999");
+            Map<String, VariableCuestionario> catalogo = Map.of("P50", v);
+            assertTrue(EvaluadorDependencias.habilitada(v, Map.of(), catalogo),
+                    "la pregunta tiene que aparecer, no desaparecer en silencio");
+        }
+
+        @Test
+        @DisplayName("un anillo de llaves con SIN_RESPUESTA no cuelga ni esconde")
+        void anilloConSinRespuesta() {
+            VariableCuestionario a = soloSiNoHayRespuesta("A", "B");
+            VariableCuestionario b = soloSiNoHayRespuesta("B", "A");
+            Map<String, VariableCuestionario> catalogo = Map.of("A", a, "B", b);
+            assertTrue(EvaluadorDependencias.habilitada(a, Map.of(), catalogo));
+        }
+
+        @Test
+        @DisplayName("lo contestado incluye texto: una llave de texto no tiene codigo")
+        void valorContestadoDeUnTexto() {
+            var i = new InterpreteCelda.Interpretacion(
+                    imss.gob.mx.cohorte.modules.cuestionarios.respuestas.MarcaAusencia.NINGUNA,
+                    null, null, "Hogar", null, "Hogar", null);
+            assertEquals("Hogar", ValorContestado.de(i));
+        }
+
+        @Test
+        @DisplayName("una marca de ausencia no es respuesta, ni un texto en blanco")
+        void valorContestadoSinRespuesta() {
+            var ausencia = new InterpreteCelda.Interpretacion(
+                    imss.gob.mx.cohorte.modules.cuestionarios.respuestas.MarcaAusencia.SIN_RESPUESTA,
+                    null, null, null, null, "", null);
+            assertNull(ValorContestado.de(ausencia));
+
+            var enBlanco = new InterpreteCelda.Interpretacion(
+                    imss.gob.mx.cohorte.modules.cuestionarios.respuestas.MarcaAusencia.NINGUNA,
+                    null, null, "   ", null, "   ", null);
+            assertNull(ValorContestado.de(enBlanco));
+        }
+
+        @Test
+        @DisplayName("el codigo manda sobre el texto, y un numero entero no lleva decimales")
+        void valorContestadoPrioridad() {
+            var conCodigo = new InterpreteCelda.Interpretacion(
+                    imss.gob.mx.cohorte.modules.cuestionarios.respuestas.MarcaAusencia.NINGUNA,
+                    "2", null, "texto", null, "2", null);
+            assertEquals("2", ValorContestado.de(conCodigo));
+
+            var numero = new InterpreteCelda.Interpretacion(
+                    imss.gob.mx.cohorte.modules.cuestionarios.respuestas.MarcaAusencia.NINGUNA,
+                    null, 42.0, null, null, "42", null);
+            assertEquals("42", ValorContestado.de(numero));
+        }
     }
 }

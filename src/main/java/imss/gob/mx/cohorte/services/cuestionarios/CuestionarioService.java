@@ -140,7 +140,7 @@ public class CuestionarioService {
 
         List<String> bloqueantes = new ArrayList<>();
         for (MotorValidaciones.Aviso aviso : MotorValidaciones.revisar(
-                reglas, codigosContestados(cuestionario.getId()), porCodigo,
+                reglas, codigosDeOpcion(cuestionario.getId()), porCodigo,
                 edadDe(cuestionario))) {
             if (aviso.severidad() == Severidad.ERROR) {
                 bloqueantes.add(aviso.codigo() + ": " + aviso.mensaje());
@@ -194,9 +194,25 @@ public class CuestionarioService {
     private Map<String, String> codigosContestados(Long idCuestionario) {
         Map<String, String> mapa = new HashMap<>();
         for (RespuestaCuestionario r : respuestaRepository.findAllByCuestionario_Id(idCuestionario)) {
-            if (r.getMarcaAusencia() != MarcaAusencia.NINGUNA) continue;
+            String valor = ValorContestado.de(r);
+            if (valor == null) continue;
             // En una variable de varias respuestas basta con que exista una marca para
             // que la llave cuente como contestada; se queda la primera.
+            mapa.putIfAbsent(r.getVariable().getCodigo(), valor);
+        }
+        return mapa;
+    }
+
+    /**
+     * Lo mismo pero solo con el código de opción, que es lo que han recibido siempre las
+     * reglas de validación. {@link #codigosContestados} incluye también texto, números y
+     * fechas porque las dependencias lo necesitan (ver {@link ValorContestado}); pasarlo
+     * tal cual a las reglas cambiaría lo que ven, y eso es otra decisión.
+     */
+    private Map<String, String> codigosDeOpcion(Long idCuestionario) {
+        Map<String, String> mapa = new HashMap<>();
+        for (RespuestaCuestionario r : respuestaRepository.findAllByCuestionario_Id(idCuestionario)) {
+            if (r.getMarcaAusencia() != MarcaAusencia.NINGUNA) continue;
             mapa.putIfAbsent(r.getVariable().getCodigo(), r.getValorCodigo());
         }
         return mapa;

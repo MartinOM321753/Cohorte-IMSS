@@ -42,6 +42,23 @@ import java.util.Set;
  * sin contestar se pregunta igual, sea cual sea el operador: la negación es sobre el
  * valor contestado, no sobre la ausencia de respuesta.</p>
  *
+ * <h3>La excepción: los operadores que miran si hay respuesta</h3>
+ *
+ * <p>{@link OperadorDependencia#SIN_RESPUESTA} y {@link OperadorDependencia#CON_RESPUESTA}
+ * son lo contrario de lo anterior: la ausencia de respuesta <em>es</em> la condición.
+ * Por eso se resuelven antes de esa regla y están exentos de ella. Son los del salto de
+ * la 191 —«si no trabaja, escriba a qué se dedica»—, donde la llave es un recuadro de
+ * texto y la condición es «está vacío».</p>
+ *
+ * <p>La exención tiene un costo que hay que tener presente al importar: una llave que
+ * viene vacía en el volcado habilita sus dependientes (la persona trabaja, o nadie
+ * llenó el recuadro: en los dos casos se conservan las respuestas), pero una llave
+ * llena las deshabilita aunque el archivo traiga datos en ellas. Ver
+ * {@code CargaVolcadoService}, que cuenta esos casos.</p>
+ *
+ * <p>El mapa de respuestas trae lo que cuenta como respuesta —código, texto, número o
+ * fecha—; ver {@link ValorContestado}.</p>
+ *
  * <h3>Y las cadenas</h3>
  *
  * <p>Los saltos se encadenan: en el cuestionario general, la 34 depende de la 33, que
@@ -85,8 +102,14 @@ public final class EvaluadorDependencias {
         String llave = variable.getDependeDe();
         if (llave == null || llave.isBlank()) return true;
 
+        OperadorDependencia operador = variable.getOperadorDependencia() == null
+                ? OperadorDependencia.IGUAL
+                : variable.getOperadorDependencia();
+
         String esperado = variable.getValorHabilitante();
-        if (esperado == null || esperado.isBlank()) {
+        // Los operadores que miran si hay respuesta no comparan contra nada, así que no
+        // llevan valor: exigírselo los daría por incompletos y los habilitaría siempre.
+        if (!operador.miraSiHayRespuesta() && (esperado == null || esperado.isBlank())) {
             // Depende de algo pero no se dijo de qué valor. El catálogo está
             // incompleto; se habilita, por el mismo motivo que arriba.
             return true;
@@ -101,19 +124,34 @@ public final class EvaluadorDependencias {
             return false;   // a la llave no se le pregunto; a esta tampoco le toca
         }
 
+        if (operador.miraSiHayRespuesta()) {
+            // Se resuelve ANTES de la regla de «habilita cuando no sabe», no dentro del
+            // switch de abajo: esa regla devuelve true con la llave vacía, y la llave
+            // vacía es justo el caso que a estos dos les interesa. Metidos en el switch
+            // no se ejecutarían nunca.
+            //
+            // Una llave que el catálogo no conoce es un defecto del catálogo y se trata
+            // como siempre: la pregunta aparece, para que el defecto se note. Solo se
+            // puede saber con el catálogo a mano.
+            if (laLlave == null && !variables.isEmpty()) return true;
+
+            String c = respuestas.get(llave);
+            boolean hayRespuesta = c != null && !c.isBlank();
+            return operador == OperadorDependencia.SIN_RESPUESTA ? !hayRespuesta : hayRespuesta;
+        }
+
         if (!respuestas.containsKey(llave)) return true;   // llave inexistente
 
         String contestado = respuestas.get(llave);
         if (contestado == null || contestado.isBlank()) return true;   // sin contestar
 
-        OperadorDependencia operador = variable.getOperadorDependencia() == null
-                ? OperadorDependencia.IGUAL
-                : variable.getOperadorDependencia();
-
         return switch (operador) {
             case IGUAL -> esperado.equals(contestado);
             case DISTINTO -> !esperado.equals(contestado);
             case EN -> estaEntre(contestado, esperado);
+            // Ya resueltos arriba; el switch tiene que ser exhaustivo.
+            case SIN_RESPUESTA, CON_RESPUESTA -> throw new IllegalStateException(
+                    "Operador resuelto antes del switch: " + operador);
         };
     }
 
