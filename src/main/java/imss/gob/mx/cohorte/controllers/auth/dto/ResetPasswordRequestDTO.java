@@ -9,5 +9,9 @@ public record ResetPasswordRequestDTO(
 
         @NotBlank(message = "La contraseña es obligatoria")
         @StrongPassword
-        String nuevaPassword
+        String nuevaPassword,
+
+        Double latitud,
+        Double longitud,
+        Integer precisionM
 ) {}

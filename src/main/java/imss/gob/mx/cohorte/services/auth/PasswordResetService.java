@@ -28,6 +28,7 @@ import java.util.HexFormat;
 public class PasswordResetService {
 
     private static final int TOKEN_EXPIRY_MINUTES = 15;
+    private static final int INVITATION_EXPIRY_HOURS = 24;
     private static final int RATE_LIMIT_MINUTES = 60;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -59,7 +60,7 @@ public class PasswordResetService {
 
     @Transactional
     public void enviarInvitacion(BeanUser usuario) {
-        enviarCorreoReset(usuario, "Bienvenido al Sistema Cohorte - Define tu contraseña", "email/bienvenida-usuario");
+        enviarCorreoInvitacion(usuario, "Bienvenido al Sistema Cohorte - Define tu contraseña", "email/bienvenida-usuario");
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +86,7 @@ public class PasswordResetService {
     }
 
     private void enviarCorreoReset(BeanUser usuario, String asunto, String template) {
-        PasswordResetTokenData tokenData = crearTokenParaUsuario(usuario);
+        PasswordResetTokenData tokenData = crearTokenParaUsuario(usuario, TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES);
         String resetLink = frontendUrl + "/reset-password?token=" + tokenData.rawToken();
         String nombreCompleto = usuario.getPersona().getNombre() + " " + usuario.getPersona().getApellidoPaterno();
 
@@ -95,8 +96,29 @@ public class PasswordResetService {
         ctx.setVariable("resetLink", resetLink);
         ctx.setVariable("expiracionMinutos", TOKEN_EXPIRY_MINUTES);
 
-        String destinatario = usuario.getPersona().getEmail();
+        enviarCorreo(usuario, destinatario(usuario), asunto, template, ctx, tokenData);
+    }
 
+    private void enviarCorreoInvitacion(BeanUser usuario, String asunto, String template) {
+        PasswordResetTokenData tokenData = crearTokenParaUsuario(usuario, INVITATION_EXPIRY_HOURS, ChronoUnit.HOURS);
+        String resetLink = frontendUrl + "/reset-password?token=" + tokenData.rawToken();
+        String nombreCompleto = usuario.getPersona().getNombre() + " " + usuario.getPersona().getApellidoPaterno();
+
+        Context ctx = new Context();
+        ctx.setVariable("nombre", nombreCompleto);
+        ctx.setVariable("username", usuario.getUsername());
+        ctx.setVariable("resetLink", resetLink);
+        ctx.setVariable("expiracionHoras", INVITATION_EXPIRY_HOURS);
+
+        enviarCorreo(usuario, destinatario(usuario), asunto, template, ctx, tokenData);
+    }
+
+    private String destinatario(BeanUser usuario) {
+        return usuario.getPersona().getEmail();
+    }
+
+    private void enviarCorreo(BeanUser usuario, String destinatario, String asunto,
+                              String template, Context ctx, PasswordResetTokenData tokenData) {
         try {
             emailService.enviar(destinatario, asunto, template, ctx);
             log.info("Correo de acceso enviado a {}", destinatario);
@@ -107,14 +129,14 @@ public class PasswordResetService {
         }
     }
 
-    private PasswordResetTokenData crearTokenParaUsuario(BeanUser usuario) {
+    private PasswordResetTokenData crearTokenParaUsuario(BeanUser usuario, long cantidad, ChronoUnit unidad) {
         tokenRepository.marcarTokensActivosComoUsados(usuario);
 
         String rawToken = generarTokenSeguro();
         PasswordResetToken prt = new PasswordResetToken();
         prt.setToken(hashToken(rawToken));
         prt.setUsuario(usuario);
-        prt.setExpiraEn(Instant.now().plus(TOKEN_EXPIRY_MINUTES, ChronoUnit.MINUTES));
+        prt.setExpiraEn(Instant.now().plus(cantidad, unidad));
         tokenRepository.save(prt);
         return new PasswordResetTokenData(rawToken, prt);
     }

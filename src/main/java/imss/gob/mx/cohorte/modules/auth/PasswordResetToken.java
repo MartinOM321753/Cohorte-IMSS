@@ -9,8 +9,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * Token de un solo uso para el flujo de recuperación de contraseña.
- * Expira a los 15 minutos de su creación.
+ * Token de un solo uso para recuperación de contraseña (15 min) e invitaciones (24 h).
  */
 @Entity
 @Table(name = "password_reset_token")
