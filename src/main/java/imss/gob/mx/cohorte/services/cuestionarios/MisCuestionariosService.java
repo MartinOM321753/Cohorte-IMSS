@@ -434,8 +434,9 @@ public class MisCuestionariosService {
             aGuardar.add(fila);
             aceptados.put(variable.getId(), secuenciaNueva);
             llavesTocadas.add(variable.getCodigo());
-            if (i.marca() == MarcaAusencia.NINGUNA && i.codigo() != null) {
-                contestados.put(variable.getCodigo(), i.codigo());
+            String valorContestado = ValorContestado.de(i);
+            if (valorContestado != null) {
+                contestados.put(variable.getCodigo(), valorContestado);
             } else {
                 contestados.remove(variable.getCodigo());
             }
@@ -485,6 +486,13 @@ public class MisCuestionariosService {
         Map<String, VariableCuestionario> llaves =
                 llavesDe(cuestionario.getTipoCuestionario().getId());
         for (VariableCuestionario v : candidatas) {
+            // Los operadores que miran si hay respuesta no borran. Su llave suele ser un
+            // recuadro de texto con autoguardado, y con una sola letra tecleada en la
+            // P191 se borrarían 62 respuestas de alguien que sí trabaja. Lo que queda
+            // sin aplicar deja de contar (ver EvaluadorDependencias), pero no se pierde:
+            // una respuesta que se borró no vuelve.
+            if (v.getOperadorDependencia() != null
+                    && v.getOperadorDependencia().miraSiHayRespuesta()) continue;
             if (EvaluadorDependencias.habilitada(v, contestados, llaves)) continue;
             aBorrar.addAll(respuestaRepository
                     .findAllByCuestionario_IdAndVariable_Id(cuestionario.getId(), v.getId()));
@@ -600,7 +608,7 @@ public class MisCuestionariosService {
 
         List<AvisoParaParticipante> salida = new ArrayList<>();
         for (MotorValidaciones.Aviso aviso : MotorValidaciones.revisar(
-                reglas, codigosContestados(cuestionario.getId()), porCodigo,
+                reglas, codigosDeOpcion(cuestionario.getId()), porCodigo,
                 CriterioAplicabilidad.evaluar(cuestionario.getTipoCuestionario(),
                         cuestionario.getPaciente(), null).edad())) {
             VariableCuestionario v = porCodigo.get(aviso.codigo());
@@ -628,7 +636,23 @@ public class MisCuestionariosService {
 
     // ── Auxiliares ───────────────────────────────────────────────────────────
 
+    /**
+     * Lo contestado, para las dependencias: código de opción, y si no lo hay, el texto,
+     * el número o la fecha. Una llave de texto libre (la P191) no tiene código. Ver
+     * {@link ValorContestado}.
+     */
     private Map<String, String> codigosContestados(Long idCuestionario) {
+        Map<String, String> mapa = new HashMap<>();
+        for (RespuestaCuestionario r : respuestaRepository.findAllByCuestionario_Id(idCuestionario)) {
+            String valor = ValorContestado.de(r);
+            if (valor == null) continue;
+            mapa.putIfAbsent(r.getVariable().getCodigo(), valor);
+        }
+        return mapa;
+    }
+
+    /** Solo el código de opción, que es lo que han recibido siempre las reglas. */
+    private Map<String, String> codigosDeOpcion(Long idCuestionario) {
         Map<String, String> mapa = new HashMap<>();
         for (RespuestaCuestionario r : respuestaRepository.findAllByCuestionario_Id(idCuestionario)) {
             if (r.getMarcaAusencia() != MarcaAusencia.NINGUNA) continue;

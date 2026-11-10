@@ -97,4 +97,13 @@ public class AuthApplicationService {
     public void publicarLogout(BeanUser user, String ip, String userAgent, Integer duracionSeg) {
         publishAcceso(user, ip, null, null, null, userAgent, TipoEventoAcceso.LOGOUT, duracionSeg, null);
     }
+
+    public void publicarEvento(String identificador, String ip,
+                               Double latitud, Double longitud, Integer precisionM,
+                               String userAgent, TipoEventoAcceso tipo) {
+        BeanUser user = identificador != null
+                ? userRepository.findActiveUserByPersonaEmail(identificador.trim()).orElse(null)
+                : null;
+        publishAcceso(user, ip, latitud, longitud, precisionM, userAgent, tipo, null, identificador);
+    }
 }

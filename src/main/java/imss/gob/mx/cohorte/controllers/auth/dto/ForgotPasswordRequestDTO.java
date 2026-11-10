@@ -6,5 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 public record ForgotPasswordRequestDTO(
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "Ingresa un correo válido")
-        String email
+        String email,
+
+        Double latitud,
+        Double longitud,
+        Integer precisionM
 ) {}

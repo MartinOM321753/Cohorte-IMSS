@@ -152,10 +152,15 @@ public class VariableCuestionario {
      * preguntas que ya existían nacieron con {@code DISTINTO} —la D va antes que la I—,
      * que es justo lo contrario de lo que significa no tener dependencia. Pasó de
      * verdad, en las diecisiete preguntas de prueba.</p>
+     *
+     * <p>Mide 20 y no 10 desde {@code SIN_RESPUESTA} y {@code CON_RESPUESTA}, que son
+     * de 13. Ojo: {@code ddl-auto=update} <b>no</b> ensancha una columna que ya existe;
+     * en las bases con datos hay que correr
+     * {@code db/manual/2026-11-06_operador_dependencia_ancho.sql}.</p>
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "operador_dependencia", nullable = false,
-            columnDefinition = "VARCHAR(10) DEFAULT 'IGUAL'")
+            columnDefinition = "VARCHAR(20) DEFAULT 'IGUAL'")
     private OperadorDependencia operadorDependencia = OperadorDependencia.IGUAL;
 
     @Column(name = "obligatoria", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")

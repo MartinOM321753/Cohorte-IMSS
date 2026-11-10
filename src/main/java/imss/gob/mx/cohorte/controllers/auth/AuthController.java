@@ -208,8 +208,14 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<APIResponse> forgotPassword(
-            @jakarta.validation.Valid @RequestBody ForgotPasswordRequestDTO body) {
+            @jakarta.validation.Valid @RequestBody ForgotPasswordRequestDTO body,
+            HttpServletRequest request) {
         passwordResetService.solicitarReset(body.email());
+        authService.publicarEvento(
+                body.email(), extractIp(request),
+                body.latitud(), body.longitud(), body.precisionM(),
+                request.getHeader("User-Agent"),
+                imss.gob.mx.cohorte.audit.model.TipoEventoAcceso.SOLICITUD_RESET);
         return ResponseEntity.ok(new APIResponse(
                 "Si el correo está registrado recibirás un enlace en los próximos minutos.",
                 null, false, HttpStatus.OK));
@@ -223,8 +229,14 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<APIResponse> resetPassword(
-            @jakarta.validation.Valid @RequestBody ResetPasswordRequestDTO body) {
+            @jakarta.validation.Valid @RequestBody ResetPasswordRequestDTO body,
+            HttpServletRequest request) {
         passwordResetService.resetearPassword(body.token(), body.nuevaPassword());
+        authService.publicarEvento(
+                null, extractIp(request),
+                body.latitud(), body.longitud(), body.precisionM(),
+                request.getHeader("User-Agent"),
+                imss.gob.mx.cohorte.audit.model.TipoEventoAcceso.RESET_EXITOSO);
         return ResponseEntity.ok(new APIResponse(
                 "Contraseña actualizada correctamente. Ya puedes iniciar sesión.",
                 null, false, HttpStatus.OK));

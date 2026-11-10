@@ -93,8 +93,10 @@ public class CargaCatalogoService {
 
     /**
      * Cómo se compara la llave: {@code IGUAL} (lo de siempre, y lo que se asume si la
-     * columna no viene) o {@code DISTINTO}, que es la casilla de descarte —el
-     * «Ninguna» de la 112—.
+     * columna no viene), {@code DISTINTO}, que es la casilla de descarte —el
+     * «Ninguna» de la 112—, {@code EN}, o {@code SIN_RESPUESTA} / {@code CON_RESPUESTA},
+     * que miran si la llave está contestada y por eso no llevan valor habilitante: es
+     * el salto de la 191, cuya llave es un recuadro de texto.
      */
     private static final String V_OPERADOR = "OPERADOR";
 
@@ -119,6 +121,7 @@ public class CargaCatalogoService {
 
     private final LectorArchivoTabular lector;
     private final TipoCuestionarioRepositorios repos;
+    private final EsquemaOperadorDependencia esquema;
 
     /**
      * Lee la hoja de comprobaciones, si viene.
@@ -201,11 +204,39 @@ public class CargaCatalogoService {
                 20_000, LimitesArchivo.MAX_COLUMNAS);
     }
 
+    /**
+     * Se niega a cargar un catalogo cuyos operadores no caben en la columna.
+     *
+     * <p>Es el unico paso del despliegue que no se puede dejar para despues:
+     * ensanchar la columna <i>despues</i> de cargar deja filas truncadas como
+     * «SIN_RESPUE» que reventan al abrir el cuestionario, y reparar eso es mas caro
+     * que correr el ALTER. Si la columna no se pudo medir, no bloquea (ver
+     * {@link EsquemaOperadorDependencia}).</p>
+     */
+    private void exigirColumnaDeOperadorAncha(Plan plan) {
+        int necesario = plan.entradas.stream()
+                .map(e -> e.operador)
+                .filter(Objects::nonNull)
+                .mapToInt(o -> o.name().length())
+                .max().orElse(0);
+        OptionalInt ancho = esquema.anchoActual();
+        if (ancho.isPresent() && ancho.getAsInt() < necesario) {
+            throw new ArchivoInvalidoException(
+                    "La columna operador_dependencia mide " + ancho.getAsInt()
+                            + " caracteres y este archivo usa operadores de hasta " + necesario
+                            + " (SIN_RESPUESTA / CON_RESPUESTA). Antes de cargar hay que "
+                            + "correr en esta base db/manual/2026-11-06_operador_dependencia_ancho.sql; "
+                            + "si se carga primero, esas filas quedan truncadas y el cuestionario no abre.");
+        }
+    }
+
     // ── Paso 1: previsualizar ────────────────────────────────────────────────
 
     public PrevisualizacionCatalogo previsualizar(MultipartFile archivo, Long idTipo,
                                                  String nombreCatalogo) {
         Plan plan = planear(archivo, idTipo, nombreCatalogo);
+        // Se avisa desde la previsualizacion, no hasta confirmar: es donde se mira.
+        exigirColumnaDeOperadorAncha(plan);
 
         int opciones = plan.entradas.stream().mapToInt(e -> e.opciones.size()).sum();
 
@@ -223,6 +254,7 @@ public class CargaCatalogoService {
     public PrevisualizacionCatalogo confirmar(MultipartFile archivo, Long idTipo,
                                               String nombreCatalogo) {
         Plan plan = planear(archivo, idTipo, nombreCatalogo);
+        exigirColumnaDeOperadorAncha(plan);
 
         if (plan.tieneBloqueos()) {
             throw new ArchivoInvalidoException(
@@ -903,6 +935,10 @@ public class CargaCatalogoService {
         return switch (t) {
             case "DISTINTO", "DIFERENTE", "!=", "<>", "NO" -> OperadorDependencia.DISTINTO;
             case "EN", "ALGUNO", "ALGUNO DE", "IN" -> OperadorDependencia.EN;
+            case "SIN_RESPUESTA", "SIN RESPUESTA", "VACIO", "VACIA", "EN BLANCO" ->
+                    OperadorDependencia.SIN_RESPUESTA;
+            case "CON_RESPUESTA", "CON RESPUESTA", "LLENO", "LLENA", "NO VACIO" ->
+                    OperadorDependencia.CON_RESPUESTA;
             default -> OperadorDependencia.IGUAL;
         };
     }

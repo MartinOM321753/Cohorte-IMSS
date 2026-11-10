@@ -33,7 +33,8 @@ class CambioDeBloqueEnLaCargaTest {
     void preparar() {
         servicio = new CargaCatalogoService(
                 mock(LectorArchivoTabular.class),
-                mock(CargaCatalogoService.TipoCuestionarioRepositorios.class));
+                mock(CargaCatalogoService.TipoCuestionarioRepositorios.class),
+                mock(EsquemaOperadorDependencia.class));
     }
 
     /** La pregunta como está guardada: en el bloque P183. */

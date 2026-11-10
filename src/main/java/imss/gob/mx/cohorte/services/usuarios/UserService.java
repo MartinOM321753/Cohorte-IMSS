@@ -43,6 +43,10 @@ public class UserService {
         return userRepository.buscarPaginadoExcluyendoPacientes(idInstitucion, buscar, pageable);
     }
 
+    public Page<BeanUser> buscarPaginadoTodos(String buscar, Pageable pageable) {
+        return userRepository.buscarPaginadoTodos(buscar, pageable);
+    }
+
     public BeanUser getUser(Long idUser) {
         return userRepository.findById(idUser)
                 .orElseThrow(() -> new ObjNotFoundException("No se encontro el usuario"));
@@ -145,6 +149,16 @@ public class UserService {
         user.setActivo(activo);
         user.setFechaActualizacion(LocalDateTime.now());
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public void forzarCambioPassword(Long id, String nuevaPassword) {
+        BeanUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ObjNotFoundException("Usuario no encontrado"));
+        user.setPassword(passwordEncoder.encode(nuevaPassword));
+        user.setDebeResetear(false);
+        user.setFechaActualizacion(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     /**

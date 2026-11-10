@@ -513,10 +513,17 @@ public class CargaVolcadoService {
             VariableCuestionario v = deCadaColumna[c];
             if (v == null) continue;
             InterpreteCelda.Interpretacion i = InterpreteCelda.interpretar(v, celdas.get(c));
-            if (i.marca() == MarcaAusencia.NINGUNA && i.codigo() != null) {
-                contestados.putIfAbsent(v.getCodigo(), i.codigo());
+            // Lo que cuenta como respuesta para una llave no es solo el código de
+            // opción: una llave de texto libre (la P191) no tiene código. Ver ValorContestado.
+            String contestado = ValorContestado.de(i);
+            if (contestado != null) {
+                contestados.putIfAbsent(v.getCodigo(), contestado);
             }
         }
+
+        // Llave → cuántas de sus dependientes trajeron respuesta aunque la llave dice que
+        // no aplicaban. Solo para los operadores que miran si hay respuesta.
+        Map<String, Integer> contradichas = new LinkedHashMap<>();
 
         for (int c = 0; c < deCadaColumna.length && c < celdas.size(); c++) {
             VariableCuestionario v = deCadaColumna[c];
@@ -525,9 +532,21 @@ public class CargaVolcadoService {
             if (v.getTipo() == TipoVariable.GRUPO) continue;
 
             if (!EvaluadorDependencias.habilitada(v, contestados, a.llaves)) {
-                // No se preguntó: no se guarda fila. Ver RespuestaCuestionario.
-                fila.noPreguntadas++;
-                continue;
+                // Con SIN_RESPUESTA / CON_RESPUESTA la llave puede venir llena sin que
+                // las dependientes vengan vacías: quien escribió a qué se dedica y aun
+                // así contestó las preguntas de trabajo. La respuesta ya está en el
+                // archivo y descartarla no la recupera nadie; se conserva y se avisa
+                // para que se revise. Con los demás operadores se descarta, como siempre.
+                boolean miraSiHay = v.getOperadorDependencia() != null
+                        && v.getOperadorDependencia().miraSiHayRespuesta();
+                if (miraSiHay
+                        && ValorContestado.de(InterpreteCelda.interpretar(v, celdas.get(c))) != null) {
+                    contradichas.merge(v.getDependeDe(), 1, Integer::sum);
+                } else {
+                    // No se preguntó: no se guarda fila. Ver RespuestaCuestionario.
+                    fila.noPreguntadas++;
+                    continue;
+                }
             }
 
             InterpreteCelda.Interpretacion i = InterpreteCelda.interpretar(v, celdas.get(c));
@@ -560,6 +579,12 @@ public class CargaVolcadoService {
                 a.problemas.add(new PrevisualizacionVolcado.ProblemaCelda(
                         fila.numeroFila, referencia(fila.numeroFila, c), v.getCodigo(), i.problema()));
             }
+        }
+
+        for (Map.Entry<String, Integer> e : contradichas.entrySet()) {
+            fila.avisosDeRegla.add(e.getKey() + ": hay " + e.getValue() + " pregunta(s) que "
+                    + "dependen de su respuesta y traen datos aunque no debian contestarse. "
+                    + "Se conservaron; conviene revisar la hoja.");
         }
 
         // ── Las reglas de la plantilla ───────────────────────────────────

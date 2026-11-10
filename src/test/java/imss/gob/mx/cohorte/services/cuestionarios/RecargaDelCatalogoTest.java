@@ -80,7 +80,8 @@ class RecargaDelCatalogoTest {
         servicio = new CargaCatalogoService(lector,
                 new CargaCatalogoService.TipoCuestionarioRepositorios(
                         variables, mock(OpcionVariableRepository.class), secciones,
-                        respuestas, mock(ReglaValidacionRepository.class), tipos));
+                        respuestas, mock(ReglaValidacionRepository.class), tipos),
+                mock(EsquemaOperadorDependencia.class));
 
         when(lector.leerHojas(any(MultipartFile.class), any()))
                 .thenReturn(List.of(

@@ -190,7 +190,7 @@ public class CoberturaController {
                 ? resultadoExamenRepository.findPacientesActivosSinExamen(tipoId, idInstitucion)
                 : estudioMedicoRepository.findPacientesActivosSinTipoEstudio(tipoId, idInstitucion);
 
-        List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos);
+        List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos, idInstitucion);
         return ResponseEntity.ok(new APIResponse("Participantes pendientes", result, false, HttpStatus.OK));
     }
 
@@ -231,7 +231,7 @@ public class CoberturaController {
                     : estudioMedicoRepository.findPacientesConExactamenteKEstudios(cantidadTipos, idInstitucion);
         }
 
-        List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos);
+        List<PacientePendienteDTO> result = buildPacientePendientes(ids, esExamen, totalTipos, idInstitucion);
         return ResponseEntity.ok(new APIResponse("Participantes del grupo", result, false, HttpStatus.OK));
     }
 
@@ -363,18 +363,59 @@ public class CoberturaController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/dashboard/cobertura/examen-resultados?uuid={uuid}&examenId={id}
+    //  Resultados de un examen para un participante (modal de la matriz).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/examen-resultados")
+    @Operation(summary = "Resultados de un examen por participante",
+               description = "Todos los resultados de un examen concreto para un participante, "
+                           + "ordenados por fecha DESC. Para el modal de la matriz de cobertura.")
+    public ResponseEntity<APIResponse> getExamenResultados(
+            @RequestParam String uuid,
+            @RequestParam Long examenId) {
+
+        Paciente paciente = pacienteRepository.findByUuid(uuid)
+                .orElseThrow(() -> new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                        "No se encontró el participante"));
+
+        long propia = institucionContextService.getIdInstitucionActual();
+        if (!institucionJerarquiaService.getInstitucionesVisibles(propia)
+                .contains(paciente.getInstitucion().getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "El participante pertenece a otra institución");
+        }
+
+        Examen examen = examenRepository.findById(examenId)
+                .orElseThrow(() -> new imss.gob.mx.cohorte.utils.Exceptions.exceptions.ObjNotFoundException(
+                        "No se encontró el examen"));
+
+        List<Object[]> rows = resultadoExamenRepository
+                .findResultadosPorPacienteYExamen(uuid, examenId);
+
+        List<ExamenResumenDTO.LineaResultadoExamenDTO> lineas = rows.stream()
+                .map(r -> new ExamenResumenDTO.LineaResultadoExamenDTO(
+                        ((Number) r[0]).longValue(),
+                        (java.time.LocalDateTime) r[1],
+                        ((Number) r[2]).doubleValue()))
+                .toList();
+
+        ExamenResumenDTO dto = new ExamenResumenDTO(examen.getUnidad(), lineas);
+        return ResponseEntity.ok(new APIResponse("Resultados del examen", dto, false, HttpStatus.OK));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  Helper
     // ─────────────────────────────────────────────────────────────────────────
     private List<PacientePendienteDTO> buildPacientePendientes(
-            List<Long> ids, boolean esExamen, int totalTipos) {
+            List<Long> ids, boolean esExamen, int totalTipos, long idInstitucion) {
 
         return ids.stream()
                 .map(pid -> pacienteRepository.findById(pid).orElse(null))
                 .filter(Objects::nonNull)
                 .map(p -> {
                     long cob = esExamen
-                            ? resultadoExamenRepository.countDistinctExamenByPacienteId(p.getId())
-                            : estudioMedicoRepository.findTiposEstudioCubiertosIdsForPaciente(p.getId()).size();
+                            ? resultadoExamenRepository.countDistinctExamenByPacienteId(p.getId(), idInstitucion)
+                            : estudioMedicoRepository.findTiposEstudioCubiertosIdsForPaciente(p.getId(), idInstitucion).size();
 
                     Persona persona = p.getPersona();
                     String nombre = persona != null
