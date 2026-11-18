@@ -37,7 +37,8 @@ public class DocumentoService {
             "application/pdf",
             "image/jpeg",
             "image/png",
-            "image/webp"
+            "image/webp",
+            "image/tiff"
     );
 
     private final MinioStorageService minioService;
@@ -267,7 +268,7 @@ public class DocumentoService {
         String nombreOriginal = file.getOriginalFilename() != null ? file.getOriginalFilename() : "archivo";
         doc.setNombreOriginal(nombreOriginal);
         doc.setObjectKey(objectKey);
-        doc.setMimeType(file.getContentType());
+        doc.setMimeType(mimeEfectivo(file));
         doc.setTamanioBytes(file.getSize());
         doc.setArchivoSubido(true);
 
@@ -277,7 +278,7 @@ public class DocumentoService {
                 || doc.getTipoEntidad() == TipoEntidadDocumento.PACIENTE_CUESTIONARIO;
         if (!esFormatoPaciente) {
             String nuevaEtiqueta = etiquetaService.generarEtiqueta(
-                    doc.getIdInstitucion(), doc.getTipoEntidad(), file.getContentType(), nombreOriginal);
+                    doc.getIdInstitucion(), doc.getTipoEntidad(), mimeEfectivo(file), nombreOriginal);
             doc.setEtiqueta(nuevaEtiqueta);
         }
 
@@ -638,17 +639,42 @@ public class DocumentoService {
             throw new ValidationException("El archivo excede el tamaño máximo permitido de "
                     + (TAMANIO_MAXIMO_BYTES / (1024 * 1024)) + " MB");
         }
-        String contentType = file.getContentType();
+        String contentType = mimeEfectivo(file);
         if (contentType == null || !MIME_TYPES_PERMITIDOS.contains(contentType.toLowerCase())) {
             throw new ValidationException("Tipo de archivo no permitido: "
                     + (contentType != null ? contentType : "desconocido"));
         }
     }
 
+    /**
+     * Tipo MIME que se valida y se guarda. Unifica las variantes de TIFF ({@code image/tif},
+     * {@code image/x-tiff}) en {@code image/tiff} y, si el navegador no informa el tipo
+     * (en Windows ocurre con .tif cuando el registro no lo define) o manda
+     * {@code application/octet-stream}, lo deduce de la extensión .tif/.tiff.
+     */
+    private static String mimeEfectivo(MultipartFile file) {
+        String ct = file.getContentType();
+        String tipo = ct == null ? "" : ct.toLowerCase().split(";")[0].trim();
+        if (tipo.equals("image/tiff") || tipo.equals("image/tif") || tipo.equals("image/x-tiff")) {
+            return "image/tiff";
+        }
+        boolean generico = tipo.isEmpty() || tipo.equals("application/octet-stream");
+        if (generico) {
+            String nombre = file.getOriginalFilename();
+            if (nombre != null) {
+                String n = nombre.toLowerCase();
+                if (n.endsWith(".tif") || n.endsWith(".tiff")) {
+                    return "image/tiff";
+                }
+            }
+        }
+        return ct;
+    }
+
     private void uploadToMinio(MultipartFile file, String objectKey) {
         validarArchivo(file);
         try {
-            minioService.upload(file.getInputStream(), objectKey, file.getContentType(), file.getSize());
+            minioService.upload(file.getInputStream(), objectKey, mimeEfectivo(file), file.getSize());
         } catch (Exception e) {
             throw new RuntimeException("Error al procesar el archivo: " + e.getMessage(), e);
         }
@@ -665,7 +691,7 @@ public class DocumentoService {
         String nombreOriginal = file.getOriginalFilename() != null ? file.getOriginalFilename() : "archivo";
         doc.setNombreOriginal(nombreOriginal);
         doc.setObjectKey(objectKey);
-        doc.setMimeType(file.getContentType());
+        doc.setMimeType(mimeEfectivo(file));
         doc.setTamanioBytes(file.getSize());
         doc.setDescripcion(descripcion);
         doc.setFechaSubida(LocalDateTime.now());
@@ -677,7 +703,7 @@ public class DocumentoService {
         doc.setIdInstitucion(idInstitucion);
         String etiqueta = etiquetaOverride != null
                 ? etiquetaOverride
-                : etiquetaService.generarEtiqueta(idInstitucion, tipo, file.getContentType(), nombreOriginal);
+                : etiquetaService.generarEtiqueta(idInstitucion, tipo, mimeEfectivo(file), nombreOriginal);
         doc.setEtiqueta(etiqueta);
 
         return documentoRepository.save(doc);
