@@ -42,6 +42,7 @@ public class DocumentoEtiquetaService {
             Map.entry("image/jpeg", "JPEG"),
             Map.entry("image/png", "PNG"),
             Map.entry("image/webp", "WEBP"),
+            Map.entry("image/tiff", "TIFF"),
             Map.entry("image/gif", "GIF"),
             Map.entry("image/bmp", "BMP"),
             Map.entry("image/svg+xml", "SVG"),

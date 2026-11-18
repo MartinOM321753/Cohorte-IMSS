@@ -21,6 +21,7 @@ public class CitaResponseDTO {
     private Integer durationMinutes;
     private String timezone;
     private String colorHex;
+    private String motivo;
     private String observaciones;
     private Instant createdAtUtc;
     private PacienteResumenDTO paciente;

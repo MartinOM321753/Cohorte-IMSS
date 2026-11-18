@@ -58,6 +58,7 @@ public class CitaMapper {
         cita.setTimezone(dto.getTimezone());
         cita.setDurationMinutes(duration);
         cita.setColorHex(dto.getColorHex());
+        cita.setMotivo(dto.getMotivo());
         cita.setObservaciones(dto.getObservaciones());
         return cita;
     }
@@ -71,6 +72,7 @@ public class CitaMapper {
             .durationMinutes(c.getDurationMinutes())
             .timezone(c.getTimezone())
             .colorHex(c.getColorHex())
+            .motivo(c.getMotivo())
             .observaciones(c.getObservaciones())
             .createdAtUtc(c.getCreatedAtUtc())
             .paciente(c.getPaciente() != null ? PacienteMapper.toResumenDTO(c.getPaciente()) : null)
@@ -103,6 +105,7 @@ public class CitaMapper {
                 c.getStartAtUtc(),
                 c.getDurationMinutes(),
                 c.getColorHex(),
+                c.getMotivo(),
                 c.getObservaciones(),
                 paciente,
                 usuario);

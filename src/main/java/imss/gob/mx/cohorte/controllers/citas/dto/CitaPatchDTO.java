@@ -18,5 +18,6 @@ public class CitaPatchDTO {
     private String colorHex;
     
     private String estadoCita;
+    private String motivo;
     private String observaciones;
 }

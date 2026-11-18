@@ -141,6 +141,7 @@ public class CitaService {
         }
 
         if (patch.getColorHex() != null) cita.setColorHex(patch.getColorHex());
+        if (patch.getMotivo() != null) cita.setMotivo(patch.getMotivo());
         if (patch.getObservaciones() != null) cita.setObservaciones(patch.getObservaciones());
         if (patch.getEstadoCita() != null) {
             cita.setEstadoCita(parseEstadoCita(patch.getEstadoCita()));

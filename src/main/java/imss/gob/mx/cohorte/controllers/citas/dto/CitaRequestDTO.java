@@ -31,6 +31,8 @@ public class CitaRequestDTO {
     @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Formato de color hexadecimal inválido")
     private String colorHex;
 
+    private String motivo;
+
     private String observaciones;
 
     /** UUID de la institución destino. Si es null, se usa la del usuario autenticado. */

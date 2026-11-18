@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nueva solicitud de acceso a datos</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1e4e3a;padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">
+                Cohorte de Trabajadores de la Salud
+              </h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;">
+                Sistema de seguimiento · Investigación clínica
+              </p>
+            </td>
+          </tr>
+          <tr><td style="background:#d4a866;height:3px;"></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8782;">
+                Solicitud de acceso a datos
+              </p>
+              <h2 style="margin:0 0 20px;font-size:24px;font-weight:600;color:#0d1411;">
+                Nueva solicitud recibida
+              </h2>
+
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+                Se ha recibido una nueva solicitud de acceso a la base de datos de la Cohorte.
+                A continuación se detallan los datos proporcionados.
+              </p>
+
+              <!-- Solicitud ID badge -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 20px;text-align:center;">
+                    <span style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#166534;">
+                      Solicitud #<span th:text="${idSolicitud}">1</span>
+                    </span>
+                    <span style="margin-left:12px;font-size:12px;color:#6b7280;"
+                          th:text="${#temporals.format(fechaSolicitud, 'dd/MM/yyyy HH:mm')}">01/01/2026 10:00</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Datos del solicitante -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f8faf8;border:1px solid #d1e8db;border-radius:6px;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 14px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#1e4e3a;">
+                      Datos del solicitante
+                    </p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;width:140px;vertical-align:top;">Nombre</td>
+                        <td style="padding:6px 0;font-size:14px;color:#0d1411;font-weight:500;" th:text="${nombreCompleto}">Juan Pérez</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;vertical-align:top;">Organización</td>
+                        <td style="padding:6px 0;font-size:14px;color:#0d1411;" th:text="${organizacion}">UNAM</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;vertical-align:top;">Correo</td>
+                        <td style="padding:6px 0;font-size:14px;color:#0d1411;">
+                          <a th:href="'mailto:' + ${email}" th:text="${email}" style="color:#1e4e3a;text-decoration:underline;">email@ejemplo.com</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Propósito -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 14px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#1e4e3a;">
+                      Propósito de la solicitud
+                    </p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;width:140px;vertical-align:top;">Propósito</td>
+                        <td style="padding:6px 0;font-size:14px;color:#0d1411;" th:text="${proposito}">Investigación académica</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;vertical-align:top;">Proyecto</td>
+                        <td style="padding:6px 0;font-size:14px;color:#374151;line-height:1.5;" th:text="${proyecto}">Descripción del proyecto...</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#6b7280;vertical-align:top;">Información solicitada</td>
+                        <td style="padding:6px 0;font-size:14px;color:#374151;line-height:1.5;" th:text="${informacionSolicitada}">Variables de interés...</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Productos -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 14px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#1e4e3a;">
+                      Productos académicos previstos
+                    </p>
+                    <p style="margin:0;font-size:14px;color:#374151;" th:text="${productos}">article,thesis</p>
+                    <p th:if="${productoOtro != null and !productoOtro.isEmpty()}"
+                       style="margin:8px 0 0;font-size:13px;color:#6b7280;">
+                      Otro: <span th:text="${productoOtro}">Especificación</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Note -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#fef9ee;border-left:4px solid #d4a866;border-radius:4px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0;font-size:14px;color:#713f12;line-height:1.5;">
+                      Esta solicitud queda registrada y puede consultarse desde el sistema.
+                      El Comité evaluará la pertinencia del proyecto.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="border-top:1px solid #f0f0f0;padding:20px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
+                Este mensaje fue generado automáticamente por el sistema de la Cohorte de Trabajadores de la Salud.<br>
+                Si no esperabas este correo, puedes ignorarlo.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

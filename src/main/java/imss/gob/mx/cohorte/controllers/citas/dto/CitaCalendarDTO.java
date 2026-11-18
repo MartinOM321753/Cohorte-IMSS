@@ -14,6 +14,7 @@ public record CitaCalendarDTO(
     Instant startAtUtc,
     Integer durationMinutes,
     String  colorHex,
+    String  motivo,
     String  observaciones,
     Ref     paciente,
     Ref     usuarioAgenda

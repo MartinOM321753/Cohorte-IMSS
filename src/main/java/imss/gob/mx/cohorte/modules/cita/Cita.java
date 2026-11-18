@@ -60,6 +60,9 @@ public class Cita {
     @Column(name = "estado_cita", length = 20, nullable = false)
     private EstadoCita estadoCita = EstadoCita.Programada;
 
+    @Column(name = "motivo", length = 100)
+    private String motivo;
+
     @Column(name = "observaciones", length = 250)
     private String observaciones;
 
