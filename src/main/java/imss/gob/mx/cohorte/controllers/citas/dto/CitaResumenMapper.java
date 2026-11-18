@@ -34,7 +34,7 @@ public final class CitaResumenMapper {
                 .citaUuid(cita.getUuid())
                 .pacienteUuid(cita.getPaciente() != null ? cita.getPaciente().getUuid() : null)
                 .fecha(fecha)
-                .tipo(cita.getObservaciones())
+                .tipo(cita.getMotivo())
                 .estado(cita.getEstadoCita() != null ? cita.getEstadoCita().name() : null)
                 .profesional(profesional)
                 .institucionUuid(cita.getInstitucion() != null ? cita.getInstitucion().getUuid() : null)
