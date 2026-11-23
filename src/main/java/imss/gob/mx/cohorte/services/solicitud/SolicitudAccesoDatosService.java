@@ -3,6 +3,9 @@ package imss.gob.mx.cohorte.services.solicitud;
 import imss.gob.mx.cohorte.controllers.solicitud.dto.SolicitudAccesoDatosRequestDTO;
 import imss.gob.mx.cohorte.infrastructure.email.EmailService;
 import imss.gob.mx.cohorte.modules.solicitud.*;
+import imss.gob.mx.cohorte.services.solicitud.security.*;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,8 @@ public class SolicitudAccesoDatosService {
     private final SolicitudAccesoDatosRepository solicitudRepo;
     private final CorreoDestinoSolicitudRepository correoDestinoRepo;
     private final EmailService emailService;
+    private final SolicitudInputValidator inputValidator;
+    private final SolicitudEmailVerification emailVerification;
 
     private static final int MAX_REQUESTS_PER_HOUR = 3;
 
@@ -27,11 +32,24 @@ public class SolicitudAccesoDatosService {
         return solicitudRepo.countByIpSolicitanteAndFechaSolicitudAfter(ip, hace1Hora) >= MAX_REQUESTS_PER_HOUR;
     }
 
-    public SolicitudAccesoDatos registrar(SolicitudAccesoDatosRequestDTO dto, String ip) {
+    @Transactional
+    public SolicitudAccesoDatos registrar(SolicitudAccesoDatosRequestDTO dto, String ip, SolicitudNetworkCheck.Result network) {
+        inputValidator.validate(dto, Instant.now());
+        Instant verifiedAt=emailVerification.consume(dto.getEmailVerificationToken(), dto.getEmail(), ip);
         SolicitudAccesoDatos solicitud = new SolicitudAccesoDatos();
         solicitud.setNombreCompleto(dto.getFullName().trim());
         solicitud.setOrganizacion(dto.getOrganization().trim());
-        solicitud.setEmail(dto.getEmail().trim().toLowerCase());
+        solicitud.setEmail(dto.getEmail());
+        solicitud.setTelefono(dto.getPhone());
+        solicitud.setCorreoVerificadoEn(verifiedAt);
+        solicitud.setUbicacionLatitud(dto.getLatitude());
+        solicitud.setUbicacionLongitud(dto.getLongitude());
+        solicitud.setUbicacionPrecision(dto.getLocationAccuracy());
+        solicitud.setUbicacionCapturadaEn(Instant.ofEpochMilli(dto.getLocationCapturedAt()));
+        solicitud.setUbicacionConsentimientoEn(Instant.now());
+        solicitud.setConexionPais(network.country());
+        solicitud.setConexionProveedor(network.provider());
+        solicitud.setConexionRevisadaEn(network.checkedAt());
         solicitud.setProposito(dto.getPurpose().trim());
         solicitud.setPropositoOtro(dto.getPurposeOther() != null ? dto.getPurposeOther().trim() : null);
         solicitud.setProyecto(dto.getProject().trim());
@@ -62,7 +80,16 @@ public class SolicitudAccesoDatosService {
         ctx.setVariable("nombreCompleto", s.getNombreCompleto());
         ctx.setVariable("organizacion", s.getOrganizacion());
         ctx.setVariable("email", s.getEmail());
-        ctx.setVariable("proposito", "other".equals(s.getProposito()) ? s.getPropositoOtro() : s.getProposito());
+        ctx.setVariable("telefono", s.getTelefono());
+        ctx.setVariable("proposito", switch(s.getProposito()) {
+            case "academic" -> "Investigación académica";
+            case "thesis" -> "Desarrollo de tesis o trabajo de grado";
+            case "teaching" -> "Docencia o formación";
+            case "policy" -> "Análisis o evaluación de políticas públicas";
+            case "journalism" -> "Periodismo o divulgación científica";
+            case "other" -> s.getPropositoOtro();
+            default -> s.getProposito();
+        });
         ctx.setVariable("proyecto", s.getProyecto());
         ctx.setVariable("informacionSolicitada", s.getInformacionSolicitada());
         ctx.setVariable("productos", s.getProductos());
