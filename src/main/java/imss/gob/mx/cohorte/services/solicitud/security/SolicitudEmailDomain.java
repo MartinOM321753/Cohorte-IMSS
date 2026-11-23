@@ -10,12 +10,19 @@ import java.util.*;
 @Component
 public class SolicitudEmailDomain {
     private final Set<String> blocked = new HashSet<>(Set.of("mailinator.com", "yopmail.com", "guerrillamail.com", "sharklasers.com", "10minutemail.com", "temp-mail.org", "guerrillamailblock.com", "grr.la"));
-    public SolicitudEmailDomain(@Value("${solicitudes.security.blocked-email-domains:}") String extra) {
+    private final SolicitudLocalTesting localTesting;
+    public SolicitudEmailDomain(SolicitudLocalTesting localTesting,
+            @Value("${solicitudes.security.blocked-email-domains:}") String extra) {
+        this.localTesting = localTesting;
         for (String item : extra.split(",")) if (!item.isBlank()) blocked.add(item.strip().toLowerCase(Locale.ROOT));
     }
     public void check(String email) {
+        check(email, null);
+    }
+    public void check(String email, String ip) {
         String domain = email.substring(email.lastIndexOf('@') + 1);
         if (blocked.stream().anyMatch(d -> domain.equals(d) || domain.endsWith("." + d))) throw SolicitudInputValidator.invalid("Utiliza un correo de contacto permanente.");
+        if (ip != null && localTesting.allowed(ip)) return;
         Hashtable<String,String> env = new Hashtable<>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory");
         env.put("com.sun.jndi.dns.timeout.initial", "2000"); env.put("com.sun.jndi.dns.timeout.retries", "1");

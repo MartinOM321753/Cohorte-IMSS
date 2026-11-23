@@ -62,7 +62,7 @@ public class SolicitudEmailVerification {
                 || repository.countByIpAndCreatedAtAfter(ip,now.minusSeconds(3600))>=5) {
             throw new SolicitudSecurityException(HttpStatus.TOO_MANY_REQUESTS,"RATE_LIMITED","Espera antes de solicitar otro código.");
         }
-        domains.check(email);
+        domains.check(email, ip);
         byte[] token=new byte[32];random.nextBytes(token);
         String id=Base64.getUrlEncoder().withoutPadding().encodeToString(token);
         String code=String.format(Locale.ROOT,"%06d",random.nextInt(1000000));
