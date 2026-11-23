@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "solicitud_acceso_datos")
@@ -49,6 +50,17 @@ public class SolicitudAccesoDatos {
 
     @Column(name = "ip_solicitante", length = 45)
     private String ipSolicitante;
+
+    @Column(length=10) private String telefono;
+    @Column(name="correo_verificado_en") private Instant correoVerificadoEn;
+    @Column(name="ubicacion_latitud") private Double ubicacionLatitud;
+    @Column(name="ubicacion_longitud") private Double ubicacionLongitud;
+    @Column(name="ubicacion_precision") private Double ubicacionPrecision;
+    @Column(name="ubicacion_capturada_en") private Instant ubicacionCapturadaEn;
+    @Column(name="ubicacion_consentimiento_en") private Instant ubicacionConsentimientoEn;
+    @Column(name="conexion_pais",length=2) private String conexionPais;
+    @Column(name="conexion_proveedor",length=80) private String conexionProveedor;
+    @Column(name="conexion_revisada_en") private Instant conexionRevisadaEn;
 
     @Column(name = "fecha_solicitud", nullable = false, updatable = false)
     private LocalDateTime fechaSolicitud;
