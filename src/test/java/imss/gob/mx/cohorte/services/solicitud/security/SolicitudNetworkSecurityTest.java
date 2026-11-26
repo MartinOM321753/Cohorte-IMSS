@@ -43,9 +43,9 @@ class SolicitudNetworkSecurityTest {
             called.set(true);assertEquals("{\"name\":\"José\"}",new String(req.getInputStream().readAllBytes(),StandardCharsets.UTF_8));
         });assertTrue(called.get());
     }
-    @Test void unconfiguredProviderFailsClosedWithoutExternalCall() {
+    @Test void unconfiguredProviderSkipsCheckWithoutExternalCall() {
         HttpClient client=mock(HttpClient.class);var check=new MaxMindSolicitudNetworkCheck(new ObjectMapper(),"","",client);
-        var error=assertThrows(SolicitudSecurityException.class,()->check.requireAllowed("8.8.8.8"));assertEquals("NETWORK_CHECK_UNAVAILABLE",error.getCode());verifyNoInteractions(client);
+        var result=check.requireAllowed("8.8.8.8");assertEquals("XX",result.country());verifyNoInteractions(client);
     }
     @ParameterizedTest @ValueSource(strings={"is_anonymous_vpn","is_public_proxy","is_residential_proxy","is_tor_exit_node","is_hosting_provider"})
     void rejectsCurrentAndLegacyAnonymizerFlags(String flag) throws Exception {

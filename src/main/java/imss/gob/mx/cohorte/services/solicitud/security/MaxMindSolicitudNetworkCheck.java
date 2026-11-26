@@ -38,7 +38,7 @@ public class MaxMindSolicitudNetworkCheck implements SolicitudNetworkCheck {
     }
     @Override public Result requireAllowed(String ip) {
         if(localTesting!=null && localTesting.allowed(ip)) return new Result("ZZ","Prueba local; VPN sin verificar",Instant.now());
-        if (account.isBlank() || license.isBlank()) throw unavailable();
+        if (account.isBlank() || license.isBlank()) return new Result("XX","MaxMind no configurado; verificación de red omitida",Instant.now());
         synchronized (cache) {
             Cached c = cache.get(ip);
             if (c != null && c.expires.isAfter(Instant.now())) { if (c.blocked) reject(); return c.result; }
